@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "Bash(npx prisma db push)",
+      "Bash(npx prisma db push:*)",
+      "Bash(PGPASSWORD='Lopas1@0123' psql:*)",
+      "Bash(ls:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npm run start:dev:*)",
+      "Bash(npm run dev:*)",
+      "Bash(wc:*)",
+      "Bash(cat:*)",
+      "Bash(xargs:*)",
+      "Bash(curl:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(PGPASSWORD='MAMPAPOLino0102' psql:*)",
+      "Bash(PGPASSWORD='MAMPAPOLino0102' psql -h aws-1-eu-north-1.pooler.supabase.com -p 6543 -U postgres.apeyodpxnxxwdxwcnqmo -d postgres -c \"SELECT \"\"deviceId\"\", name, \"\"tenantId\"\" FROM \"\"AttendanceDevice\"\" WHERE \"\"tenantId\"\" = ''90fab0cc-8539-4566-8da7-8742e9b6937b'' LIMIT 5;\")",
+      "Bash(node scripts/analyze-excel.js:*)",
+      "Bash(lsof:*)",
+      "Bash(pkill:*)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/list-backups.sh:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

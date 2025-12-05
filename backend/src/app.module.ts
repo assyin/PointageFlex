@@ -1,0 +1,57 @@
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { PrismaModule } from './database/prisma.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { TenantsModule } from './modules/tenants/tenants.module';
+import { UsersModule } from './modules/users/users.module';
+import { EmployeesModule } from './modules/employees/employees.module';
+import { AttendanceModule } from './modules/attendance/attendance.module';
+import { ShiftsModule } from './modules/shifts/shifts.module';
+import { TeamsModule } from './modules/teams/teams.module';
+import { SchedulesModule } from './modules/schedules/schedules.module';
+import { LeavesModule } from './modules/leaves/leaves.module';
+import { OvertimeModule } from './modules/overtime/overtime.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { DevicesModule } from './modules/devices/devices.module';
+import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
+import { TenantResolverMiddleware } from './common/middleware/tenant-resolver.middleware';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    PrismaModule,
+    AuthModule,
+    TenantsModule,
+    UsersModule,
+    EmployeesModule,
+    AttendanceModule,
+    ShiftsModule,
+    TeamsModule,
+    SchedulesModule,
+    LeavesModule,
+    OvertimeModule,
+    ReportsModule,
+    AuditModule,
+    DevicesModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
+})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(TenantResolverMiddleware).forRoutes('*');
+  }
+}

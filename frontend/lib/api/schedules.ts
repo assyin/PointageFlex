@@ -1,0 +1,179 @@
+import apiClient from './client';
+
+export interface Schedule {
+  id: string;
+  employeeId: string;
+  shiftId: string;
+  date: string;
+  tenantId: string;
+  createdAt: string;
+  updatedAt: string;
+  employee?: any;
+  shift?: any;
+}
+
+export interface CreateScheduleDto {
+  employeeId: string;
+  shiftId: string;
+  dateDebut: string;
+  dateFin?: string;
+  teamId?: string;
+  customStartTime?: string;
+  customEndTime?: string;
+  notes?: string;
+}
+
+export interface ScheduleFilters {
+  employeeId?: string;
+  teamId?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface Replacement {
+  id: string;
+  date: string;
+  originalEmployeeId: string;
+  replacementEmployeeId: string;
+  shiftId: string;
+  reason?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  approvedBy?: string;
+  approvedAt?: string;
+  originalEmployee?: any;
+  replacementEmployee?: any;
+  shift?: any;
+}
+
+export interface LegalAlert {
+  id: string;
+  type: 'WARNING' | 'CRITICAL';
+  message: string;
+  employeeId?: string;
+  employeeName?: string;
+  date?: string;
+  details?: any;
+}
+
+export interface WeekScheduleResponse {
+  weekStart: string;
+  weekEnd: string;
+  schedules: Schedule[];
+  leaves: any[];
+  replacements: Replacement[];
+}
+
+export interface MonthScheduleResponse {
+  monthStart: string;
+  monthEnd: string;
+  schedules: Schedule[];
+  leaves: any[];
+  replacements: Replacement[];
+}
+
+export const schedulesApi = {
+  getAll: async (filters?: ScheduleFilters) => {
+    const response = await apiClient.get('/schedules', { params: filters });
+    return response.data;
+  },
+
+  getById: async (id: string) => {
+    const response = await apiClient.get(`/schedules/${id}`);
+    return response.data;
+  },
+
+  getWeek: async (date: string, filters?: { teamId?: string; siteId?: string }) => {
+    const response = await apiClient.get(`/schedules/week/${date}`, { params: filters });
+    return response.data as WeekScheduleResponse;
+  },
+
+  getMonth: async (date: string, filters?: { teamId?: string; siteId?: string }) => {
+    const response = await apiClient.get(`/schedules/month/${date}`, { params: filters });
+    return response.data as MonthScheduleResponse;
+  },
+
+  create: async (data: CreateScheduleDto) => {
+    // Log pour debug (à retirer en production)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Creating schedule with data:', JSON.stringify(data, null, 2));
+    }
+    const response = await apiClient.post('/schedules', data);
+    return response.data;
+  },
+
+  bulkCreate: async (schedules: CreateScheduleDto[]) => {
+    const response = await apiClient.post('/schedules/bulk', { schedules });
+    return response.data;
+  },
+
+  update: async (id: string, data: Partial<CreateScheduleDto>) => {
+    const response = await apiClient.patch(`/schedules/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await apiClient.delete(`/schedules/${id}`);
+    return response.data;
+  },
+
+  deleteBulk: async (ids: string[]) => {
+    const response = await apiClient.delete('/schedules/bulk', { data: { ids } });
+    return response.data;
+  },
+
+  getAlerts: async (startDate: string, endDate: string) => {
+    const response = await apiClient.get('/schedules/alerts', {
+      params: { startDate, endDate },
+    });
+    return response.data as LegalAlert[];
+  },
+
+  // Replacements
+  createReplacement: async (data: {
+    date: string;
+    originalEmployeeId: string;
+    replacementEmployeeId: string;
+    shiftId: string;
+    reason?: string;
+  }) => {
+    const response = await apiClient.post('/schedules/replacements', data);
+    return response.data;
+  },
+
+  getReplacements: async (filters?: {
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    const response = await apiClient.get('/schedules/replacements', { params: filters });
+    return response.data as Replacement[];
+  },
+
+  approveReplacement: async (id: string) => {
+    const response = await apiClient.patch(`/schedules/replacements/${id}/approve`);
+    return response.data;
+  },
+
+  rejectReplacement: async (id: string) => {
+    const response = await apiClient.patch(`/schedules/replacements/${id}/reject`);
+    return response.data;
+  },
+
+  importExcel: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/schedules/import/excel', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  getImportTemplate: async () => {
+    const response = await apiClient.get('/schedules/import/template', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+};

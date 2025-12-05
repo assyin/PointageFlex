@@ -1,0 +1,544 @@
+'use client';
+
+import React, { useState } from 'react';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Select } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Search, Download, RefreshCw, AlertTriangle, Clock, Users
+} from 'lucide-react';
+
+interface AttendanceRecord {
+  id: string;
+  employeeName: string;
+  date: string;
+  checkIn: string;
+  checkOut: string;
+  type: string;
+  terminal: string;
+  location: string;
+  locationDetail: string;
+  status: 'ok' | 'missing_out' | 'late' | 'absent' | 'double';
+  statusDetail?: string;
+}
+
+// Mock data
+const mockAttendanceRecords: AttendanceRecord[] = [
+  {
+    id: '1',
+    employeeName: 'Khadija El Amrani',
+    date: 'Lun 12/02',
+    checkIn: '06:01',
+    checkOut: '14:02',
+    type: 'Empreinte',
+    terminal: 'Terminal BIO-01',
+    location: 'Casablanca - Site Logistique',
+    locationDetail: 'Entrepôt principal',
+    status: 'ok',
+  },
+  {
+    id: '2',
+    employeeName: 'Youssef Benali',
+    date: 'Lun 12/02',
+    checkIn: '22:14',
+    checkOut: '—',
+    type: 'Badge',
+    terminal: 'Reader BAD-03',
+    location: 'Tanger - Site Production',
+    locationDetail: 'Portail usine',
+    status: 'missing_out',
+  },
+  {
+    id: '3',
+    employeeName: 'Salma Outmane',
+    date: 'Lun 12/02',
+    checkIn: '09:21',
+    checkOut: '17:05',
+    type: 'QR code',
+    terminal: 'Mobile : App',
+    location: 'Casablanca - Siège',
+    locationDetail: 'iOS - GPS actif',
+    status: 'late',
+    statusDetail: 'Retard 21 min',
+  },
+  {
+    id: '4',
+    employeeName: 'Ahmed Lahlou',
+    date: 'Dim 11/02',
+    checkIn: '—',
+    checkOut: '—',
+    type: '—',
+    terminal: 'Aucun terminal',
+    location: 'Maintenance - Shift soir',
+    locationDetail: 'Casablanca',
+    status: 'absent',
+  },
+  {
+    id: '5',
+    employeeName: 'Imane Berrada',
+    date: 'Dim 11/02',
+    checkIn: '08:02',
+    checkOut: '08:05',
+    type: 'Empreinte',
+    terminal: 'Terminal BIO-02',
+    location: 'Casablanca - Siège',
+    locationDetail: 'Accueil',
+    status: 'double',
+    statusDetail: 'Double pointage',
+  },
+];
+
+interface TimelineEntry {
+  employeeName: string;
+  shift: string;
+  checkIn?: string;
+  checkOut?: string;
+  status: 'complete' | 'missing_out' | 'double' | 'absent';
+  statusDetail: string;
+  hoursWorked?: string;
+}
+
+const mockTimelineData: TimelineEntry[] = [
+  {
+    employeeName: 'Khadija El Amrani',
+    shift: '06:00 - 14:00',
+    checkIn: '06:01',
+    checkOut: '14:02',
+    status: 'complete',
+    statusDetail: 'Présence complète - 7h 55m',
+    hoursWorked: '7h 55m',
+  },
+  {
+    employeeName: 'Youssef Benali',
+    shift: '22:00 - 06:00',
+    checkIn: '22:14',
+    checkOut: undefined,
+    status: 'missing_out',
+    statusDetail: 'Vérifier le pointage de sortie ou créer une régularisation',
+  },
+  {
+    employeeName: 'Imane Berrada',
+    shift: '08:00 - 16:00',
+    checkIn: '08:02',
+    checkOut: '08:05',
+    status: 'double',
+    statusDetail: 'Dernier pointage pris en compte pour la présence',
+  },
+  {
+    employeeName: 'Ahmed Lahlou',
+    shift: '14:00 - 22:00',
+    checkIn: undefined,
+    checkOut: undefined,
+    status: 'absent',
+    statusDetail: 'À valider avec le manager ou créer une absence justifiée',
+  },
+];
+
+export default function AttendancePage() {
+  const [selectedPeriod, setSelectedPeriod] = useState('cette-semaine');
+  const [selectedTeam, setSelectedTeam] = useState('toutes');
+  const [selectedShift, setSelectedShift] = useState('tous');
+  const [selectedAnomalies, setSelectedAnomalies] = useState('toutes');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showOnlyAnomalies, setShowOnlyAnomalies] = useState(false);
+
+  const [timelineView, setTimelineView] = useState<'day' | 'week' | 'month'>('day');
+
+  const filteredRecords = mockAttendanceRecords.filter((record) => {
+    const matchesSearch =
+      searchQuery === '' ||
+      record.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      record.terminal.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesAnomalies =
+      !showOnlyAnomalies ||
+      selectedAnomalies === 'toutes' ||
+      record.status !== 'ok';
+
+    return matchesSearch && matchesAnomalies;
+  });
+
+  const anomaliesCount = {
+    unjustifiedAbsences: 5,
+    lates: 8,
+    doubleCheckIns: 2,
+  };
+
+  const getStatusBadge = (status: string, detail?: string) => {
+    switch (status) {
+      case 'ok':
+        return <Badge variant="success">OK</Badge>;
+      case 'missing_out':
+        return <Badge variant="warning">Sortie manquante</Badge>;
+      case 'late':
+        return <Badge variant="warning">{detail || 'Retard'}</Badge>;
+      case 'absent':
+        return <Badge variant="danger">Absence</Badge>;
+      case 'double':
+        return <Badge variant="info">{detail || 'Double pointage'}</Badge>;
+      default:
+        return null;
+    }
+  };
+
+  const getTimelineStatusBadge = (status: string) => {
+    switch (status) {
+      case 'complete':
+        return null;
+      case 'missing_out':
+        return <Badge variant="warning">Sortie manquante</Badge>;
+      case 'double':
+        return <Badge variant="warning">Double pointage</Badge>;
+      case 'absent':
+        return <Badge variant="danger">Absence non pointée</Badge>;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <DashboardLayout
+      title="Pointages & Attendance"
+      subtitle="Suivre les entrées/sorties, anomalies et intégrations biométriques"
+    >
+      <div className="space-y-6">
+        {/* Actions bar */}
+        <div className="flex items-center justify-between">
+          <div></div>
+          <div className="flex gap-3">
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export Excel
+            </Button>
+            <Button variant="primary" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Re-synchroniser
+            </Button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div>
+                <p className="text-sm font-medium text-text-secondary">Filtrer par</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-text-secondary">Période :</label>
+                <Select
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(e.target.value)}
+                  className="w-48"
+                >
+                  <option value="aujourd-hui">Aujourd'hui</option>
+                  <option value="cette-semaine">Cette semaine</option>
+                  <option value="ce-mois">Ce mois</option>
+                  <option value="personnalise">Personnalisée</option>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-text-secondary">Équipe :</label>
+                <Select
+                  value={selectedTeam}
+                  onChange={(e) => setSelectedTeam(e.target.value)}
+                  className="w-40"
+                >
+                  <option value="toutes">Toutes</option>
+                  <option value="a">Équipe A</option>
+                  <option value="b">Équipe B</option>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-text-secondary">Shift :</label>
+                <Select
+                  value={selectedShift}
+                  onChange={(e) => setSelectedShift(e.target.value)}
+                  className="w-40"
+                >
+                  <option value="tous">Tous</option>
+                  <option value="matin">Matin</option>
+                  <option value="soir">Soir</option>
+                  <option value="nuit">Nuit</option>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-text-secondary">Anomalies :</label>
+                <Select
+                  value={selectedAnomalies}
+                  onChange={(e) => setSelectedAnomalies(e.target.value)}
+                  className="w-40"
+                >
+                  <option value="toutes">Toutes</option>
+                  <option value="retards">Retards</option>
+                  <option value="absences">Absences</option>
+                  <option value="doubles">Doubles pointages</option>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+                  <Input
+                    type="text"
+                    placeholder="Rechercher nom, matricule, terminal..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Anomalies alert */}
+        {(anomaliesCount.unjustifiedAbsences > 0 || anomaliesCount.lates > 0 || anomaliesCount.doubleCheckIns > 0) && (
+          <div className="bg-warning rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <AlertTriangle className="h-5 w-5 text-white" />
+                <p className="text-white font-semibold">
+                  Anomalies détectées sur la période sélectionnée
+                </p>
+                <div className="flex items-center gap-3">
+                  <Badge variant="default" className="bg-white text-warning">
+                    {anomaliesCount.unjustifiedAbsences} absences non justifiées
+                  </Badge>
+                  <Badge variant="default" className="bg-white text-warning">
+                    {anomaliesCount.lates} retards &gt; 15 min
+                  </Badge>
+                  <Badge variant="default" className="bg-white text-warning">
+                    {anomaliesCount.doubleCheckIns} doubles pointages
+                  </Badge>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white text-warning border-white hover:bg-warning-hover"
+                onClick={() => setShowOnlyAnomalies(!showOnlyAnomalies)}
+              >
+                {showOnlyAnomalies ? 'Voir tous les pointages' : 'Voir uniquement les anomalies'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Attendance table */}
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-table-header">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                      Employé
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                      Heure entrée
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                      Heure sortie
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                      Terminal
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                      Localisation
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                      Statut
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                      ...
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-table-border">
+                  {filteredRecords.map((record) => (
+                    <tr key={record.id} className="hover:bg-table-hover">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="font-medium text-text-primary">{record.employeeName}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                        {record.date}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
+                        {record.checkIn}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
+                        {record.checkOut}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                        {record.type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm">
+                          <div className="font-medium text-text-primary">{record.terminal}</div>
+                          <div className="text-xs text-text-secondary">{record.locationDetail}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-text-secondary">{record.location}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(record.status, record.statusDetail)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                        •••
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="px-6 py-4 border-t border-table-border flex items-center justify-between">
+              <p className="text-sm text-text-secondary">
+                Affichage de 1 à {filteredRecords.length} sur 1 248 pointages
+              </p>
+              <div className="flex gap-2">
+                <Button variant="primary" size="sm">
+                  1
+                </Button>
+                <Button variant="outline" size="sm">
+                  2
+                </Button>
+                <Button variant="outline" size="sm">
+                  3
+                </Button>
+                <span className="px-2 py-1 text-sm text-text-secondary">...</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Timeline view */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-h4 font-semibold text-text-primary">
+                    Vue planning / timeline
+                  </h3>
+                  <p className="text-small text-text-secondary">
+                    Entrées & sorties par équipe sur la période
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant={timelineView === 'day' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimelineView('day')}
+                  >
+                    Jour
+                  </Button>
+                  <Button
+                    variant={timelineView === 'week' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimelineView('week')}
+                  >
+                    Semaine
+                  </Button>
+                  <Button
+                    variant={timelineView === 'month' ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => setTimelineView('month')}
+                  >
+                    Mois
+                  </Button>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-success"></div>
+                  <span className="text-text-secondary">Présence OK</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-danger"></div>
+                  <span className="text-text-secondary">Retard / absence</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                  <span className="text-text-secondary">Pointage manquant</span>
+                </div>
+              </div>
+
+              {/* Date and team info */}
+              <div className="flex items-center justify-between pb-4 border-b">
+                <p className="text-base font-medium text-text-primary">Lundi 12 février 2024</p>
+                <p className="text-sm text-text-secondary">Équipe : Logistique - Matin</p>
+              </div>
+
+              {/* Timeline entries */}
+              <div className="space-y-4">
+                {mockTimelineData.map((entry, index) => (
+                  <div key={index} className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <p className="font-semibold text-text-primary mb-1">
+                          {entry.employeeName}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm text-text-secondary">
+                          {entry.checkIn && (
+                            <span>
+                              <span className="font-medium">Entrée</span> {entry.checkIn}
+                            </span>
+                          )}
+                          {entry.checkOut && (
+                            <span>
+                              <span className="font-medium">Sortie</span> {entry.checkOut}
+                            </span>
+                          )}
+                          {!entry.checkIn && !entry.checkOut && (
+                            <span>Sortie —</span>
+                          )}
+                          {getTimelineStatusBadge(entry.status)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-text-secondary">Shift : {entry.shift}</p>
+                      </div>
+                    </div>
+                    {entry.status === 'complete' ? (
+                      <p className="text-sm text-success flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-success"></div>
+                        {entry.statusDetail}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-text-secondary">{entry.statusDetail}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
+  );
+}

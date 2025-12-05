@@ -1,0 +1,637 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  FileText,
+  Download,
+  Calendar,
+  Users,
+  TrendingUp,
+  Clock,
+  FileSpreadsheet,
+  Search,
+  ChevronDown,
+  PieChart,
+  BarChart3,
+  FileDown,
+  Eye,
+} from 'lucide-react';
+
+// Types
+type ReportType = 'attendance' | 'absences' | 'overtime' | 'planning' | 'payroll';
+
+interface ReportTemplate {
+  id: string;
+  title: string;
+  description: string;
+  details: string;
+  formats: string[];
+  recommended?: string;
+}
+
+interface QuickExport {
+  id: string;
+  title: string;
+  description: string;
+  formats: string[];
+}
+
+interface GeneratedReport {
+  id: string;
+  title: string;
+  type: string;
+  scope: string;
+  generatedBy: string;
+  generatedAt: string;
+}
+
+export default function ReportsPage() {
+  // States
+  const [selectedReportType, setSelectedReportType] = useState<ReportType>('attendance');
+  const [periodFilter, setPeriodFilter] = useState('current_month');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeChartFilter, setActiveChartFilter] = useState('presence');
+
+  // Report templates
+  const reportTemplates: ReportTemplate[] = [
+    {
+      id: '1',
+      title: 'Feuille de présence mensuelle',
+      description: 'Vue détaillée : nom, dates, heures d\'entrée / sortie, pauses, total journalier, retards et absences pour chaque employé.',
+      details: 'Format recommandé pour signature et archivage.',
+      formats: ['PDF', 'Excel'],
+      recommended: 'PDF',
+    },
+    {
+      id: '2',
+      title: 'Heures sup / récupération',
+      description: 'Détail des heures supplémentaires, taux appliqués, montants et soldes de récupération pour intégration paie.',
+      details: 'Compatible multi-sites et multi-équipes.',
+      formats: ['Excel', 'CSV paie'],
+    },
+    {
+      id: '3',
+      title: 'Synthèse retards / absences',
+      description: 'Tableau consolidé des retards, absences justifiées / non justifiées, par employé, équipe et site.',
+      details: 'Idéal pour analyses RH et alertes managers.',
+      formats: ['Excel'],
+    },
+    {
+      id: '4',
+      title: 'Planning shifts hebdomadaire',
+      description: 'Planning visuel des équipes par site : shifts matin / soir / nuit, remplacements, absences et congés.',
+      details: 'À partager avec managers et chefs d\'équipe.',
+      formats: ['PDF'],
+    },
+  ];
+
+  // Quick exports
+  const quickExports: QuickExport[] = [
+    {
+      id: '1',
+      title: 'Export paie mensuel',
+      description: 'Heures travaillées, HS, primes, absences - par matricule',
+      formats: ['Excel', 'CSV'],
+    },
+    {
+      id: '2',
+      title: 'Journal de pointage',
+      description: 'Tous les pointages bruts (biométrie, badge, QR, PIN, GPS)',
+      formats: ['Excel', 'PDF'],
+    },
+    {
+      id: '3',
+      title: 'Rapport absences & congés',
+      description: 'Demandes, validations, soldes de congés par employé',
+      formats: ['Excel', 'PDF'],
+    },
+  ];
+
+  // Generated reports history
+  const generatedReports: GeneratedReport[] = [
+    {
+      id: '1',
+      title: 'Feuille de présence - Mars 2024',
+      type: 'PDF',
+      scope: 'Tous les sites',
+      generatedBy: 'Rania Admin',
+      generatedAt: 'le 01/04/2024 à 09:12',
+    },
+    {
+      id: '2',
+      title: 'Export paie - Mars 2024',
+      type: 'CSV paie',
+      scope: 'Site Casablanca',
+      generatedBy: 'Ahmad Paie',
+      generatedAt: 'le 31/03/2024 à 18:45',
+    },
+    {
+      id: '3',
+      title: 'Synthèse retards / absences - Semaine 10',
+      type: 'Excel',
+      scope: 'Tous les services',
+      generatedBy: 'Sara RH',
+      generatedAt: 'le 11/03/2024 à 10:07',
+    },
+  ];
+
+  // Mock chart data
+  const presenceData = [
+    { day: 'Lun', value: 85 },
+    { day: 'Mar', value: 92 },
+    { day: 'Mer', value: 78 },
+    { day: 'Jeu', value: 88 },
+    { day: 'Ven', value: 95 },
+  ];
+
+  const absenceReasons = [
+    { label: 'Congés payés', percentage: 48, color: 'bg-[#0052CC]' },
+    { label: 'Maladie', percentage: 22, color: 'bg-[#28A745]' },
+    { label: 'Autorisations', percentage: 18, color: 'bg-[#FFC107]' },
+    { label: 'Non justifiées', percentage: 12, color: 'bg-[#DC3545]' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA]">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-[1600px] mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-[28px] font-bold text-[#212529]">Rapports & Exports</h1>
+              <p className="text-[14px] text-[#6C757D] mt-1">
+                Générer les feuilles de présence, absences, heures sup et exports paie
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                <FileText className="w-4 h-4" />
+                Derniers rapports
+              </button>
+
+              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                <Download className="w-4 h-4" />
+                Modèles enregistrés
+              </button>
+
+              <button className="flex items-center gap-2 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold">
+                Lancer le rapport
+              </button>
+
+              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
+                <div className="w-10 h-10 rounded-full bg-[#0052CC] flex items-center justify-center text-white font-semibold">
+                  RA
+                </div>
+                <div>
+                  <div className="text-[14px] font-semibold text-[#212529]">Rania Admin</div>
+                  <div className="text-[12px] text-[#6C757D]">Admin RH</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-6">
+        {/* Filters Section */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="grid grid-cols-3 gap-6">
+            <div>
+              <label className="block text-[14px] font-semibold text-[#212529] mb-3">
+                Filtres de rapport
+              </label>
+              <div>
+                <label className="block text-[12px] text-[#6C757D] mb-1.5">
+                  Période : <span className="text-[#212529] font-medium">Mois en cours</span>
+                </label>
+                <select
+                  value={periodFilter}
+                  onChange={(e) => setPeriodFilter(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                >
+                  <option value="current_month">Mois en cours</option>
+                  <option value="last_month">Mois dernier</option>
+                  <option value="current_quarter">Trimestre en cours</option>
+                  <option value="current_year">Année en cours</option>
+                  <option value="custom">Période personnalisée</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[14px] font-semibold text-[#212529] mb-3">
+                &nbsp;
+              </label>
+              <div>
+                <label className="block text-[12px] text-[#6C757D] mb-1.5">
+                  Type : <span className="text-[#212529] font-medium">Pointage, Absences, HS...</span>
+                </label>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                >
+                  <option value="all">Tous les types</option>
+                  <option value="attendance">Pointage</option>
+                  <option value="absences">Absences</option>
+                  <option value="overtime">Heures supplémentaires</option>
+                  <option value="leaves">Congés</option>
+                  <option value="payroll">Paie</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[14px] font-semibold text-[#212529] mb-3">
+                Employés / équipes / sites
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6C757D]" />
+                <input
+                  type="text"
+                  placeholder="Rechercher un employé, site, équipe..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Report Types Section */}
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-[20px] font-semibold text-[#212529]">Types de rapports</h2>
+                <p className="text-[14px] text-[#6C757D] mt-0.5">
+                  Choisissez le format et le périmètre à générer
+                </p>
+              </div>
+              <span className="text-[13px] text-[#6C757D]">Temps réel</span>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {/* Tabs */}
+            <div className="flex items-center gap-2 mb-6 overflow-x-auto">
+              <button
+                onClick={() => setSelectedReportType('attendance')}
+                className={`px-4 py-2 rounded-lg text-[14px] font-medium whitespace-nowrap transition-colors ${
+                  selectedReportType === 'attendance'
+                    ? 'bg-[#0052CC] text-white'
+                    : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                }`}
+              >
+                Feuille de présence
+              </button>
+              <button
+                onClick={() => setSelectedReportType('absences')}
+                className={`px-4 py-2 rounded-lg text-[14px] font-medium whitespace-nowrap transition-colors ${
+                  selectedReportType === 'absences'
+                    ? 'bg-[#0052CC] text-white'
+                    : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                }`}
+              >
+                Retards / Absences
+              </button>
+              <button
+                onClick={() => setSelectedReportType('overtime')}
+                className={`px-4 py-2 rounded-lg text-[14px] font-medium whitespace-nowrap transition-colors ${
+                  selectedReportType === 'overtime'
+                    ? 'bg-[#0052CC] text-white'
+                    : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                }`}
+              >
+                Heures sup / Récupérations
+              </button>
+              <button
+                onClick={() => setSelectedReportType('planning')}
+                className={`px-4 py-2 rounded-lg text-[14px] font-medium whitespace-nowrap transition-colors ${
+                  selectedReportType === 'planning'
+                    ? 'bg-[#0052CC] text-white'
+                    : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                }`}
+              >
+                Planning shifts
+              </button>
+              <button
+                onClick={() => setSelectedReportType('payroll')}
+                className={`px-4 py-2 rounded-lg text-[14px] font-medium whitespace-nowrap transition-colors ${
+                  selectedReportType === 'payroll'
+                    ? 'bg-[#0052CC] text-white'
+                    : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                }`}
+              >
+                Export paie
+              </button>
+            </div>
+
+            {/* Report Templates Grid */}
+            <div className="grid grid-cols-2 gap-6 mb-6">
+              {reportTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  className="border border-gray-200 rounded-lg p-5 hover:border-[#0052CC] hover:shadow-md transition-all cursor-pointer"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-[16px] font-semibold text-[#212529]">
+                      {template.title}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      {template.formats.map((format, idx) => (
+                        <span
+                          key={idx}
+                          className={`px-2.5 py-1 rounded text-[11px] font-semibold ${
+                            format === template.recommended
+                              ? 'bg-[#0052CC] text-white'
+                              : 'bg-gray-100 text-[#6C757D]'
+                          }`}
+                        >
+                          {format}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[13px] text-[#212529] mb-2">
+                    {template.description}
+                  </p>
+                  <p className="text-[12px] text-[#6C757D]">
+                    {template.details}
+                  </p>
+                  <button className="mt-4 text-[13px] text-[#0052CC] hover:underline font-medium">
+                    Prévisualiser
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+              <p className="text-[13px] text-[#6C757D]">
+                Le rapport sélectionné utilisera les filtres de période et de population ci-dessus.
+              </p>
+              <div className="flex items-center gap-3">
+                <button className="px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                  Enregistrer comme modèle
+                </button>
+                <button className="px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold">
+                  Générer le rapport
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Exports Section */}
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-[20px] font-semibold text-[#212529]">Exports rapides</h2>
+                <p className="text-[14px] text-[#6C757D] mt-0.5">
+                  Formats prêts pour la paie et l'analyse
+                </p>
+              </div>
+              <span className="text-[13px] text-[#6C757D]">CSV / Excel / PDF</span>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="space-y-3">
+              {quickExports.map((exportItem) => (
+                <div
+                  key={exportItem.id}
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-[#0052CC] hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-[#212529] mb-1">
+                      {exportItem.title}
+                    </h3>
+                    <p className="text-[13px] text-[#6C757D]">
+                      {exportItem.description}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {exportItem.formats.map((format, idx) => (
+                      <button
+                        key={idx}
+                        className="px-4 py-2 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium"
+                      >
+                        {format}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Charts Section */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Presence Chart */}
+          <div className="bg-white rounded-lg border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-[18px] font-semibold text-[#212529]">
+                Synthèse présence & absences
+              </h2>
+              <p className="text-[13px] text-[#6C757D] mt-1">
+                Période : Mois en cours - Tous les sites
+              </p>
+            </div>
+
+            <div className="p-6">
+              {/* Chart Filters */}
+              <div className="flex items-center gap-2 mb-6">
+                <button
+                  onClick={() => setActiveChartFilter('presence')}
+                  className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
+                    activeChartFilter === 'presence'
+                      ? 'bg-[#0052CC] text-white'
+                      : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                  }`}
+                >
+                  Présence
+                </button>
+                <button
+                  onClick={() => setActiveChartFilter('absences')}
+                  className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
+                    activeChartFilter === 'absences'
+                      ? 'bg-[#0052CC] text-white'
+                      : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                  }`}
+                >
+                  Absences
+                </button>
+                <button
+                  onClick={() => setActiveChartFilter('retards')}
+                  className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-colors ${
+                    activeChartFilter === 'retards'
+                      ? 'bg-[#0052CC] text-white'
+                      : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                  }`}
+                >
+                  Retards
+                </button>
+              </div>
+
+              {/* Bar Chart */}
+              <div className="space-y-3">
+                {presenceData.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <span className="text-[13px] text-[#6C757D] w-12">{item.day}</span>
+                    <div className="flex-1 h-12 bg-gray-100 rounded-lg overflow-hidden relative">
+                      <div
+                        className="h-full bg-[#0052CC] rounded-lg transition-all"
+                        style={{ width: `${item.value}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-[14px] font-semibold text-[#212529] w-12 text-right">
+                      {item.value}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Absence Reasons Pie Chart */}
+          <div className="bg-white rounded-lg border border-gray-200">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-[18px] font-semibold text-[#212529]">
+                Répartition des motifs d'absence
+              </h2>
+              <p className="text-[13px] text-[#6C757D] mt-1">
+                Congés payés, maladie, autorisations, non justifiées
+              </p>
+            </div>
+
+            <div className="p-6">
+              {/* Donut Chart Placeholder */}
+              <div className="flex items-center justify-center mb-6">
+                <div className="relative w-48 h-48">
+                  {/* SVG Donut Chart */}
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke="#0052CC"
+                      strokeWidth="20"
+                      strokeDasharray="125.6 251.2"
+                      strokeDashoffset="0"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke="#28A745"
+                      strokeWidth="20"
+                      strokeDasharray="55 251.2"
+                      strokeDashoffset="-125.6"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke="#FFC107"
+                      strokeWidth="20"
+                      strokeDasharray="45 251.2"
+                      strokeDashoffset="-180.6"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="40"
+                      fill="none"
+                      stroke="#DC3545"
+                      strokeWidth="20"
+                      strokeDasharray="30 251.2"
+                      strokeDashoffset="-225.6"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="space-y-3">
+                {absenceReasons.map((reason, idx) => (
+                  <div key={idx} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${reason.color}`}></div>
+                      <span className="text-[13px] text-[#212529]">{reason.label}</span>
+                    </div>
+                    <span className="text-[14px] font-semibold text-[#212529]">
+                      {reason.percentage}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Reports Section */}
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-[20px] font-semibold text-[#212529]">
+                  Derniers rapports générés
+                </h2>
+                <p className="text-[14px] text-[#6C757D] mt-0.5">
+                  Téléchargements et relances rapides
+                </p>
+              </div>
+              <span className="text-[13px] text-[#6C757D]">3 derniers jours</span>
+            </div>
+          </div>
+
+          <div className="divide-y divide-gray-200">
+            {generatedReports.map((report) => (
+              <div
+                key={report.id}
+                className="p-6 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-[#0052CC]" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-[15px] font-semibold text-[#212529]">
+                        {report.title}
+                      </h3>
+                      <span className="px-2 py-0.5 bg-gray-100 text-[#6C757D] rounded text-[11px] font-medium">
+                        {report.type}
+                      </span>
+                      <span className="px-2 py-0.5 bg-gray-100 text-[#6C757D] rounded text-[11px] font-medium">
+                        {report.scope}
+                      </span>
+                    </div>
+                    <p className="text-[13px] text-[#6C757D]">
+                      Généré {report.generatedAt} par {report.generatedBy}
+                    </p>
+                  </div>
+                </div>
+
+                <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                  <Download className="w-4 h-4" />
+                  Télécharger
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

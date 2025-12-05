@@ -1,0 +1,417 @@
+'use client';
+
+import React, { useState, useMemo } from 'react';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Users, Clock, AlertTriangle, Calendar, TrendingUp, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { useDashboardStats } from '@/lib/hooks/useDashboardStats';
+
+// Composant KPI Card
+function KPICard({
+  title,
+  value,
+  subtitle,
+  badge,
+  link,
+  icon: Icon,
+}: {
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  badge?: { text: string; variant: 'success' | 'warning' | 'danger' | 'info' };
+  link?: { text: string; href: string };
+  icon?: React.ElementType;
+}) {
+  return (
+    <Card className="hover:shadow-hover transition-shadow cursor-pointer">
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between mb-4">
+          <p className="text-small text-text-secondary">{title}</p>
+          {Icon && <Icon className="h-5 w-5 text-text-secondary" />}
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-4xl font-bold text-text-primary">{value}</h3>
+          {subtitle && <p className="text-small text-text-secondary">{subtitle}</p>}
+          {badge && (
+            <Badge variant={badge.variant} className="text-xs">
+              {badge.text}
+            </Badge>
+          )}
+          {link && (
+            <Link
+              href={link.href}
+              className="text-sm text-primary hover:underline inline-block"
+            >
+              {link.text}
+            </Link>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function DashboardPage() {
+  const [selectedSite, setSelectedSite] = useState('tous');
+  const [selectedTeam, setSelectedTeam] = useState('toutes');
+  const [selectedPeriod, setSelectedPeriod] = useState('semaine');
+
+  // Calculate date filters based on selected period
+  const dateFilters = useMemo(() => {
+    const today = new Date();
+    const startDate = new Date();
+
+    if (selectedPeriod === 'aujourd-hui') {
+      startDate.setHours(0, 0, 0, 0);
+    } else if (selectedPeriod === 'semaine') {
+      startDate.setDate(today.getDate() - today.getDay());
+      startDate.setHours(0, 0, 0, 0);
+    } else if (selectedPeriod === 'mois') {
+      startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+    }
+
+    return {
+      startDate: startDate.toISOString(),
+      endDate: today.toISOString(),
+    };
+  }, [selectedPeriod]);
+
+  // Fetch dashboard stats
+  const { data: stats, isLoading, error } = useDashboardStats(dateFilters);
+
+  // Calculate attendance rate
+  const attendanceRate = useMemo(() => {
+    if (!stats || !stats.employees.total) return 0;
+    return Math.round(
+      ((stats.employees.activeToday / stats.employees.total) * 100)
+    );
+  }, [stats]);
+
+  // Calculate lates and absences (placeholder logic - API should provide this)
+  const latesCount = useMemo(() => {
+    // This would come from additional API data if available
+    return 14;
+  }, []);
+
+  const absencesCount = useMemo(() => {
+    // This would come from additional API data if available
+    return 8;
+  }, []);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <DashboardLayout
+        title="Tableau de bord"
+        subtitle="Vue synthétique de la présence et des anomalies de pointage"
+      >
+        <div className="flex items-center justify-center h-96">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-text-secondary">Chargement du tableau de bord...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <DashboardLayout
+        title="Tableau de bord"
+        subtitle="Vue synthétique de la présence et des anomalies de pointage"
+      >
+        <Card className="border-danger/50 bg-danger/5">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-danger" />
+              <div>
+                <p className="font-semibold text-text-primary">Erreur de chargement</p>
+                <p className="text-sm text-text-secondary">
+                  Impossible de charger les données du tableau de bord. Veuillez réessayer.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <DashboardLayout
+      title="Tableau de bord"
+      subtitle="Vue synthétique de la présence et des anomalies de pointage"
+    >
+      <div className="space-y-6">
+        {/* Filtres */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div>
+                <p className="text-sm font-medium text-text-secondary mb-2">Filtrer par</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-text-secondary">Site :</label>
+                <Select
+                  value={selectedSite}
+                  onChange={(e) => setSelectedSite(e.target.value)}
+                  className="w-40"
+                >
+                  <option value="tous">Tous</option>
+                  <option value="casablanca">Casablanca</option>
+                  <option value="rabat">Rabat</option>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-text-secondary">Équipe :</label>
+                <Select
+                  value={selectedTeam}
+                  onChange={(e) => setSelectedTeam(e.target.value)}
+                  className="w-40"
+                >
+                  <option value="toutes">Toutes</option>
+                  <option value="a">Équipe A</option>
+                  <option value="b">Équipe B</option>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-text-secondary">Période :</label>
+                <Select
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(e.target.value)}
+                  className="w-48"
+                >
+                  <option value="aujourd-hui">Aujourd'hui</option>
+                  <option value="semaine">Semaine en cours</option>
+                  <option value="mois">Mois en cours</option>
+                </Select>
+              </div>
+
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" size="sm">Aujourd'hui</Button>
+                <Button variant="outline" size="sm">Cette semaine</Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Indicateurs clés */}
+        <div>
+          <div className="mb-4">
+            <h2 className="text-h3 font-semibold text-text-primary">Indicateurs clés</h2>
+            <p className="text-small text-text-secondary">
+              Cliquer sur un indicateur pour accéder au détail
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <KPICard
+              title="Taux de présence"
+              value={`${attendanceRate}%`}
+              subtitle={`${stats?.employees.activeToday || 0} / ${stats?.employees.total || 0} employés`}
+              badge={{
+                text: attendanceRate >= 90 ? '+Bon taux' : 'À surveiller',
+                variant: attendanceRate >= 90 ? 'success' : 'warning'
+              }}
+              link={{ text: 'Voir les présences', href: '/attendance' }}
+              icon={Users}
+            />
+
+            <KPICard
+              title="Retards du jour"
+              value={latesCount}
+              badge={{ text: stats?.attendance.anomalies ? 'Anomalies détectées' : 'Normal', variant: stats?.attendance.anomalies ? 'warning' : 'success' }}
+              link={{ text: 'Voir les retards', href: '/attendance?filter=late' }}
+              icon={Clock}
+            />
+
+            <KPICard
+              title="Pointages"
+              value={stats?.attendance.total || 0}
+              subtitle="Cette période"
+              icon={Clock}
+            />
+
+            <KPICard
+              title="Absences"
+              value={absencesCount}
+              badge={{ text: `${stats?.attendance.anomalies || 0} anomalies`, variant: 'danger' }}
+              link={{ text: 'Voir les absences', href: '/attendance?filter=absent' }}
+              icon={AlertTriangle}
+            />
+
+            <KPICard
+              title="Approbations en attente"
+              value={`${stats?.pendingApprovals.leaves || 0} / ${stats?.pendingApprovals.overtime || 0}`}
+              subtitle="Congés / Heures sup"
+            />
+
+            <KPICard
+              title="Heures supplémentaires"
+              value={`${Math.round(stats?.overtime.totalHours || 0)}h`}
+              badge={{
+                text: `${stats?.overtime.totalRecords || 0} demandes`,
+                variant: 'info'
+              }}
+              link={{ text: 'Détail heures sup', href: '/overtime' }}
+              icon={TrendingUp}
+            />
+
+            <KPICard
+              title="Semaine en cours"
+              value={`S${Math.ceil((new Date().getDate()) / 7)}`}
+              subtitle={`${new Date().toLocaleDateString('fr-FR', { month: 'short', day: 'numeric' })}`}
+              icon={Calendar}
+            />
+
+            <KPICard
+              title="Congés en cours"
+              value={stats?.leaves.totalRequests || 0}
+              subtitle={`${stats?.leaves.totalDays || 0} jours`}
+              link={{ text: 'Voir les congés', href: '/leaves' }}
+            />
+          </div>
+        </div>
+
+        {/* Graphiques */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Retards & Absences */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Retards & Absences</CardTitle>
+              <p className="text-small text-text-secondary">Vue 7 derniers jours · Barres</p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                <p className="text-text-secondary">Graphique en barres (Recharts)</p>
+              </div>
+              <div className="flex items-center gap-4 mt-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-primary"></div>
+                  <span className="text-text-secondary">Retards</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-danger"></div>
+                  <span className="text-text-secondary">Absences</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Répartition des shifts */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Répartition des shifts</CardTitle>
+              <p className="text-small text-text-secondary">Aujourd'hui · Camembert</p>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+                <p className="text-text-secondary">Graphique camembert (Recharts)</p>
+              </div>
+              <div className="flex items-center gap-4 mt-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-shift-matin"></div>
+                  <span className="text-text-secondary">Matin</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-shift-soir"></div>
+                  <span className="text-text-secondary">Soir</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-shift-nuit"></div>
+                  <span className="text-text-secondary">Nuit</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Heures supplémentaires par semaine */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Heures supplémentaires par semaine</CardTitle>
+            <p className="text-small text-text-secondary">4 dernières semaines · Courbe</p>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center">
+              <p className="text-text-secondary">Graphique courbe (Recharts)</p>
+            </div>
+            <div className="flex items-center gap-2 mt-4 text-sm">
+              <div className="w-3 h-3 rounded-full bg-primary"></div>
+              <span className="text-text-secondary">Heures sup</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Shifts du jour */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Shifts du jour</CardTitle>
+            <p className="text-small text-text-secondary">Par plage horaire</p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Matin */}
+              <div className="flex items-center justify-between p-4 bg-shift-matin/10 rounded-lg border-l-4 border-shift-matin">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="font-semibold text-text-primary">Matin</p>
+                    <p className="text-sm text-text-secondary">06:00 - 14:00</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-text-secondary">Présents</p>
+                  <p className="text-2xl font-bold text-text-primary">78 / 84</p>
+                </div>
+              </div>
+
+              {/* Soir */}
+              <div className="flex items-center justify-between p-4 bg-shift-soir/10 rounded-lg border-l-4 border-shift-soir">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="font-semibold text-text-primary">Soir</p>
+                    <p className="text-sm text-text-secondary">14:00 - 22:00</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-text-secondary">Planifiés</p>
+                  <p className="text-2xl font-bold text-text-primary">62 / 70</p>
+                </div>
+              </div>
+
+              {/* Nuit */}
+              <div className="flex items-center justify-between p-4 bg-shift-nuit/10 rounded-lg border-l-4 border-shift-nuit">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="font-semibold text-text-primary">Nuit</p>
+                    <p className="text-sm text-text-secondary">22:00 - 06:00</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-text-secondary">Planifiés</p>
+                  <p className="text-2xl font-bold text-text-primary">35 / 40</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 text-center">
+              <Link href="/schedules" className="text-sm text-primary hover:underline">
+                Voir le planning détaillé
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
+  );
+}

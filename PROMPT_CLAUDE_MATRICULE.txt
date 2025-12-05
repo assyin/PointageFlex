@@ -1,0 +1,129 @@
+Bonjour Claude,
+
+J'ai un problème de correspondance de matricules dans mon système de pointage biométrique et j'ai besoin de ton aide pour le diagnostiquer.
+
+## PROBLÈME
+
+Mon système reçoit des pointages depuis des terminaux ZKTeco qui envoient des matricules sans zéros à gauche (ex: "3005", "1091", "2308"), mais dans ma base PostgreSQL, certains employés ont des matricules stockés avec des zéros à gauche (ex: "03005", "01091", "02308").
+
+**Erreurs observées :**
+```
+[2025-11-25 15:33:29] ❌ [T2] Erreur 404: {"message":"Employee 1091 not found","error":"Not Found","statusCode":404}
+[2025-11-25 15:33:29] ❌ [T2] Erreur 404: {"message":"Employee 2308 not found","error":"Not Found","statusCode":404}
+```
+
+## CONTRAINTE CRITIQUE
+
+⚠️ Je NE PEUX PAS modifier les matricules dans la base de données car ils sont utilisés dans un autre système externe. La solution doit uniquement normaliser lors de la recherche.
+
+## SOLUTION DÉJÀ IMPLÉMENTÉE (mais ne fonctionne pas)
+
+J'ai créé une fonction `findEmployeeByMatriculeFlexible` qui :
+1. Cherche d'abord avec le matricule exact tel quel
+2. Normalise le matricule (supprime zéros à gauche) et recherche
+3. Génère toutes les variantes possibles avec zéros à gauche (jusqu'à 10 caractères)
+4. Utilise une requête SQL brute avec CAST pour comparer les valeurs numériques
+
+**Code de la fonction :**
+```typescript
+export async function findEmployeeByMatriculeFlexible(
+  prisma: any,
+  tenantId: string,
+  matriculeToFind: string | number
+): Promise<any | null> {
+  const matriculeStr = String(matriculeToFind).trim();
+  
+  // 1. Recherche exacte
+  let employee = await prisma.employee.findFirst({
+    where: { tenantId, matricule: matriculeStr },
+  });
+  if (employee) return employee;
+  
+  // 2. Normaliser et rechercher
+  const normalizedMatricule = normalizeMatricule(matriculeToFind);
+  // normalizeMatricule("03005") => "3005"
+  
+  if (normalizedMatricule !== matriculeStr) {
+    employee = await prisma.employee.findFirst({
+      where: { tenantId, matricule: normalizedMatricule },
+    });
+    if (employee) return employee;
+  }
+  
+  // 3. Générer variantes avec zéros à gauche
+  const variants = generateMatriculeVariants(normalizedMatricule, 10);
+  // Pour "3005" => ["3005", "03005", "003005", "0003005", ...]
+  variants.push(matriculeStr);
+  
+  employee = await prisma.employee.findFirst({
+    where: { tenantId, matricule: { in: variants } },
+  });
+  if (employee) return employee;
+  
+  // 4. Requête SQL brute avec CAST
+  if (/^\d+$/.test(matriculeStr)) {
+    try {
+      const result = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM "Employee"
+        WHERE "tenantId" = ${tenantId}::text
+        AND (
+          "matricule" = ${matriculeStr}::text
+          OR "matricule" = ${normalizedMatricule}::text
+          OR (
+            "matricule" ~ '^[0-9]+$'
+            AND CAST("matricule" AS INTEGER) = CAST(${matriculeStr} AS INTEGER)
+          )
+        )
+        LIMIT 1
+      `;
+      
+      if (result && result.length > 0) {
+        return await prisma.employee.findUnique({
+          where: { id: result[0].id },
+        });
+      }
+    } catch (sqlError: any) {
+      console.warn(`Erreur SQL pour ${matriculeStr}:`, sqlError?.message);
+    }
+  }
+  
+  return null;
+}
+```
+
+**Fonction de normalisation :**
+```typescript
+export function normalizeMatricule(matricule: string | number): string {
+  const matriculeStr = String(matricule).trim();
+  if (/^\d+$/.test(matriculeStr)) {
+    return String(parseInt(matriculeStr, 10)); // "03005" => "3005"
+  }
+  return matriculeStr;
+}
+```
+
+## QUESTIONS DE DIAGNOSTIC
+
+1. Pourquoi cette solution ne fonctionne-t-elle pas pour "1091" et "2308" ?
+2. Y a-t-il un problème avec ma requête SQL CAST ?
+3. Faut-il utiliser une autre approche (regex, LTRIM, etc.) ?
+4. Le problème vient-il de Prisma ou de PostgreSQL ?
+
+## INFORMATIONS TECHNIQUES
+
+- Backend: NestJS + Prisma ORM
+- Base: PostgreSQL
+- Schéma: `matricule String` (TEXT dans PostgreSQL)
+- Contrainte: `@@unique([tenantId, matricule])`
+
+## CE QUE JE DEMANDE
+
+1. Analyser pourquoi ma solution actuelle ne fonctionne pas
+2. Proposer une solution alternative si nécessaire
+3. Vérifier s'il y a des erreurs dans ma logique ou ma syntaxe SQL
+4. M'assurer que la solution ne modifie PAS les données stockées
+
+Merci pour ton aide !
+
+
+Reglé le probleme avec votre logique 

@@ -1,0 +1,665 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Shield,
+  Filter,
+  Download,
+  Search,
+  ChevronDown,
+  Eye,
+  Calendar,
+  User,
+  Activity,
+  AlertTriangle,
+  TrendingUp,
+  FileText,
+} from 'lucide-react';
+
+// Types
+type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT';
+
+type EntityType =
+  | 'ATTENDANCE'
+  | 'LEAVE'
+  | 'EMPLOYEE'
+  | 'SCHEDULE'
+  | 'TEAM'
+  | 'SHIFT'
+  | 'TERMINAL'
+  | 'USER'
+  | 'TENANT'
+  | 'OVERTIME';
+
+interface AuditLog {
+  id: string;
+  timestamp: string;
+  time: string;
+  user: string;
+  userRole: string;
+  userDepartment?: string;
+  action: AuditAction;
+  entity: EntityType;
+  entityId: string;
+  ipAddress: string;
+  userAgent: string;
+  browser: string;
+  os: string;
+  details?: string;
+}
+
+interface UserStats {
+  name: string;
+  role: string;
+  actionCount: number;
+}
+
+interface Alert {
+  id: string;
+  type: 'warning' | 'danger';
+  message: string;
+}
+
+export default function AuditPage() {
+  // States
+  const [showFilters, setShowFilters] = useState(true);
+  const [periodStart, setPeriodStart] = useState('2025-04-01');
+  const [periodEnd, setPeriodEnd] = useState('2025-04-07');
+  const [userFilter, setUserFilter] = useState('all');
+  const [actionFilter, setActionFilter] = useState<string[]>([]);
+  const [entityFilter, setEntityFilter] = useState<string[]>([]);
+  const [entityIdSearch, setEntityIdSearch] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [readOnly, setReadOnly] = useState(true);
+
+  // Mock data - Audit Logs
+  const auditLogs: AuditLog[] = [
+    {
+      id: '1',
+      timestamp: '07/04/2025',
+      time: '09:14:22',
+      user: 'Rania Admin',
+      userRole: 'RH - SuperAdmin',
+      action: 'UPDATE',
+      entity: 'LEAVE',
+      entityId: 'LEAVE-2025-1032',
+      ipAddress: '192.168.0.32',
+      userAgent: 'Chrome - Windows',
+      browser: 'Chrome',
+      os: 'Windows',
+    },
+    {
+      id: '2',
+      timestamp: '07/04/2025',
+      time: '08:59:03',
+      user: 'Youssef Manager',
+      userRole: 'Manager',
+      userDepartment: 'Logistique',
+      action: 'CREATE',
+      entity: 'ATTENDANCE',
+      entityId: 'ATT-784203',
+      ipAddress: '10.0.5.21',
+      userAgent: 'Edge - Windows',
+      browser: 'Edge',
+      os: 'Windows',
+    },
+    {
+      id: '3',
+      timestamp: '07/04/2025',
+      time: '08:47:10',
+      user: 'Système - Webhook',
+      userRole: 'Service technique',
+      action: 'CREATE',
+      entity: 'ATTENDANCE',
+      entityId: 'ATT-784179',
+      ipAddress: '172.16.4.7',
+      userAgent: 'API client - Terminal',
+      browser: 'API client',
+      os: 'Terminal',
+    },
+    {
+      id: '4',
+      timestamp: '07/04/2025',
+      time: '08:15:54',
+      user: 'Imane RH',
+      userRole: 'RH - Payroll',
+      action: 'DELETE',
+      entity: 'SCHEDULE',
+      entityId: 'SCH-2025-W14',
+      ipAddress: '105.73.18.201',
+      userAgent: 'Safari - macOS',
+      browser: 'Safari',
+      os: 'macOS',
+    },
+    {
+      id: '5',
+      timestamp: '07/04/2025',
+      time: '07:58:02',
+      user: 'Karim Employé',
+      userRole: 'Employé',
+      action: 'LOGIN',
+      entity: 'USER',
+      entityId: 'PORTAIL',
+      ipAddress: '41.249.132.11',
+      userAgent: 'Mobile - Android',
+      browser: 'Mobile',
+      os: 'Android',
+    },
+  ];
+
+  // Top users stats
+  const topUsers: UserStats[] = [
+    { name: 'Rania Admin', role: 'RH', actionCount: 152 },
+    { name: 'Youssef Manager', role: 'Logistique', actionCount: 97 },
+    { name: 'Imane RH', role: 'Payroll', actionCount: 63 },
+    { name: 'Système', role: 'Webhook', actionCount: 248 },
+    { name: 'Agents mobile', role: 'Geo', actionCount: 54 },
+  ];
+
+  // Action distribution
+  const actionDistribution = [
+    { action: 'CREATE', percentage: 32, color: 'bg-green-500' },
+    { action: 'UPDATE', percentage: 41, color: 'bg-orange-500' },
+    { action: 'DELETE', percentage: 6, color: 'bg-red-500' },
+    { action: 'LOGIN', percentage: 15, color: 'bg-gray-400' },
+    { action: 'LOGOUT', percentage: 6, color: 'bg-gray-400' },
+  ];
+
+  // Alerts
+  const alerts: Alert[] = [
+    {
+      id: '1',
+      type: 'warning',
+      message: '5 tentatives de login échouées - IP 41.249.13.54 - 06:12',
+    },
+    {
+      id: '2',
+      type: 'warning',
+      message: 'Suppression de 8 shifts par Imane RH en moins de 2 min',
+    },
+  ];
+
+  // Action badge component
+  const ActionBadge = ({ action }: { action: AuditAction }) => {
+    const getActionStyles = () => {
+      switch (action) {
+        case 'CREATE':
+          return 'bg-green-100 text-green-800 border-green-200';
+        case 'UPDATE':
+          return 'bg-orange-100 text-orange-800 border-orange-200';
+        case 'DELETE':
+          return 'bg-red-100 text-red-800 border-red-200';
+        case 'LOGIN':
+        case 'LOGOUT':
+          return 'bg-gray-100 text-gray-800 border-gray-200';
+        default:
+          return 'bg-gray-100 text-gray-800 border-gray-200';
+      }
+    };
+
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${getActionStyles()}`}>
+        {action}
+      </span>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA]">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-[1800px] mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-[28px] font-bold text-[#212529]">Logs d'audit & traçabilité</h1>
+              <p className="text-[14px] text-[#6C757D] mt-1">
+                Historique complet des actions pour conformité, sécurité et contrôle interne
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium"
+              >
+                <Filter className="w-4 h-4" />
+                Filtrer
+              </button>
+
+              <button className="flex items-center gap-2 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold">
+                <Download className="w-4 h-4" />
+                Exporter les logs
+              </button>
+
+              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
+                <div className="w-10 h-10 rounded-full bg-[#0052CC] flex items-center justify-center text-white font-semibold">
+                  RA
+                </div>
+                <div>
+                  <div className="text-[14px] font-semibold text-[#212529]">Rania Admin</div>
+                  <div className="text-[12px] text-[#6C757D]">Admin RH</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-[1800px] mx-auto px-6 py-6">
+        <div className="flex gap-6">
+          {/* Left Section - Audit Logs */}
+          <div className="flex-1 space-y-6">
+            {/* Filters */}
+            {showFilters && (
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-[18px] font-semibold text-[#212529]">Filtres avancés</h2>
+                      <p className="text-[13px] text-[#6C757D] mt-0.5">
+                        Affiner les logs par période, utilisateur, action et entité
+                      </p>
+                    </div>
+                    <button className="px-3 py-1.5 bg-gray-100 text-[#6C757D] rounded-lg text-[13px] font-medium hover:bg-gray-200 transition-colors">
+                      Lecture seule
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-2 gap-6 mb-6">
+                    {/* Period */}
+                    <div>
+                      <label className="block text-[14px] font-semibold text-[#212529] mb-3">
+                        Période
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="date"
+                          value={periodStart}
+                          onChange={(e) => setPeriodStart(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                        />
+                        <span className="text-[#6C757D]">au</span>
+                        <input
+                          type="date"
+                          value={periodEnd}
+                          onChange={(e) => setPeriodEnd(e.target.value)}
+                          className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                        />
+                      </div>
+                      <p className="text-[12px] text-[#6C757D] mt-2">
+                        Sélectionnez une plage de dates.
+                      </p>
+                    </div>
+
+                    {/* User */}
+                    <div>
+                      <label className="block text-[14px] font-semibold text-[#212529] mb-3">
+                        Utilisateur
+                      </label>
+                      <select
+                        value={userFilter}
+                        onChange={(e) => setUserFilter(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                      >
+                        <option value="all">Tous les utilisateurs</option>
+                        <option value="rania">Rania Admin</option>
+                        <option value="youssef">Youssef Manager</option>
+                        <option value="imane">Imane RH</option>
+                        <option value="system">Système - Webhook</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-6 mb-6">
+                    {/* Action */}
+                    <div>
+                      <label className="block text-[14px] font-semibold text-[#212529] mb-3">
+                        Action
+                      </label>
+                      <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#6C757D]">
+                        CREATE, UPDATE, DELETE, LOGIN, LOGOUT
+                      </div>
+                    </div>
+
+                    {/* Entity */}
+                    <div>
+                      <label className="block text-[14px] font-semibold text-[#212529] mb-3">
+                        Entité
+                      </label>
+                      <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#6C757D]">
+                        ATTENDANCE, LEAVE, EMPLOYEE, SCHEDULE...
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Entity ID Search */}
+                  <div className="mb-6">
+                    <label className="block text-[14px] font-semibold text-[#212529] mb-3">
+                      Recherche par ID d'entité
+                    </label>
+                    <input
+                      type="text"
+                      value={entityIdSearch}
+                      onChange={(e) => setEntityIdSearch(e.target.value)}
+                      placeholder="Ex : EMP-00421, LEAVE-2025-1032..."
+                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Apply Filters Button */}
+                  <div className="flex justify-end">
+                    <button className="px-6 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold">
+                      Appliquer les filtres
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Audit Logs Table */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-[18px] font-semibold text-[#212529]">Logs d'audit</h2>
+                    <p className="text-[13px] text-[#6C757D] mt-0.5">
+                      Historique détaillé des actions sur les employés, plannings et absences
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="px-3 py-1.5 bg-white border border-gray-300 text-[#212529] rounded text-[13px] font-medium hover:bg-gray-50">
+                      CSV
+                    </button>
+                    <button className="px-3 py-1.5 bg-white border border-gray-300 text-[#212529] rounded text-[13px] font-medium hover:bg-gray-50">
+                      Excel
+                    </button>
+                    <button className="px-3 py-1.5 bg-white border border-gray-300 text-[#212529] rounded text-[13px] font-medium hover:bg-gray-50">
+                      JSON
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6C757D]" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher : utilisateur, entité, IP, user agent..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-[#F1F3F5] border-b border-[#DEE2E6]">
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-[#212529]">
+                        Date & heure
+                      </th>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-[#212529]">
+                        Utilisateur
+                      </th>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-[#212529]">
+                        Action
+                      </th>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-[#212529]">
+                        Entité
+                      </th>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-[#212529]">
+                        IP Address
+                      </th>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-[#212529]">
+                        User Agent
+                      </th>
+                      <th className="text-left px-4 py-3 text-[13px] font-semibold text-[#212529]">
+                        Détails
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {auditLogs.map((log) => (
+                      <tr
+                        key={log.id}
+                        className="border-b border-[#DEE2E6] hover:bg-[#E9ECEF] transition-colors"
+                      >
+                        <td className="px-4 py-4">
+                          <div>
+                            <div className="text-[13px] text-[#212529] font-medium">
+                              {log.timestamp}
+                            </div>
+                            <div className="text-[12px] text-[#6C757D]">
+                              {log.time}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div>
+                            <div className="text-[13px] text-[#212529] font-medium">
+                              {log.user}
+                            </div>
+                            <div className="text-[12px] text-[#6C757D]">
+                              {log.userRole}
+                              {log.userDepartment && ` - ${log.userDepartment}`}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <ActionBadge action={log.action} />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div>
+                            <div className="text-[13px] text-[#212529] font-medium">
+                              {log.entity}
+                            </div>
+                            <div className="text-[12px] text-[#6C757D] font-mono">
+                              {log.entityId}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="text-[13px] text-[#212529] font-mono">
+                            {log.ipAddress}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div>
+                            <div className="text-[13px] text-[#212529]">
+                              {log.browser}
+                            </div>
+                            <div className="text-[12px] text-[#6C757D]">
+                              {log.os}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <button className="text-[13px] text-[#0052CC] hover:underline font-medium">
+                            Voir plus
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="p-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-[13px] text-[#6C757D]">
+                  Affichage de 1-20 sur 3 254 logs d'audit
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] text-[#6C757D]">20 / page</span>
+                  <button className="px-3 py-1.5 bg-white border border-gray-300 text-[#6C757D] rounded text-[13px] font-medium hover:bg-gray-50">
+                    Préc.
+                  </button>
+                  <button className="px-3 py-1.5 bg-[#0052CC] border border-[#0052CC] text-white rounded text-[13px] font-medium">
+                    1
+                  </button>
+                  <button className="px-3 py-1.5 bg-white border border-gray-300 text-[#6C757D] rounded text-[13px] font-medium hover:bg-gray-50">
+                    Suiv.
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Section - Statistics */}
+          <div className="w-[400px] space-y-6">
+            {/* Statistics Card */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[18px] font-semibold text-[#212529]">
+                    Statistiques audit
+                  </h3>
+                  <span className="text-[12px] text-[#6C757D]">Vue globale</span>
+                </div>
+                <p className="text-[13px] text-[#6C757D] mt-1">
+                  Vue synthétique des actions sur la période sélectionnée
+                </p>
+              </div>
+
+              <div className="p-6">
+                {/* Actions per day */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[14px] font-semibold text-[#212529]">
+                      Actions par jour
+                    </span>
+                    <span className="text-[12px] text-[#6C757D]">7 derniers jours</span>
+                  </div>
+                  <div className="text-[11px] text-[#6C757D] mb-2">
+                    Courbe des actions (CREATE / UPDATE / DELETE / LOGIN / LOGOUT)
+                  </div>
+                  {/* Simple line chart representation */}
+                  <div className="h-20 flex items-end gap-1">
+                    {[45, 62, 38, 55, 70, 48, 58].map((height, idx) => (
+                      <div
+                        key={idx}
+                        className="flex-1 bg-[#0052CC] rounded-t"
+                        style={{ height: `${height}%` }}
+                      ></div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top 5 Active Users */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[14px] font-semibold text-[#212529]">
+                      Top 5 utilisateurs actifs
+                    </span>
+                    <span className="text-[12px] text-[#6C757D]">
+                      42 actions / jour en moyenne
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {topUsers.map((user, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+                      >
+                        <div>
+                          <div className="text-[13px] text-[#212529] font-medium">
+                            {user.name}
+                          </div>
+                          <div className="text-[11px] text-[#6C757D]">
+                            {user.role}
+                          </div>
+                        </div>
+                        <div className="text-[13px] font-semibold text-[#212529]">
+                          {user.actionCount} actions
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Action Distribution */}
+                <div className="mb-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[14px] font-semibold text-[#212529]">
+                      Répartition par type d'action
+                    </span>
+                    <span className="text-[12px] text-[#6C757D]">Sur la période</span>
+                  </div>
+                  <div className="space-y-2">
+                    {actionDistribution.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
+                        <span className="text-[13px] text-[#6C757D] flex-1">
+                          {item.action}
+                        </span>
+                        <span className="text-[13px] font-semibold text-[#212529]">
+                          {item.percentage}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Alerts Card */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[18px] font-semibold text-[#212529]">
+                    Alertes actions suspectes
+                  </h3>
+                  <span className="text-[12px] text-[#6C757D]">Surveillance</span>
+                </div>
+                <p className="text-[13px] text-[#6C757D] mt-1">
+                  Connexions inhabituelles, suppressions massives, accès hors horaires
+                </p>
+              </div>
+
+              <div className="p-6 space-y-3">
+                {alerts.map((alert) => (
+                  <div
+                    key={alert.id}
+                    className={`p-4 rounded-lg border ${
+                      alert.type === 'warning'
+                        ? 'bg-[#FFC107] bg-opacity-10 border-[#FFC107]'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle
+                        className={`w-5 h-5 flex-shrink-0 ${
+                          alert.type === 'warning' ? 'text-[#FFC107]' : 'text-red-600'
+                        }`}
+                      />
+                      <span className="text-[13px] text-[#212529] leading-relaxed">
+                        {alert.message}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="pt-4 border-t border-gray-200">
+                  <p className="text-[12px] text-[#6C757D] mb-3">
+                    Dernier export de logs effectué il y a 3 heures
+                  </p>
+                  <p className="text-[11px] text-[#6C757D] leading-relaxed">
+                    Les logs d'audit sont conservés conformément à votre politique de rétention
+                    et ne sont pas modifiables.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

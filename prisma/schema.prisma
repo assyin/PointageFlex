@@ -1,0 +1,657 @@
+// Schéma Prisma pour PointageFlex - SaaS Multi-tenant
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================================
+// MULTI-TENANT & AUTH
+// ===================================
+
+model Tenant {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Informations entreprise
+  companyName String
+  slug        String   @unique // pour sous-domaine
+  logo        String?
+  email       String
+  phone       String?
+  address     String?
+  country     String   @default("MA")
+  timezone    String   @default("Africa/Casablanca")
+
+  // Paramètres
+  settings TenantSettings?
+
+  // Relations
+  users               User[]
+  employees           Employee[]
+  sites               Site[]
+  departments         Department[]
+  shifts              Shift[]
+  teams               Team[]
+  schedules           Schedule[]
+  attendance          Attendance[]
+  devices             AttendanceDevice[]
+  leaves              Leave[]
+  leaveTypes          LeaveType[]
+  overtime            Overtime[]
+  recovery            Recovery[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  holidays            Holiday[]
+  shiftReplacements   ShiftReplacement[]
+
+  @@index([slug])
+}
+
+model TenantSettings {
+  id        String   @id @default(uuid())
+  tenantId  String   @unique
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Paramètres horaires
+  workDaysPerWeek      Int      @default(6) // 6 jours au Maroc
+  maxWeeklyHours       Decimal  @default(44) // 44h légales au Maroc
+  lateToleranceMinutes Int      @default(15)
+  breakDuration        Int      @default(60) // en minutes
+
+  // Alertes (non bloquantes)
+  alertWeeklyHoursExceeded      Boolean @default(true)
+  alertInsufficientRest         Boolean @default(true)
+  alertNightWorkRepetitive      Boolean @default(true)
+  alertMinimumStaffing          Boolean @default(true)
+
+  // Paramètres congés
+  annualLeaveDays               Int     @default(18) // 18 jours au Maroc
+  leaveApprovalLevels           Int     @default(2) // Manager + RH
+
+  // Paramètres heures sup
+  overtimeRate                  Decimal @default(1.25)
+  nightShiftRate                Decimal @default(1.50)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model User {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  email        String
+  password     String // bcrypt hashed
+  firstName    String
+  lastName     String
+  phone        String?
+  avatar       String?
+  isActive     Boolean @default(true)
+  lastLoginAt  DateTime?
+
+  // Roles
+  role         Role    @default(EMPLOYEE)
+
+  // Relation employé (optionnel pour admin)
+  employee     Employee?
+
+  // Audit
+  auditLogs    AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+}
+
+enum Role {
+  SUPER_ADMIN    // Super admin plateforme
+  ADMIN_RH       // Admin RH entreprise
+  MANAGER        // Manager équipe
+  EMPLOYEE       // Employé
+}
+
+// ===================================
+// EMPLOYÉS & STRUCTURE
+// ===================================
+
+model Employee {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Informations personnelles
+  matricule     String  // Numéro matricule
+  firstName     String
+  lastName      String
+  email         String?
+  phone         String?
+  dateOfBirth   DateTime?
+  address       String?
+  photo         String?
+
+  // Emploi
+  position      String
+  hireDate      DateTime
+  contractType  String? // CDI, CDD, Stage, etc.
+
+  // Affectations
+  siteId        String?
+  site          Site?   @relation(fields: [siteId], references: [id])
+
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+
+  teamId        String?
+  team          Team?   @relation(fields: [teamId], references: [id])
+
+  currentShiftId String?
+  currentShift   Shift?  @relation(fields: [currentShiftId], references: [id])
+
+  // Biométrie
+  fingerprintData String? // Hash empreinte
+  faceData        String? // Hash reconnaissance faciale
+  rfidBadge       String?
+  qrCode          String?
+  pinCode         String?
+
+  // État
+  isActive      Boolean @default(true)
+
+  // Relations
+  userId        String? @unique
+  user          User?   @relation(fields: [userId], references: [id])
+
+  attendance    Attendance[]
+  leaves        Leave[]
+  overtime      Overtime[]
+  recovery      Recovery[]
+  schedules     Schedule[]
+  notifications Notification[]
+  replacementsAsReplacement ShiftReplacement[] @relation("ReplacementEmployee")
+  replacementsAsOriginal    ShiftReplacement[] @relation("OriginalEmployee")
+
+  @@unique([tenantId, matricule])
+  @@index([tenantId])
+  @@index([siteId])
+  @@index([departmentId])
+  @@index([teamId])
+}
+
+model Site {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name      String
+  address   String?
+  city      String?
+  latitude  Decimal?
+  longitude Decimal?
+
+  employees Employee[]
+  devices   AttendanceDevice[]
+  attendance Attendance[]
+
+  @@index([tenantId])
+}
+
+model Department {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name      String
+  code      String?
+
+  employees Employee[]
+
+  @@index([tenantId])
+}
+
+// ===================================
+// SHIFTS, ÉQUIPES & PLANNINGS
+// ===================================
+
+model Shift {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name        String // Matin, Soir, Nuit, Personnalisé
+  code        String // M, S, N, CUSTOM
+  startTime   String // Format HH:mm (ex: "08:00")
+  endTime     String // Format HH:mm (ex: "16:00")
+
+  breakDuration Int @default(60) // Pause en minutes
+
+  isNightShift  Boolean @default(false)
+  color         String? // Pour affichage planning
+
+  employees     Employee[]
+  schedules     Schedule[]
+  replacements  ShiftReplacement[]
+
+  @@index([tenantId])
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name        String // Équipe A, B, C
+  code        String // A, B, C
+  description String?
+
+  // Responsable d'équipe
+  managerId   String?
+
+  // Rotation optionnelle
+  rotationEnabled Boolean @default(false)
+  rotationCycleDays Int?  // Ex: 7, 14, 21 jours
+
+  employees   Employee[]
+  schedules   Schedule[]
+
+  @@index([tenantId])
+}
+
+model Schedule {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  teamId     String?
+  team       Team?   @relation(fields: [teamId], references: [id])
+
+  shiftId    String
+  shift      Shift   @relation(fields: [shiftId], references: [id])
+
+  date       DateTime @db.Date
+
+  // Permet override personnalisé
+  customStartTime String?
+  customEndTime   String?
+
+  notes      String?
+
+  @@unique([employeeId, date])
+  @@index([tenantId])
+  @@index([date])
+  @@index([employeeId])
+}
+
+model ShiftReplacement {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  date      DateTime @db.Date
+
+  // Employé original
+  originalEmployeeId String
+  originalEmployee   Employee @relation("OriginalEmployee", fields: [originalEmployeeId], references: [id])
+
+  // Employé remplaçant
+  replacementEmployeeId String
+  replacementEmployee   Employee @relation("ReplacementEmployee", fields: [replacementEmployeeId], references: [id])
+
+  shiftId   String
+  shift     Shift @relation(fields: [shiftId], references: [id])
+
+  reason    String?
+  status    ReplacementStatus @default(PENDING)
+
+  approvedBy String?
+  approvedAt DateTime?
+
+  @@index([tenantId])
+  @@index([date])
+}
+
+enum ReplacementStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ===================================
+// POINTAGE & PRÉSENCE
+// ===================================
+
+model AttendanceDevice {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  siteId   String?
+  site     Site?   @relation(fields: [siteId], references: [id])
+
+  name        String
+  deviceId    String @unique // ID unique du terminal
+  deviceType  DeviceType
+  ipAddress   String?
+  apiKey      String? // Pour sécuriser les webhooks
+
+  isActive    Boolean @default(true)
+
+  attendance  Attendance[]
+
+  @@index([tenantId])
+}
+
+enum DeviceType {
+  FINGERPRINT      // Empreinte digitale
+  FACE_RECOGNITION // Reconnaissance faciale
+  RFID_BADGE       // Badge RFID
+  QR_CODE          // QR Code
+  PIN_CODE         // Code PIN
+  MOBILE_GPS       // Mobile avec géolocalisation
+  MANUAL           // Saisie manuelle
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  siteId     String?
+  site       Site?    @relation(fields: [siteId], references: [id])
+
+  deviceId   String?
+  device     AttendanceDevice? @relation(fields: [deviceId], references: [id])
+
+  // Données pointage
+  timestamp  DateTime
+  type       AttendanceType
+  method     DeviceType
+
+  // Géolocalisation (si mobile)
+  latitude   Decimal?
+  longitude  Decimal?
+
+  // Anomalies
+  hasAnomaly Boolean @default(false)
+  anomalyType String? // "MISSING_OUT", "DOUBLE_IN", "LATE", etc.
+  anomalyNote String?
+
+  // Correction
+  isCorrected Boolean @default(false)
+  correctedBy String?
+  correctedAt DateTime?
+
+  // Données brutes (pour audit)
+  rawData    Json?
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@index([timestamp])
+}
+
+enum AttendanceType {
+  IN      // Entrée
+  OUT     // Sortie
+  BREAK   // Pause
+}
+
+// ===================================
+// CONGÉS & ABSENCES
+// ===================================
+
+model LeaveType {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name      String // Congé payé, Maladie, Maternité, etc.
+  code      String
+  isPaid    Boolean @default(true)
+  requiresDocument Boolean @default(false)
+
+  maxDaysPerYear Int?
+
+  leaves    Leave[]
+
+  @@index([tenantId])
+}
+
+model Leave {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  leaveTypeId String
+  leaveType   LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  startDate  DateTime @db.Date
+  endDate    DateTime @db.Date
+  days       Decimal  // Nombre de jours
+
+  reason     String?
+  document   String? // URL du justificatif
+
+  status     LeaveStatus @default(PENDING)
+
+  // Workflow approbation
+  managerApprovedBy String?
+  managerApprovedAt DateTime?
+  managerComment    String?
+
+  hrApprovedBy      String?
+  hrApprovedAt      DateTime?
+  hrComment         String?
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@index([startDate])
+}
+
+enum LeaveStatus {
+  PENDING
+  MANAGER_APPROVED
+  HR_APPROVED
+  APPROVED          // Complètement approuvé
+  REJECTED
+  CANCELLED
+}
+
+// ===================================
+// HEURES SUP & RÉCUPÉRATION
+// ===================================
+
+model Overtime {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  date       DateTime @db.Date
+  hours      Decimal
+
+  isNightShift Boolean @default(false)
+  rate         Decimal @default(1.25)
+
+  // Conversion en récupération
+  convertedToRecovery Boolean @default(false)
+  recoveryId          String?
+
+  status     OvertimeStatus @default(PENDING)
+
+  approvedBy String?
+  approvedAt DateTime?
+
+  @@index([tenantId])
+  @@index([employeeId])
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Recovery {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  hours      Decimal
+  source     String? // "OVERTIME", "MANUAL"
+
+  usedHours  Decimal @default(0)
+  remainingHours Decimal
+
+  expiryDate DateTime?
+
+  @@index([tenantId])
+  @@index([employeeId])
+}
+
+// ===================================
+// JOURS FÉRIÉS
+// ===================================
+
+model Holiday {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name      String
+  date      DateTime @db.Date
+  isRecurring Boolean @default(false)
+
+  @@index([tenantId])
+  @@index([date])
+}
+
+// ===================================
+// AUDIT & NOTIFICATIONS
+// ===================================
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id])
+
+  action      String // CREATE, UPDATE, DELETE, LOGIN, etc.
+  entity      String // ATTENDANCE, LEAVE, SCHEDULE, etc.
+  entityId    String?
+
+  oldValues   Json?
+  newValues   Json?
+
+  ipAddress   String?
+  userAgent   String?
+
+  @@index([tenantId])
+  @@index([createdAt])
+  @@index([entity])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  type      NotificationType
+  title     String
+  message   String
+
+  isRead    Boolean @default(false)
+  readAt    DateTime?
+
+  metadata  Json? // Données supplémentaires
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@index([isRead])
+}
+
+enum NotificationType {
+  SHIFT_CHANGE
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  OVERTIME_APPROVED
+  SCHEDULE_UPDATED
+  REPLACEMENT_REQUEST
+  ALERT_LEGAL
+  SYSTEM
+}

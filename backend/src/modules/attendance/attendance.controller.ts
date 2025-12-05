@@ -1,0 +1,249 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Query,
+  UseGuards,
+  Headers,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
+import { AttendanceService } from './attendance.service';
+import { CreateAttendanceDto } from './dto/create-attendance.dto';
+import { WebhookAttendanceDto } from './dto/webhook-attendance.dto';
+import { CorrectAttendanceDto } from './dto/correct-attendance.dto';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Public } from '../../common/decorators/public.decorator';
+import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { Role, AttendanceType, DeviceType } from '@prisma/client';
+
+@ApiTags('Attendance')
+@Controller('attendance')
+export class AttendanceController {
+  constructor(private readonly attendanceService: AttendanceService) {}
+
+  @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Create manual attendance record' })
+  @ApiResponse({ status: 201, description: 'Attendance created successfully' })
+  create(
+    @CurrentTenant() tenantId: string,
+    @Body() createAttendanceDto: CreateAttendanceDto,
+  ) {
+    return this.attendanceService.create(tenantId, createAttendanceDto);
+  }
+
+  @Post('webhook')
+  @Public()
+  @ApiOperation({ summary: 'Webhook endpoint for biometric devices' })
+  @ApiHeader({ name: 'X-Device-ID', required: true, description: 'Device unique ID' })
+  @ApiHeader({ name: 'X-Tenant-ID', required: true, description: 'Tenant ID' })
+  @ApiHeader({ name: 'X-API-Key', required: false, description: 'Device API Key' })
+  @ApiResponse({ status: 201, description: 'Attendance recorded from device' })
+  @ApiResponse({ status: 401, description: 'Invalid device credentials' })
+  async handleWebhook(
+    @Headers('x-device-id') deviceId: string,
+    @Headers('x-tenant-id') tenantId: string,
+    @Headers('x-api-key') apiKey: string,
+    @Body() webhookData: WebhookAttendanceDto,
+  ) {
+    if (!deviceId || !tenantId) {
+      throw new UnauthorizedException('Missing device credentials');
+    }
+
+    // TODO: Vérifier l'API Key du terminal
+    return this.attendanceService.handleWebhook(tenantId, deviceId, webhookData);
+  }
+
+  @Post('push')
+  @Public()
+  @ApiOperation({ summary: 'Push URL endpoint for ZKTeco native push (no auth required)' })
+  @ApiResponse({ status: 201, description: 'Attendance recorded from terminal push' })
+  @ApiResponse({ status: 400, description: 'Invalid data format' })
+  async handlePushFromTerminal(
+    @Body() body: any,
+    @Headers() headers: any,
+  ) {
+    console.log('📥 [Push URL] Données reçues du terminal:', JSON.stringify(body, null, 2));
+    console.log('📋 [Push URL] Headers:', headers);
+
+    // Extraire le device ID depuis les données ou headers
+    // Le terminal ZKTeco peut envoyer: SN, deviceId, sn, serialNumber
+    // Pour format BioTime: le sn est souvent le serial number physique, pas le deviceId logique
+    let deviceId = headers['device-id'] || headers['x-device-id'] || headers['deviceid'];
+
+    // Si pas dans les headers, essayer dans le body
+    if (!deviceId) {
+      deviceId = body.SN || body.deviceId || body.serialNumber;
+
+      // Pour format BioTime avec serial number dans sn, on essaie de trouver le device par SN
+      if (!deviceId && body.sn) {
+        // Le body.sn peut être le serial number du terminal, on va chercher le device par là
+        // Pour l'instant, utiliser le sn comme deviceId
+        deviceId = body.sn;
+      }
+    }
+
+    // Fallback si vraiment rien trouvé
+    if (!deviceId) {
+      deviceId = 'Terminal_Caisse'; // Fallback par défaut
+    }
+
+    // Tenant ID peut venir des headers ou être hardcodé pour ce terminal
+    const tenantId = headers['x-tenant-id'] || headers['tenant-id'] ||
+                     '90fab0cc-8539-4566-8da7-8742e9b6937b';
+
+    // Le terminal ZKTeco envoie généralement:
+    // { "pin": "1091", "time": "2025-11-26 12:00:00", "state": 0/1, "verifymode": 1 }
+    // Ou: { "cardno": "1091", "checktime": "2025-11-26 12:00:00", ... }
+    // Ou format BioTime: { "sn": "xxx", "table": "attendance", "data": { "pin": "...", ... } }
+
+    try {
+      // Si c'est le format BioTime avec données imbriquées
+      let attendanceData = body;
+      if (body.table === 'attendance' && body.data) {
+        attendanceData = body.data;
+      }
+
+      // Adapter le format du terminal vers notre format webhook
+      const webhookData: WebhookAttendanceDto = {
+        employeeId: attendanceData.pin || attendanceData.userId || attendanceData.cardno || attendanceData.userCode || attendanceData.user_id,
+        timestamp: attendanceData.time || attendanceData.checktime || attendanceData.timestamp || new Date().toISOString(),
+        type: this.mapAttendanceType(attendanceData.state || attendanceData.status || attendanceData.checktype || attendanceData.type),
+        method: this.mapVerifyMode(attendanceData.verifymode || attendanceData.verify || attendanceData.verifyMode || attendanceData.verify_mode),
+        rawData: body,
+      };
+
+      console.log('🔄 [Push URL] Données converties:', JSON.stringify(webhookData, null, 2));
+
+      // Utiliser le même service que le webhook
+      const result = await this.attendanceService.handleWebhook(tenantId, deviceId, webhookData);
+
+      console.log('✅ [Push URL] Pointage enregistré avec succès');
+      return result;
+
+    } catch (error) {
+      console.error('❌ [Push URL] Erreur:', error.message);
+      console.error('📋 [Push URL] Body reçu:', body);
+      throw error;
+    }
+  }
+
+  /**
+   * Map le type de pointage du terminal (state) vers notre enum
+   * 0 = OUT, 1 = IN, 2 = OUT pour pause, 3 = IN après pause
+   */
+  private mapAttendanceType(state: any): AttendanceType {
+    if (state === undefined || state === null) return AttendanceType.IN;
+
+    const stateNum = typeof state === 'string' ? parseInt(state, 10) : state;
+
+    // Convention ZKTeco standard
+    if (stateNum === 0 || stateNum === 2) return AttendanceType.OUT;
+    return AttendanceType.IN;
+  }
+
+  /**
+   * Map le mode de vérification du terminal vers notre enum
+   */
+  private mapVerifyMode(mode: any): DeviceType {
+    if (mode === undefined || mode === null) return DeviceType.MANUAL;
+
+    const modeNum = typeof mode === 'string' ? parseInt(mode, 10) : mode;
+
+    const map: Record<number, DeviceType> = {
+      0: DeviceType.PIN_CODE,
+      1: DeviceType.FINGERPRINT,
+      3: DeviceType.FINGERPRINT,
+      4: DeviceType.FACE_RECOGNITION,
+      15: DeviceType.RFID_BADGE,
+    };
+
+    return map[modeNum] || DeviceType.MANUAL;
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all attendance records with filters' })
+  @ApiResponse({ status: 200, description: 'List of attendance records' })
+  findAll(
+    @CurrentTenant() tenantId: string,
+    @Query('employeeId') employeeId?: string,
+    @Query('siteId') siteId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('hasAnomaly') hasAnomaly?: string,
+    @Query('type') type?: AttendanceType,
+  ) {
+    return this.attendanceService.findAll(tenantId, {
+      employeeId,
+      siteId,
+      startDate,
+      endDate,
+      hasAnomaly: hasAnomaly ? hasAnomaly === 'true' : undefined,
+      type,
+    });
+  }
+
+  @Get('anomalies')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get attendance anomalies' })
+  @ApiResponse({ status: 200, description: 'List of anomalies' })
+  getAnomalies(
+    @CurrentTenant() tenantId: string,
+    @Query('date') date?: string,
+  ) {
+    return this.attendanceService.getAnomalies(tenantId, date);
+  }
+
+  @Get('daily-report')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Get daily attendance report' })
+  @ApiResponse({ status: 200, description: 'Daily report' })
+  getDailyReport(
+    @CurrentTenant() tenantId: string,
+    @Query('date') date: string,
+  ) {
+    return this.attendanceService.getDailyReport(tenantId, date);
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get attendance record by ID' })
+  @ApiResponse({ status: 200, description: 'Attendance details' })
+  @ApiResponse({ status: 404, description: 'Attendance not found' })
+  findOne(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.attendanceService.findOne(tenantId, id);
+  }
+
+  @Patch(':id/correct')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Correct attendance record' })
+  @ApiResponse({ status: 200, description: 'Attendance corrected successfully' })
+  @ApiResponse({ status: 404, description: 'Attendance not found' })
+  correctAttendance(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+    @Body() correctionDto: CorrectAttendanceDto,
+  ) {
+    return this.attendanceService.correctAttendance(tenantId, id, correctionDto);
+  }
+}

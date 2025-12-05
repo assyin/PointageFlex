@@ -1,0 +1,829 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Calendar,
+  FileText,
+  Download,
+  Bell,
+  Plus,
+  Search,
+  ChevronDown,
+  Upload,
+  X,
+  ArrowRight,
+  User,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Filter,
+} from 'lucide-react';
+
+// Types
+type LeaveStatus =
+  | 'PENDING'
+  | 'MANAGER_APPROVED'
+  | 'HR_APPROVED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | 'AUTO_APPLIED';
+
+type LeaveType =
+  | 'CONGE_PAYE'
+  | 'CONGE_MALADIE'
+  | 'SANS_SOLDE'
+  | 'JOUR_FERIE'
+  | 'MATERNITE'
+  | 'PATERNITE'
+  | 'DECES'
+  | 'MARIAGE';
+
+interface LeaveRequest {
+  id: string;
+  employee: {
+    name: string;
+    department: string;
+    site: string;
+  };
+  leaveType: LeaveType;
+  leaveTypeLabel: string;
+  additionalInfo?: string;
+  startDate: string;
+  endDate: string;
+  daysCount: number;
+  daysType: 'ouvrés' | 'calendaires';
+  status: LeaveStatus;
+  statusLabel: string;
+  managerName?: string;
+  attachmentName?: string;
+  isGroupRequest?: boolean;
+}
+
+interface EmployeeLeaveBalance {
+  paidLeaveTaken: number;
+  paidLeaveRemaining: number;
+  paidLeaveAcquiredNotEligible: number;
+  sickLeaveTaken: number;
+  recoveryHoursAvailable: number;
+}
+
+export default function LeavesPage() {
+  // States
+  const [activeTab, setActiveTab] = useState<'current' | 'history' | 'all'>('current');
+  const [showNewRequestPanel, setShowNewRequestPanel] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
+  const [periodFilter, setPeriodFilter] = useState('current_month');
+  const [serviceFilter, setServiceFilter] = useState('all');
+  const [leaveTypeFilter, setLeaveTypeFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [formData, setFormData] = useState({
+    employeeId: '',
+    startDate: '',
+    endDate: '',
+    leaveType: '',
+    reason: '',
+    notifyManager: true,
+    notifyHR: true,
+  });
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+
+  // Mock data - Demandes de congés
+  const leaveRequests: LeaveRequest[] = [
+    {
+      id: '1',
+      employee: {
+        name: 'Imane Berrada',
+        department: 'Accueil',
+        site: 'Siège Casablanca',
+      },
+      leaveType: 'CONGE_PAYE',
+      leaveTypeLabel: 'Congé payé',
+      additionalInfo: 'Solde utilisé : 8 j',
+      startDate: '2024-02-12',
+      endDate: '2024-02-19',
+      daysCount: 6,
+      daysType: 'ouvrés',
+      status: 'APPROVED',
+      statusLabel: 'Validé RH',
+      managerName: 'A. Lahlou',
+      attachmentName: 'Demande signée',
+    },
+    {
+      id: '2',
+      employee: {
+        name: 'Youssef Benali',
+        department: 'Production',
+        site: 'Site Tanger',
+      },
+      leaveType: 'CONGE_MALADIE',
+      leaveTypeLabel: 'Congé maladie',
+      additionalInfo: 'Certificat requis',
+      startDate: '2024-02-15',
+      endDate: '2024-02-17',
+      daysCount: 3,
+      daysType: 'calendaires',
+      status: 'HR_APPROVED',
+      statusLabel: 'En attente RH',
+      managerName: 'Validé manager',
+      attachmentName: 'Certificat medical.pdf',
+    },
+    {
+      id: '3',
+      employee: {
+        name: 'Khadija El Amrani',
+        department: 'Logistique',
+        site: 'Site Casablanca',
+      },
+      leaveType: 'SANS_SOLDE',
+      leaveTypeLabel: 'Sans solde',
+      additionalInfo: 'Exceptionnel',
+      startDate: '2024-02-20',
+      endDate: '2024-02-20',
+      daysCount: 1,
+      daysType: 'ouvrés',
+      status: 'PENDING',
+      statusLabel: 'En attente manager',
+      attachmentName: 'Justificatif manquant',
+    },
+    {
+      id: '4',
+      employee: {
+        name: 'Équipe Logistique - Matin',
+        department: 'Demande groupée',
+        site: '',
+      },
+      leaveType: 'JOUR_FERIE',
+      leaveTypeLabel: 'Jour férié',
+      additionalInfo: 'Maroc',
+      startDate: '2024-05-01',
+      endDate: '2024-05-01',
+      daysCount: 1,
+      daysType: 'ouvrés',
+      status: 'AUTO_APPLIED',
+      statusLabel: 'Appliqué automatiquement',
+      attachmentName: 'N/A',
+      isGroupRequest: true,
+    },
+  ];
+
+  // Mock employee balance
+  const employeeBalance: EmployeeLeaveBalance = {
+    paidLeaveTaken: 12,
+    paidLeaveRemaining: 13,
+    paidLeaveAcquiredNotEligible: 3,
+    sickLeaveTaken: 2,
+    recoveryHoursAvailable: 6,
+  };
+
+  // Status badge component
+  const StatusBadge = ({ status, label }: { status: LeaveStatus; label: string }) => {
+    const getStatusStyles = () => {
+      switch (status) {
+        case 'APPROVED':
+          return 'bg-green-100 text-green-800 border-green-200';
+        case 'HR_APPROVED':
+        case 'MANAGER_APPROVED':
+          return 'bg-orange-100 text-orange-800 border-orange-200';
+        case 'PENDING':
+          return 'bg-orange-100 text-orange-800 border-orange-200';
+        case 'AUTO_APPLIED':
+          return 'bg-teal-100 text-teal-800 border-teal-200';
+        case 'REJECTED':
+          return 'bg-red-100 text-red-800 border-red-200';
+        case 'CANCELLED':
+          return 'bg-gray-100 text-gray-800 border-gray-200';
+        default:
+          return 'bg-gray-100 text-gray-800 border-gray-200';
+      }
+    };
+
+    return (
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusStyles()}`}>
+        {label}
+      </span>
+    );
+  };
+
+  // Calculate estimated days
+  const calculateDays = () => {
+    if (!formData.startDate || !formData.endDate) return 0;
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA]">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-[1600px] mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-[28px] font-bold text-[#212529]">Congés & Absences</h1>
+              <p className="text-[14px] text-[#6C757D] mt-1">
+                Gérer les demandes, validations et soldes de congés
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                <Download className="w-4 h-4" />
+                Exporter en Excel
+              </button>
+
+              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                <Bell className="w-4 h-4" />
+                Rappels managers
+              </button>
+
+              <button
+                onClick={() => setShowNewRequestPanel(!showNewRequestPanel)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold"
+              >
+                <Plus className="w-4 h-4" />
+                Nouvelle demande
+              </button>
+
+              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
+                <div className="w-10 h-10 rounded-full bg-[#0052CC] flex items-center justify-center text-white font-semibold">
+                  RA
+                </div>
+                <div>
+                  <div className="text-[14px] font-semibold text-[#212529]">Rania Admin</div>
+                  <div className="text-[12px] text-[#6C757D]">Admin RH</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-[1600px] mx-auto px-6 py-6">
+        <div className="flex gap-6">
+          {/* Left Section - Leave Requests List */}
+          <div className={`${showNewRequestPanel ? 'flex-1' : 'w-full'} transition-all duration-300`}>
+            <div className="bg-white rounded-lg border border-gray-200">
+              {/* Filters */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <Filter className="w-5 h-5 text-[#6C757D]" />
+                  <span className="text-[14px] font-semibold text-[#212529]">Filtrer</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-[12px] text-[#6C757D] mb-1.5">
+                      Période : <span className="text-[#212529] font-medium">Mois en cours</span>
+                    </label>
+                    <select
+                      value={periodFilter}
+                      onChange={(e) => setPeriodFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    >
+                      <option value="current_month">Mois en cours</option>
+                      <option value="last_month">Mois dernier</option>
+                      <option value="current_quarter">Trimestre en cours</option>
+                      <option value="current_year">Année en cours</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] text-[#6C757D] mb-1.5">
+                      Service : <span className="text-[#212529] font-medium">Tous</span>
+                    </label>
+                    <select
+                      value={serviceFilter}
+                      onChange={(e) => setServiceFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    >
+                      <option value="all">Tous</option>
+                      <option value="accueil">Accueil</option>
+                      <option value="production">Production</option>
+                      <option value="logistique">Logistique</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] text-[#6C757D] mb-1.5">
+                      Type congé : <span className="text-[#212529] font-medium">Tous</span>
+                    </label>
+                    <select
+                      value={leaveTypeFilter}
+                      onChange={(e) => setLeaveTypeFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    >
+                      <option value="all">Tous</option>
+                      <option value="paid">Congé payé</option>
+                      <option value="sick">Congé maladie</option>
+                      <option value="unpaid">Sans solde</option>
+                      <option value="holiday">Jour férié</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6C757D]" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher par employé, statut..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* Demandes de congés section */}
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-[20px] font-semibold text-[#212529]">Demandes de congés</h2>
+                    <p className="text-[14px] text-[#6C757D] mt-0.5">
+                      Vue globale des demandes en cours et passées
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="text-[14px] text-[#212529]">
+                      <span className="font-semibold">24</span> demandes ce mois
+                    </div>
+                    <button className="text-[14px] text-[#0052CC] hover:underline font-medium">
+                      Vues enregistrées
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex items-center gap-2 mb-4">
+                  <button
+                    onClick={() => setActiveTab('current')}
+                    className={`px-4 py-2 rounded-lg text-[14px] font-medium transition-colors ${
+                      activeTab === 'current'
+                        ? 'bg-[#0052CC] text-white'
+                        : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                    }`}
+                  >
+                    En cours
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('history')}
+                    className={`px-4 py-2 rounded-lg text-[14px] font-medium transition-colors ${
+                      activeTab === 'history'
+                        ? 'bg-[#0052CC] text-white'
+                        : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                    }`}
+                  >
+                    Historique 3 derniers mois
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className={`px-4 py-2 rounded-lg text-[14px] font-medium transition-colors ${
+                      activeTab === 'all'
+                        ? 'bg-[#0052CC] text-white'
+                        : 'bg-gray-100 text-[#6C757D] hover:bg-gray-200'
+                    }`}
+                  >
+                    Toutes les demandes
+                  </button>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-[#F1F3F5] border-b border-[#DEE2E6]">
+                        <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Employé</th>
+                        <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Type de congé</th>
+                        <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Dates</th>
+                        <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Statut</th>
+                        <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Justificatif</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leaveRequests.map((request) => (
+                        <tr
+                          key={request.id}
+                          className="border-b border-[#DEE2E6] hover:bg-[#E9ECEF] transition-colors cursor-pointer"
+                        >
+                          <td className="px-4 py-4">
+                            <div>
+                              <div className="text-[14px] font-semibold text-[#212529]">
+                                {request.employee.name}
+                              </div>
+                              <div className="text-[12px] text-[#6C757D]">
+                                {request.employee.department}
+                                {request.employee.site && ` - ${request.employee.site}`}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div>
+                              <div className="text-[14px] text-[#212529] font-medium">
+                                {request.leaveTypeLabel}
+                              </div>
+                              {request.additionalInfo && (
+                                <div className="text-[12px] text-[#6C757D]">
+                                  {request.additionalInfo}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div>
+                              <div className="text-[14px] text-[#212529]">
+                                {request.startDate === request.endDate ? (
+                                  request.startDate
+                                ) : (
+                                  <>
+                                    {request.startDate} <ArrowRight className="inline w-3 h-3 mx-1" /> {request.endDate}
+                                  </>
+                                )}
+                              </div>
+                              <div className="text-[12px] text-[#6C757D]">
+                                {request.daysCount} jour{request.daysCount > 1 ? 's' : ''} {request.daysType}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="space-y-1">
+                              <StatusBadge status={request.status} label={request.statusLabel} />
+                              {request.managerName && (
+                                <div className="text-[12px] text-[#6C757D]">
+                                  Manager : {request.managerName}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="text-[14px] text-[#212529]">
+                              {request.attachmentName}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Warning Alert */}
+                <div className="mt-6 bg-[#FFC107] bg-opacity-10 border border-[#FFC107] rounded-lg p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-[#FFC107]" />
+                    <span className="text-[14px] text-[#212529]">
+                      <span className="font-semibold">3 demandes</span> en attente depuis plus de <span className="font-semibold">5 jours ouvrés</span>.
+                    </span>
+                  </div>
+                  <button className="px-4 py-2 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                    Relancer les managers
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel - New Request Form */}
+          {showNewRequestPanel && (
+            <div className="w-[450px] space-y-4">
+              {/* Form Card */}
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <h3 className="text-[18px] font-semibold text-[#212529]">
+                        Nouvelle demande de congé
+                      </h3>
+                      <p className="text-[13px] text-[#6C757D] mt-1">
+                        Demande au nom d'un employé ou pour vous-même
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowNewRequestPanel(false)}
+                      className="text-[#6C757D] hover:text-[#212529]"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-full text-[12px] text-blue-800 font-medium">
+                    Workflow Manager → RH
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {/* Employee Select */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                      Employé
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={formData.employeeId}
+                        onChange={(e) => {
+                          setFormData({ ...formData, employeeId: e.target.value });
+                          setSelectedEmployee(e.target.value);
+                        }}
+                        className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent appearance-none"
+                      >
+                        <option value="">Sélectionner un employé</option>
+                        <option value="emp1">Imane Berrada</option>
+                        <option value="emp2">Youssef Benali</option>
+                        <option value="emp3">Khadija El Amrani</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6C757D] pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Date Range */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                        Date début
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.startDate}
+                        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                        Date fin
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.endDate}
+                        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Leave Type */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                      Type de congé
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={formData.leaveType}
+                        onChange={(e) => setFormData({ ...formData, leaveType: e.target.value })}
+                        className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent appearance-none"
+                      >
+                        <option value="">Choisir un type</option>
+                        <option value="paid">Congé payé</option>
+                        <option value="sick">Congé maladie</option>
+                        <option value="unpaid">Sans solde</option>
+                        <option value="maternity">Maternité</option>
+                        <option value="paternity">Paternité</option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6C757D] pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Estimated Days */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                      Nombre de jours estimé
+                    </label>
+                    <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#6C757D]">
+                      {calculateDays()} jour{calculateDays() > 1 ? 's' : ''}
+                    </div>
+                  </div>
+
+                  {/* Reason */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                      Motif
+                    </label>
+                    <textarea
+                      value={formData.reason}
+                      onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                      placeholder="Ajouter un commentaire visible par le manager et la RH..."
+                      rows={3}
+                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent resize-none"
+                    />
+                  </div>
+
+                  {/* Attachment */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                      Justificatif (optionnel)
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#0052CC] transition-colors cursor-pointer">
+                      <input
+                        type="file"
+                        id="attachment"
+                        className="hidden"
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+                      />
+                      <label htmlFor="attachment" className="cursor-pointer">
+                        <Upload className="w-6 h-6 text-[#6C757D] mx-auto mb-2" />
+                        <div className="text-[14px] text-[#212529] font-medium">
+                          Importer un fichier
+                        </div>
+                        <div className="text-[12px] text-[#6C757D] mt-1">
+                          PDF, JPG ou PNG, max 5 Mo
+                        </div>
+                      </label>
+                    </div>
+                    {attachmentFile && (
+                      <div className="mt-2 flex items-center gap-2 text-[13px] text-[#212529]">
+                        <FileText className="w-4 h-4" />
+                        {attachmentFile.name}
+                        <button
+                          onClick={() => setAttachmentFile(null)}
+                          className="ml-auto text-red-600 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notifications */}
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.notifyManager}
+                        onChange={(e) => setFormData({ ...formData, notifyManager: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-[#0052CC] focus:ring-[#0052CC]"
+                      />
+                      <span className="text-[14px] text-[#212529]">Notifier le manager par email</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.notifyHR}
+                        onChange={(e) => setFormData({ ...formData, notifyHR: e.target.checked })}
+                        className="w-4 h-4 rounded border-gray-300 text-[#0052CC] focus:ring-[#0052CC]"
+                      />
+                      <span className="text-[14px] text-[#212529]">Notifier la RH sur le dashboard</span>
+                    </label>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => setShowNewRequestPanel(false)}
+                      className="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium"
+                    >
+                      Annuler
+                    </button>
+                    <button className="flex-1 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold">
+                      Envoyer la demande
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Workflow Card */}
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[16px] font-semibold text-[#212529]">
+                      Workflow de validation
+                    </h3>
+                    <span className="px-2.5 py-1 bg-green-100 text-green-800 text-[11px] font-semibold rounded-full">
+                      Automatisé
+                    </span>
+                  </div>
+                  <p className="text-[13px] text-[#6C757D] mb-6">
+                    Traçabilité complète des étapes de validation
+                  </p>
+
+                  {/* Workflow Steps */}
+                  <div className="space-y-4">
+                    {/* Step 1: Employee */}
+                    <div className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                          <User className="w-5 h-5 text-[#0052CC]" />
+                        </div>
+                        <div className="w-0.5 h-12 bg-gray-200 my-1"></div>
+                      </div>
+                      <div className="flex-1 pt-2">
+                        <div className="text-[14px] font-semibold text-[#212529]">Employé</div>
+                        <div className="text-[13px] text-[#6C757D] mt-0.5">
+                          Crée la demande, joint le justificatif si nécessaire.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 2: Manager */}
+                    <div className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                          <CheckCircle className="w-5 h-5 text-[#FFC107]" />
+                        </div>
+                        <div className="w-0.5 h-12 bg-gray-200 my-1"></div>
+                      </div>
+                      <div className="flex-1 pt-2">
+                        <div className="text-[14px] font-semibold text-[#212529]">Manager</div>
+                        <div className="text-[13px] text-[#6C757D] mt-0.5">
+                          Valide ou rejette, commente la décision.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 3: RH */}
+                    <div className="flex gap-4">
+                      <div className="flex flex-col items-center">
+                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                          <CheckCircle className="w-5 h-5 text-[#28A745]" />
+                        </div>
+                      </div>
+                      <div className="flex-1 pt-2">
+                        <div className="text-[14px] font-semibold text-[#212529]">RH</div>
+                        <div className="text-[13px] text-[#6C757D] mt-0.5">
+                          Validation finale, impacte le planning et la paie.
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-gray-200">
+                    <p className="text-[12px] text-[#6C757D] leading-relaxed">
+                      Notifications envoyées par email et dans le tableau de bord (RH & managers).
+                    </p>
+                    <button className="text-[13px] text-[#0052CC] hover:underline font-medium mt-2">
+                      Voir toutes les règles
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Employee Balance Card */}
+              {selectedEmployee && (
+                <div className="bg-white rounded-lg border border-gray-200">
+                  <div className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-[16px] font-semibold text-[#212529]">
+                        Soldes de congés - Employé sélectionné
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] text-[#6C757D]">Année</span>
+                        <span className="text-[14px] font-semibold text-[#212529]">2024</span>
+                      </div>
+                    </div>
+                    <p className="text-[13px] text-[#6C757D] mb-4">
+                      Vue synthétique pour aider à la prise de décision
+                    </p>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-[13px] text-[#6C757D]">Congés payés pris</span>
+                        <span className="text-[14px] font-semibold text-[#212529]">
+                          {employeeBalance.paidLeaveTaken} jours
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-[13px] text-[#6C757D]">Congés payés restants</span>
+                        <span className="text-[14px] font-semibold text-[#28A745]">
+                          {employeeBalance.paidLeaveRemaining} jours
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-[13px] text-[#6C757D]">Congés acquis non encore éligibles</span>
+                        <span className="text-[14px] font-semibold text-[#212529]">
+                          {employeeBalance.paidLeaveAcquiredNotEligible} jours
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                        <span className="text-[13px] text-[#6C757D]">Congés maladie pris</span>
+                        <span className="text-[14px] font-semibold text-[#212529]">
+                          {employeeBalance.sickLeaveTaken} jours
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-[13px] text-[#6C757D]">Récupérations disponibles</span>
+                        <span className="text-[14px] font-semibold text-[#212529]">
+                          {employeeBalance.recoveryHoursAvailable} h
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <div className="flex items-center justify-between text-[12px] text-[#6C757D]">
+                        <span>Mise à jour</span>
+                        <span className="font-medium">paie</span>
+                      </div>
+                      <p className="text-[11px] text-[#6C757D] mt-2 leading-relaxed">
+                        Les soldes sont calculés à partir des pointages, des absences validées et des règles de paie de l'entreprise.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

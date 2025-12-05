@@ -1,0 +1,871 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Monitor,
+  Wifi,
+  WifiOff,
+  Settings,
+  Plus,
+  Search,
+  Download,
+  Activity,
+  Zap,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Eye,
+  Power,
+  Trash2,
+  Edit,
+  RefreshCw,
+  X,
+  ChevronDown,
+  FileText,
+  Clock,
+  TrendingUp,
+  Radio,
+} from 'lucide-react';
+
+// Types
+type TerminalStatus = 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE' | 'OFFLINE';
+
+type TerminalType =
+  | 'FINGERPRINT'
+  | 'FACIAL_RECOGNITION'
+  | 'RFID_BADGE'
+  | 'QR_CODE'
+  | 'MOBILE_GPS';
+
+interface Terminal {
+  id: string;
+  name: string;
+  type: TerminalType;
+  typeLabel: string;
+  site: string;
+  siteDetail: string;
+  ipAddress: string;
+  status: TerminalStatus;
+  lastPunch?: string;
+  lastPunchTime?: string;
+  deviceId: string;
+}
+
+interface RecentActivity {
+  id: string;
+  time: string;
+  type: 'IN' | 'OUT';
+  method: string;
+  employeeId: string;
+  terminal: string;
+  location: string;
+}
+
+export default function TerminalsPage() {
+  // States
+  const [showTerminalForm, setShowTerminalForm] = useState(false);
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [siteFilter, setSiteFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    type: '',
+    site: '',
+    deviceId: '',
+    autoDeviceId: false,
+    ipAddress: '',
+    autoIpAddress: false,
+    apiKey: '',
+    isActive: true,
+  });
+  const [webhookConfig, setWebhookConfig] = useState({
+    url: 'https://api.pointageflex.com/webhooks/attendance',
+    tenantId: 'logipoint-sa',
+    apiKey: '••••••••••••••••',
+  });
+
+  // Mock data - Terminals
+  const terminals: Terminal[] = [
+    {
+      id: '1',
+      name: 'Terminal Entrée Principale',
+      type: 'FINGERPRINT',
+      typeLabel: 'Empreinte digitale',
+      site: 'Casablanca',
+      siteDetail: 'Siège',
+      ipAddress: '192.168.0.12',
+      status: 'ACTIVE',
+      lastPunch: '09:12',
+      lastPunchTime: "aujourd'hui",
+      deviceId: 'CAS-ENTREE-001',
+    },
+    {
+      id: '2',
+      name: 'Tourniquet Parking Nord',
+      type: 'RFID_BADGE',
+      typeLabel: 'Badge RFID',
+      site: 'Tanger',
+      siteDetail: 'Dépôt',
+      ipAddress: '10.0.5.21',
+      status: 'MAINTENANCE',
+      lastPunch: 'Hier',
+      lastPunchTime: '18:43',
+      deviceId: 'TAN-PARKING-001',
+    },
+    {
+      id: '3',
+      name: 'Badge RH 3ème étage',
+      type: 'QR_CODE',
+      typeLabel: 'QR Code',
+      site: 'Rabat',
+      siteDetail: 'Bureau',
+      ipAddress: '172.16.4.7',
+      status: 'INACTIVE',
+      lastPunch: 'Aucun',
+      lastPunchTime: 'hors ligne',
+      deviceId: 'RAB-RH-003',
+    },
+    {
+      id: '4',
+      name: 'Portail Logistique Nuit',
+      type: 'FACIAL_RECOGNITION',
+      typeLabel: 'Reconnaissance faciale',
+      site: 'Casablanca',
+      siteDetail: 'Entrepôt',
+      ipAddress: '192.168.10.4',
+      status: 'ACTIVE',
+      lastPunch: '04:02',
+      lastPunchTime: "aujourd'hui",
+      deviceId: 'CAS-LOGIST-001',
+    },
+  ];
+
+  // Mock data - Recent activity
+  const recentActivity: RecentActivity[] = [
+    {
+      id: '1',
+      time: '09:12',
+      type: 'IN',
+      method: 'Empreinte',
+      employeeId: '00421',
+      terminal: 'Terminal Entrée Principale',
+      location: 'Casablanca',
+    },
+    {
+      id: '2',
+      time: '08:59',
+      type: 'OUT',
+      method: 'Badge RFID',
+      employeeId: '00317',
+      terminal: 'Tourniquet Parking Nord',
+      location: 'Tanger',
+    },
+    {
+      id: '3',
+      time: '08:45',
+      type: 'IN',
+      method: 'Facial',
+      employeeId: '00203',
+      terminal: 'Portail Logistique Nuit',
+      location: 'Casablanca',
+    },
+  ];
+
+  // Status badge component
+  const StatusBadge = ({ status }: { status: TerminalStatus }) => {
+    const getStatusConfig = () => {
+      switch (status) {
+        case 'ACTIVE':
+          return {
+            label: 'Actif',
+            className: 'bg-green-100 text-green-800 border-green-200',
+            icon: CheckCircle,
+          };
+        case 'MAINTENANCE':
+          return {
+            label: 'Maintenance',
+            className: 'bg-orange-100 text-orange-800 border-orange-200',
+            icon: Settings,
+          };
+        case 'INACTIVE':
+          return {
+            label: 'Inactif',
+            className: 'bg-red-100 text-red-800 border-red-200',
+            icon: XCircle,
+          };
+        case 'OFFLINE':
+          return {
+            label: 'Hors ligne',
+            className: 'bg-gray-100 text-gray-800 border-gray-200',
+            icon: WifiOff,
+          };
+        default:
+          return {
+            label: 'Inconnu',
+            className: 'bg-gray-100 text-gray-800 border-gray-200',
+            icon: AlertTriangle,
+          };
+      }
+    };
+
+    const config = getStatusConfig();
+    const Icon = config.icon;
+
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.className}`}>
+        <Icon className="w-3 h-3" />
+        {config.label}
+      </span>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA]">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-[1600px] mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-[28px] font-bold text-[#212529]">Gestion des terminaux biométriques</h1>
+              <p className="text-[14px] text-[#6C757D] mt-1">
+                Suivre et configurer les dispositifs de pointage par site et par type
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                <Wifi className="w-4 h-4" />
+                Tester la connexion
+              </button>
+
+              <button
+                onClick={() => setShowTerminalForm(!showTerminalForm)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold"
+              >
+                <Plus className="w-4 h-4" />
+                Nouveau terminal
+              </button>
+
+              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
+                <div className="w-10 h-10 rounded-full bg-[#0052CC] flex items-center justify-center text-white font-semibold">
+                  RA
+                </div>
+                <div>
+                  <div className="text-[14px] font-semibold text-[#212529]">Rania Admin</div>
+                  <div className="text-[12px] text-[#6C757D]">Admin RH</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-[1600px] mx-auto px-6 py-6">
+        <div className="grid grid-cols-12 gap-6">
+          {/* Left Section - Terminals List */}
+          <div className={`${showTerminalForm ? 'col-span-7' : 'col-span-12'} space-y-6`}>
+            {/* Terminals Table */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-[20px] font-semibold text-[#212529]">Terminaux de pointage</h2>
+                    <p className="text-[14px] text-[#6C757D] mt-0.5">
+                      Liste des dispositifs biométriques et badges par site
+                    </p>
+                  </div>
+                  <button className="text-[14px] text-[#0052CC] hover:underline font-medium">
+                    Tableau
+                  </button>
+                </div>
+
+                {/* Filters */}
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-[12px] text-[#6C757D] mb-1.5">Type de terminal</label>
+                    <select
+                      value={typeFilter}
+                      onChange={(e) => setTypeFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    >
+                      <option value="all">Tous les types</option>
+                      <option value="fingerprint">Empreinte digitale</option>
+                      <option value="facial">Reconnaissance faciale</option>
+                      <option value="rfid">Badge RFID</option>
+                      <option value="qr">QR Code</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] text-[#6C757D] mb-1.5">Site</label>
+                    <select
+                      value={siteFilter}
+                      onChange={(e) => setSiteFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    >
+                      <option value="all">Tous les sites</option>
+                      <option value="casablanca">Casablanca</option>
+                      <option value="tanger">Tanger</option>
+                      <option value="rabat">Rabat</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] text-[#6C757D] mb-1.5">Statut</label>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    >
+                      <option value="all">Actif, Inactif, Maintenance</option>
+                      <option value="active">Actif</option>
+                      <option value="maintenance">Maintenance</option>
+                      <option value="inactive">Inactif</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6C757D]" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher : nom, IP, Device ID..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    />
+                  </div>
+                  <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                    <Download className="w-4 h-4" />
+                    Exporter CSV
+                  </button>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-[#F1F3F5] border-b border-[#DEE2E6]">
+                      <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Nom</th>
+                      <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Type</th>
+                      <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Site</th>
+                      <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">IP</th>
+                      <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Statut</th>
+                      <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Dernier pointage</th>
+                      <th className="text-left px-4 py-3 text-[14px] font-semibold text-[#212529]">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {terminals.map((terminal) => (
+                      <tr
+                        key={terminal.id}
+                        className="border-b border-[#DEE2E6] hover:bg-[#E9ECEF] transition-colors"
+                      >
+                        <td className="px-4 py-4">
+                          <div className="text-[14px] font-semibold text-[#212529]">
+                            {terminal.name}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="text-[14px] text-[#212529]">
+                            {terminal.typeLabel}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div>
+                            <div className="text-[14px] text-[#212529]">
+                              {terminal.site}
+                            </div>
+                            <div className="text-[12px] text-[#6C757D]">
+                              {terminal.siteDetail}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="text-[14px] text-[#212529] font-mono">
+                            {terminal.ipAddress}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <StatusBadge status={terminal.status} />
+                        </td>
+                        <td className="px-4 py-4">
+                          <div>
+                            <div className="text-[14px] text-[#212529]">
+                              {terminal.lastPunch}
+                            </div>
+                            <div className="text-[12px] text-[#6C757D]">
+                              {terminal.lastPunchTime}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2">
+                            {terminal.status === 'ACTIVE' ? (
+                              <>
+                                <button className="text-[13px] text-[#0052CC] hover:underline font-medium">
+                                  Logs
+                                </button>
+                                <button className="text-[13px] text-[#0052CC] hover:underline font-medium">
+                                  Tester
+                                </button>
+                              </>
+                            ) : terminal.status === 'MAINTENANCE' ? (
+                              <>
+                                <button className="text-[13px] text-[#0052CC] hover:underline font-medium">
+                                  Modifier
+                                </button>
+                                <button className="text-[13px] text-red-600 hover:underline font-medium">
+                                  Désactiver
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button className="text-[13px] text-green-600 hover:underline font-medium">
+                                  Réactiver
+                                </button>
+                                <button className="text-[13px] text-red-600 hover:underline font-medium">
+                                  Supprimer
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="p-4 border-t border-gray-200 flex items-center justify-between">
+                <div className="text-[14px] text-[#6C757D]">
+                  Affichage de 1-10 sur 32 terminaux
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] text-[#6C757D]">10 / page</span>
+                  <button className="px-3 py-1.5 bg-white border border-gray-300 text-[#6C757D] rounded text-[13px] font-medium hover:bg-gray-50">
+                    Préc.
+                  </button>
+                  <button className="px-3 py-1.5 bg-[#0052CC] border border-[#0052CC] text-white rounded text-[13px] font-medium">
+                    1
+                  </button>
+                  <button className="px-3 py-1.5 bg-white border border-gray-300 text-[#6C757D] rounded text-[13px] font-medium hover:bg-gray-50">
+                    Suiv.
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Real-time Monitoring */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-[20px] font-semibold text-[#212529]">Monitoring temps réel</h2>
+                      <span className="flex items-center gap-1.5 px-2.5 py-0.5 bg-red-100 text-red-800 rounded-full text-[11px] font-semibold">
+                        <Radio className="w-3 h-3" />
+                        Live
+                      </span>
+                    </div>
+                    <p className="text-[14px] text-[#6C757D] mt-0.5">
+                      Flux des derniers pointages et activité du jour
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <div className="text-[13px] text-[#6C757D] mb-2">Pointages aujourd'hui</div>
+                    <div className="flex items-end gap-2">
+                      <div className="text-[32px] font-bold text-[#212529]">328</div>
+                      <div className="flex items-center gap-1 text-green-600 text-[13px] font-semibold mb-1.5">
+                        <TrendingUp className="w-4 h-4" />
+                        +12% vs. hier
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[13px] text-[#6C757D] mb-2">Terminaux en ligne</div>
+                    <div className="flex items-end gap-2">
+                      <div className="text-[32px] font-bold text-[#212529]">9 / 11</div>
+                    </div>
+                    <div className="text-[12px] text-orange-600 mt-1">
+                      2 hors ligne ou en maintenance
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="space-y-3 mb-6">
+                  {recentActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="text-[14px] font-semibold text-[#212529] w-12">
+                        {activity.time}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-[14px] text-[#212529]">
+                          <span className="font-semibold">
+                            Pointage {activity.type === 'IN' ? 'ENTRÉE' : 'SORTIE'}
+                          </span>
+                          {' - '}
+                          <span>{activity.method}</span>
+                        </div>
+                        <div className="text-[12px] text-[#6C757D]">
+                          Matricule {activity.employeeId} - {activity.terminal} - {activity.location}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Activity Chart */}
+                <div>
+                  <div className="text-[13px] text-[#6C757D] mb-3">Activité par heure (aujourd'hui)</div>
+                  <div className="h-3 bg-gray-100 rounded-full overflow-hidden flex">
+                    <div className="bg-[#28A745]" style={{ width: '15%' }}></div>
+                    <div className="bg-[#00A3FF]" style={{ width: '25%' }}></div>
+                    <div className="bg-[#0052CC]" style={{ width: '35%' }}></div>
+                    <div className="bg-[#00A3FF]" style={{ width: '15%' }}></div>
+                    <div className="bg-[#28A745]" style={{ width: '10%' }}></div>
+                  </div>
+                  <div className="text-[11px] text-[#6C757D] mt-2">
+                    Pic entre 08h et 10h • Alertes de connexion terminal affichées ci-dessous
+                  </div>
+                </div>
+
+                {/* Alerts */}
+                <div className="mt-6 space-y-3">
+                  <div className="bg-[#FFC107] bg-opacity-10 border border-[#FFC107] rounded-lg p-4 flex items-center gap-3">
+                    <AlertTriangle className="w-5 h-5 text-[#FFC107]" />
+                    <span className="text-[14px] text-[#212529]">
+                      <span className="font-semibold">Tanger : Tourniquet Parking Nord</span> hors ligne depuis <span className="font-semibold">15 min</span>
+                    </span>
+                  </div>
+
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-[14px] text-[#212529]">
+                      <span className="font-semibold">Casablanca - Terminal Entrée Principale</span> synchronisé
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Webhook Configuration */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-[20px] font-semibold text-[#212529]">Configuration webhook</h2>
+                    <p className="text-[14px] text-[#6C757D] mt-0.5">
+                      Définir la cible pour les événements de pointage en temps réel
+                    </p>
+                  </div>
+                  <button className="text-[14px] text-[#0052CC] hover:underline font-medium">
+                    Webhooks
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Webhook URL */}
+                <div>
+                  <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                    URL webhook
+                  </label>
+                  <input
+                    type="text"
+                    value={webhookConfig.url}
+                    onChange={(e) => setWebhookConfig({ ...webhookConfig, url: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  />
+                  <p className="text-[12px] text-[#6C757D] mt-1.5">
+                    Les pointages validés seront envoyés vers cette URL en temps réel.
+                  </p>
+                </div>
+
+                {/* Custom Headers */}
+                <div>
+                  <label className="block text-[14px] font-medium text-[#212529] mb-3">
+                    Headers personnalisés
+                  </label>
+
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <input
+                        type="text"
+                        value="X-Tenant-ID"
+                        disabled
+                        className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#6C757D]"
+                      />
+                      <input
+                        type="text"
+                        value={webhookConfig.tenantId}
+                        onChange={(e) => setWebhookConfig({ ...webhookConfig, tenantId: e.target.value })}
+                        className="px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <input
+                        type="text"
+                        value="X-API-KEY"
+                        disabled
+                        className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#6C757D]"
+                      />
+                      <input
+                        type="password"
+                        value={webhookConfig.apiKey}
+                        onChange={(e) => setWebhookConfig({ ...webhookConfig, apiKey: e.target.value })}
+                        className="px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] font-mono focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                      />
+                    </div>
+
+                    <button className="text-[13px] text-[#0052CC] hover:underline font-medium">
+                      + Ajouter un header personnalisé
+                    </button>
+                  </div>
+
+                  <p className="text-[12px] text-[#6C757D] mt-3">
+                    Utilisez ces headers pour authentifier les appels côté serveur.
+                  </p>
+                </div>
+
+                <div className="pt-4">
+                  <p className="text-[13px] text-[#6C757D] mb-4">
+                    Vous pouvez tester la configuration avec un événement de pointage simulé.
+                  </p>
+
+                  <div className="flex gap-3">
+                    <button className="px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                      Tester le webhook
+                    </button>
+                    <button className="px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                      Voir les logs webhook
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel - Terminal Form */}
+          {showTerminalForm && (
+            <div className="col-span-5">
+              <div className="bg-white rounded-lg border border-gray-200 sticky top-6">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <h3 className="text-[18px] font-semibold text-[#212529]">
+                        Formulaire terminal
+                      </h3>
+                      <p className="text-[13px] text-[#6C757D] mt-1">
+                        Créer ou modifier un terminal de pointage
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setShowTerminalForm(false)}
+                      className="text-[#6C757D] hover:text-[#212529]"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <button className="text-[13px] text-[#0052CC] hover:underline font-medium">
+                    Détails
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
+                  {/* Terminal Name */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                      Nom du terminal
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ex : Terminal Entrée Principale"
+                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Type & Site */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                        Type
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={formData.type}
+                          onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent appearance-none"
+                        >
+                          <option value="">Sélectionner</option>
+                          <option value="fingerprint">Empreinte digitale</option>
+                          <option value="facial">Reconnaissance faciale</option>
+                          <option value="rfid">Badge RFID</option>
+                          <option value="qr">QR Code</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6C757D] pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                        Site affecté
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={formData.site}
+                          onChange={(e) => setFormData({ ...formData, site: e.target.value })}
+                          className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] text-[#212529] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent appearance-none"
+                        >
+                          <option value="">Sélectionner un site</option>
+                          <option value="casablanca">Casablanca</option>
+                          <option value="tanger">Tanger</option>
+                          <option value="rabat">Rabat</option>
+                        </select>
+                        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#6C757D] pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Device ID */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                      Device ID unique
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={formData.deviceId}
+                        onChange={(e) => setFormData({ ...formData, deviceId: e.target.value })}
+                        placeholder="Ex : CAS-ENTREE-001"
+                        disabled={formData.autoDeviceId}
+                        className="flex-1 px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent disabled:bg-gray-50"
+                      />
+                      <button
+                        onClick={() => setFormData({ ...formData, autoDeviceId: !formData.autoDeviceId })}
+                        className={`px-4 py-2.5 rounded-lg text-[14px] font-medium transition-colors ${
+                          formData.autoDeviceId
+                            ? 'bg-[#0052CC] text-white'
+                            : 'bg-white border border-gray-300 text-[#212529] hover:bg-gray-50'
+                        }`}
+                      >
+                        Auto
+                      </button>
+                    </div>
+                    <p className="text-[12px] text-[#6C757D] mt-1.5">
+                      Peut être généré automatiquement ou saisi manuellement.
+                    </p>
+                  </div>
+
+                  {/* IP Address */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                      Adresse IP
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={formData.ipAddress}
+                        onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
+                        placeholder="Ex : 192.168.0.12"
+                        disabled={formData.autoIpAddress}
+                        className="flex-1 px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] font-mono placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent disabled:bg-gray-50"
+                      />
+                      <button
+                        onClick={() => setFormData({ ...formData, autoIpAddress: !formData.autoIpAddress })}
+                        className={`px-4 py-2.5 rounded-lg text-[14px] font-medium transition-colors ${
+                          formData.autoIpAddress
+                            ? 'bg-[#0052CC] text-white'
+                            : 'bg-white border border-gray-300 text-[#212529] hover:bg-gray-50'
+                        }`}
+                      >
+                        Auto
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* API Key */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-1.5">
+                      API Key
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.apiKey}
+                      onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+                      placeholder="Générer automatiquement"
+                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] font-mono placeholder:text-[#6C757D] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    />
+                    <p className="text-[12px] text-[#6C757D] mt-1.5">
+                      Utilisée pour sécuriser les webhooks et appels du terminal.
+                    </p>
+                  </div>
+
+                  {/* Status Toggle */}
+                  <div>
+                    <label className="block text-[14px] font-medium text-[#212529] mb-3">
+                      Statut
+                    </label>
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="text-[14px] font-semibold text-[#212529]">Actif</div>
+                        <div className="text-[12px] text-[#6C757D] mt-0.5">
+                          Le terminal accepte les pointages et remonte les données.
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.isActive}
+                          onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0052CC]"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="pt-4 space-y-3">
+                    <button className="w-full px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
+                      <RefreshCw className="w-4 h-4 inline mr-2" />
+                      Réinitialiser l'API Key
+                    </button>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowTerminalForm(false)}
+                        className="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium"
+                      >
+                        Annuler
+                      </button>
+                      <button className="flex-1 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold">
+                        Enregistrer le terminal
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
