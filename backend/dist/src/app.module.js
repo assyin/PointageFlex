@@ -29,8 +29,11 @@ const sites_module_1 = require("./modules/sites/sites.module");
 const departments_module_1 = require("./modules/departments/departments.module");
 const positions_module_1 = require("./modules/positions/positions.module");
 const holidays_module_1 = require("./modules/holidays/holidays.module");
+const roles_module_1 = require("./modules/roles/roles.module");
+const permissions_module_1 = require("./modules/permissions/permissions.module");
 const jwt_auth_guard_1 = require("./common/guards/jwt-auth.guard");
 const roles_guard_1 = require("./common/guards/roles.guard");
+const permissions_guard_1 = require("./common/guards/permissions.guard");
 const tenant_resolver_middleware_1 = require("./common/middleware/tenant-resolver.middleware");
 let AppModule = class AppModule {
     configure(consumer) {
@@ -63,6 +66,8 @@ exports.AppModule = AppModule = __decorate([
             departments_module_1.DepartmentsModule,
             positions_module_1.PositionsModule,
             holidays_module_1.HolidaysModule,
+            roles_module_1.RolesModule,
+            permissions_module_1.PermissionsModule,
         ],
         providers: [
             {
@@ -72,6 +77,10 @@ exports.AppModule = AppModule = __decorate([
             {
                 provide: core_1.APP_GUARD,
                 useClass: roles_guard_1.RolesGuard,
+            },
+            {
+                provide: core_1.APP_GUARD,
+                useClass: permissions_guard_1.PermissionsGuard,
             },
         ],
     })

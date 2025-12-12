@@ -1,26 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-  User,
-  Mail,
-  Phone,
-  Globe,
-  Shield,
-  Bell,
-  Download,
-  Upload,
-  Eye,
-  EyeOff,
-  CheckCircle,
-  Smartphone,
-  Monitor,
-  LogOut,
-  Calendar,
-  Clock,
-  TrendingUp,
-  AlertCircle,
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PermissionGate } from '@/components/auth/PermissionGate';
+import { useAuth } from '@/contexts/AuthContext';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   useProfile,
   useUpdateProfile,
@@ -30,23 +20,42 @@ import {
   useSessions,
   useRevokeSession,
   useProfileStats,
+  useExportUserData,
+  useUploadAvatar,
+  useRemoveAvatar,
 } from '@/lib/hooks/useProfile';
+import {
+  User,
+  Mail,
+  Phone,
+  Shield,
+  Settings,
+  BarChart3,
+  Download,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  XCircle,
+  Smartphone,
+  Monitor,
+  LogOut,
+  Clock,
+  TrendingUp,
+  AlertCircle,
+  KeyRound,
+  Building2,
+  Users,
+  Calendar,
+} from 'lucide-react';
 import { toast } from 'sonner';
-
-// Types
-interface Session {
-  id: string;
-  device: string;
-  browser: string;
-  os: string;
-  location: string;
-  ip: string;
-  lastActive: string;
-  isCurrent: boolean;
-}
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 
 export default function ProfilePage() {
-  // Fetch data from API
+  const { user: authUser, hasPermission, hasRole } = useAuth();
+  const [activeTab, setActiveTab] = useState('info');
+
+  // Fetch data
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: preferences, isLoading: preferencesLoading } = usePreferences();
   const { data: sessions, isLoading: sessionsLoading } = useSessions();
@@ -57,26 +66,19 @@ export default function ProfilePage() {
   const changePasswordMutation = useChangePassword();
   const updatePreferencesMutation = useUpdatePreferences();
   const revokeSessionMutation = useRevokeSession();
+  const exportDataMutation = useExportUserData();
+  const uploadAvatarMutation = useUploadAvatar();
+  const removeAvatarMutation = useRemoveAvatar();
 
-  // States
+  // File input ref
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Form states
   const [personalInfo, setPersonalInfo] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    role: '',
-    roleType: 'Lecture seule',
-    language: 'Français',
-  });
-
-  const [employeeInfo, setEmployeeInfo] = useState({
-    matricule: '',
-    position: '',
-    department: '',
-    site: '',
-    team: '',
-    shift: '',
-    hireDate: '',
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -88,15 +90,22 @@ export default function ProfilePage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
 
-  const [notifications, setNotifications] = useState({
-    emailLeaves: true,
-    emailPlanning: true,
-    emailAlerts: false,
-    pushMobile: true,
-    pushDesktop: false,
+  const [userPreferences, setUserPreferences] = useState({
+    language: 'fr',
+    timezone: 'Africa/Casablanca',
+    notifications: {
+      email: {
+        leaves: true,
+        planning: true,
+        alerts: false,
+      },
+      push: {
+        mobile: true,
+        desktop: false,
+      },
+      sms: false,
+    },
   });
-
-  const [timezone, setTimezone] = useState('(GMT+0100) Europe / Casablanca');
 
   // Update states when data is fetched
   useEffect(() => {
@@ -106,57 +115,40 @@ export default function ProfilePage() {
         lastName: profile.lastName || '',
         email: profile.email || '',
         phone: profile.phone || '',
-        role: profile.role || '',
-        roleType: 'Lecture seule',
-        language: preferences?.language || 'Français',
       });
-
-      if (profile.employee) {
-        setEmployeeInfo({
-          matricule: profile.employee.matricule || '',
-          position: profile.employee.position || '',
-          department: profile.employee.department?.name || '',
-          site: profile.employee.site || '',
-          team: profile.employee.team?.name || '',
-          shift: profile.employee.shift || '',
-          hireDate: profile.employee.hireDate || '',
-        });
-      }
     }
-  }, [profile, preferences]);
+  }, [profile]);
 
   useEffect(() => {
     if (preferences) {
-      setTimezone(preferences.timezone || '(GMT+0100) Europe / Casablanca');
-      setNotifications({
-        emailLeaves: preferences.notifications?.email || false,
-        emailPlanning: preferences.notifications?.email || false,
-        emailAlerts: preferences.notifications?.email || false,
-        pushMobile: preferences.notifications?.push || false,
-        pushDesktop: preferences.notifications?.push || false,
+      setUserPreferences({
+        language: preferences.language || 'fr',
+        timezone: preferences.timezone || 'Africa/Casablanca',
+        notifications: preferences.notifications || {
+          email: { leaves: true, planning: true, alerts: false },
+          push: { mobile: true, desktop: false },
+          sms: false,
+        },
       });
     }
   }, [preferences]);
 
-  const getPasswordStrength = (password: string) => {
-    if (password.length === 0) return { strength: 0, label: '', color: '' };
-    if (password.length < 8) return { strength: 33, label: 'Faible', color: 'bg-red-500' };
-    if (password.length < 12) return { strength: 66, label: 'Moyen', color: 'bg-orange-500' };
-    return { strength: 100, label: 'Fort', color: 'bg-green-500' };
-  };
-
-  const passwordStrength = getPasswordStrength(passwordData.newPassword);
+  // Check if user can modify name (EMPLOYEE cannot)
+  const canModifyName = authUser?.role !== 'EMPLOYEE' || 
+    (authUser?.roles && !authUser.roles.includes('EMPLOYEE'));
 
   // Handlers
   const handleSaveProfile = async () => {
     try {
       await updateProfileMutation.mutateAsync({
-        firstName: personalInfo.firstName,
-        lastName: personalInfo.lastName,
+        firstName: canModifyName ? personalInfo.firstName : undefined,
+        lastName: canModifyName ? personalInfo.lastName : undefined,
         phone: personalInfo.phone,
       });
-    } catch (error) {
-      // Error handled in mutation
+    } catch (error: any) {
+      if (error?.response?.data?.message) {
+        toast.error(error.response.data.message);
+      }
     }
   };
 
@@ -181,599 +173,445 @@ export default function ProfilePage() {
         newPassword: '',
         confirmPassword: '',
       });
-    } catch (error) {
-      // Error handled in mutation
+    } catch (error: any) {
+      if (error?.response?.data?.message) {
+        toast.error(error.response.data.message);
+      }
     }
   };
 
   const handleSavePreferences = async () => {
     try {
-      await updatePreferencesMutation.mutateAsync({
-        language: personalInfo.language,
-        timezone: timezone,
-        notifications: {
-          email: notifications.emailLeaves || notifications.emailPlanning || notifications.emailAlerts,
-          push: notifications.pushMobile || notifications.pushDesktop,
-          sms: false,
-        },
-      });
-    } catch (error) {
-      // Error handled in mutation
+      await updatePreferencesMutation.mutateAsync(userPreferences);
+    } catch (error: any) {
+      if (error?.response?.data?.message) {
+        toast.error(error.response.data.message);
+      }
     }
   };
 
   const handleRevokeSession = async (sessionId: string) => {
     try {
       await revokeSessionMutation.mutateAsync(sessionId);
-    } catch (error) {
-      // Error handled in mutation
+    } catch (error: any) {
+      if (error?.response?.data?.message) {
+        toast.error(error.response.data.message);
+      }
     }
   };
 
-  const isLoading = profileLoading || preferencesLoading;
+  const handleExportData = async () => {
+    exportDataMutation.mutate();
+  };
 
-  if (isLoading) {
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Vérifier le type de fichier
+    if (!file.type.startsWith('image/')) {
+      toast.error('Veuillez sélectionner une image');
+      return;
+    }
+
+    // Vérifier la taille (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('L\'image est trop grande. Taille maximum : 5MB');
+      return;
+    }
+
+    uploadAvatarMutation.mutate(file);
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer votre photo de profil ?')) {
+      removeAvatarMutation.mutate();
+    }
+  };
+
+  const getPasswordStrength = (password: string) => {
+    if (password.length === 0) return { strength: 0, label: '', color: '' };
+    if (password.length < 8) return { strength: 33, label: 'Faible', color: 'bg-red-500' };
+    if (password.length < 12) return { strength: 66, label: 'Moyen', color: 'bg-orange-500' };
+    return { strength: 100, label: 'Fort', color: 'bg-green-500' };
+  };
+
+  const passwordStrength = getPasswordStrength(passwordData.newPassword);
+
+  if (profileLoading) {
     return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0052CC] mx-auto"></div>
-          <p className="mt-4 text-[#6C757D]">Chargement...</p>
+      <DashboardLayout title="Mon Profil">
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-text-secondary">Chargement...</p>
+          </div>
         </div>
-      </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-[1600px] mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-[28px] font-bold text-[#212529]">Profil utilisateur</h1>
-              <p className="text-[14px] text-[#6C757D] mt-1">
-                Gérez vos informations personnelles, sécurité du compte et préférences
-              </p>
-            </div>
+    <ProtectedRoute public>
+      <DashboardLayout title="Mon Profil" subtitle="Gérez vos informations personnelles, sécurité et préférences">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="info" className="flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Informations
+            </TabsTrigger>
+            <TabsTrigger value="security" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Sécurité
+            </TabsTrigger>
+            <TabsTrigger value="preferences" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Préférences
+            </TabsTrigger>
+            <TabsTrigger value="stats" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Statistiques
+            </TabsTrigger>
+          </TabsList>
 
-            <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
-                <Download className="w-4 h-4" />
-                Télécharger mes données
-              </button>
-
-              <button
-                onClick={handleSaveProfile}
-                disabled={updateProfileMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {updateProfileMutation.isPending ? 'Sauvegarde...' : 'Sauvegarder'}
-              </button>
-
-              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
-                <div className="w-10 h-10 rounded-full bg-[#0052CC] flex items-center justify-center text-white font-semibold">
-                  {personalInfo.firstName[0]}{personalInfo.lastName[0]}
-                </div>
-                <div>
-                  <div className="text-[14px] font-semibold text-[#212529]">
-                    {personalInfo.firstName} {personalInfo.lastName}
-                  </div>
-                  <div className="text-[12px] text-[#6C757D]">{personalInfo.role}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
-        <div className="grid grid-cols-12 gap-6">
-          {/* Left Column - Personal Info & Employee Info */}
-          <div className="col-span-7 space-y-6">
-            {/* Personal Information */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-[18px] font-semibold text-[#212529]">
-                      Informations personnelles
-                    </h2>
-                    <p className="text-[13px] text-[#6C757D] mt-0.5">
-                      Identité, coordonnées et photo de profil
-                    </p>
-                  </div>
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-[12px] font-semibold">
-                    Admin RH
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-6">
-                {/* Profile Photo */}
-                <div className="mb-6">
+          {/* Informations Tab */}
+          <TabsContent value="info" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Personal Information */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="h-5 w-5" />
+                    Informations personnelles
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Avatar */}
                   <div className="flex items-center gap-4">
-                    <div className="w-20 h-20 rounded-full bg-[#0052CC] flex items-center justify-center text-white text-[28px] font-bold">
-                      RA
-                    </div>
-                    <div className="flex gap-2">
-                      <button className="px-4 py-2 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium">
-                        Changer la photo
-                      </button>
-                      <button className="px-4 py-2 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium">
-                        Supprimer
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-[12px] text-[#6C757D] mt-2">
-                    PNG ou JPG - max 2 Mo - carré recommandé
-                  </p>
-                </div>
-
-                {/* Personal Details Grid */}
-                <div className="grid grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Prénom
-                    </label>
-                    <input
-                      type="text"
-                      value={personalInfo.firstName}
-                      onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, firstName: e.target.value })
-                      }
-                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Nom
-                    </label>
-                    <input
-                      type="text"
-                      value={personalInfo.lastName}
-                      onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, lastName: e.target.value })
-                      }
-                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Email
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="email"
-                        value={personalInfo.email}
-                        onChange={(e) =>
-                          setPersonalInfo({ ...personalInfo, email: e.target.value })
-                        }
-                        className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                    {profile?.avatar ? (
+                      <img
+                        src={profile.avatar}
+                        alt={`${personalInfo.firstName} ${personalInfo.lastName}`}
+                        className="w-20 h-20 rounded-full object-cover border-2 border-primary"
                       />
-                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                      </span>
+                    ) : (
+                      <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-white text-2xl font-bold">
+                        {personalInfo.firstName[0]?.toUpperCase() || ''}
+                        {personalInfo.lastName[0]?.toUpperCase() || ''}
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        className="hidden"
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadAvatarMutation.isPending}
+                      >
+                        {uploadAvatarMutation.isPending ? 'Upload...' : 'Changer la photo'}
+                      </Button>
+                      {profile?.avatar && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleRemoveAvatar}
+                          disabled={removeAvatarMutation.isPending}
+                        >
+                          {removeAvatarMutation.isPending ? 'Suppression...' : 'Supprimer'}
+                        </Button>
+                      )}
                     </div>
-                    <span className="text-[11px] text-green-600 font-medium">Vérifié</span>
                   </div>
 
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Téléphone
-                    </label>
-                    <input
-                      type="tel"
-                      value={personalInfo.phone}
-                      onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, phone: e.target.value })
-                      }
-                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Rôle
-                    </label>
-                    <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#212529]">
-                      {personalInfo.role}
+                  {/* Form Fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">Prénom</Label>
+                      <Input
+                        id="firstName"
+                        value={personalInfo.firstName}
+                        onChange={(e) =>
+                          setPersonalInfo({ ...personalInfo, firstName: e.target.value })
+                        }
+                        disabled={!canModifyName}
+                        className={!canModifyName ? 'bg-gray-50' : ''}
+                      />
+                      {!canModifyName && (
+                        <p className="text-xs text-text-secondary mt-1">
+                          Modifiable uniquement par la RH
+                        </p>
+                      )}
                     </div>
-                    <span className="text-[11px] text-[#6C757D]">{personalInfo.roleType}</span>
+
+                    <div>
+                      <Label htmlFor="lastName">Nom</Label>
+                      <Input
+                        id="lastName"
+                        value={personalInfo.lastName}
+                        onChange={(e) =>
+                          setPersonalInfo({ ...personalInfo, lastName: e.target.value })
+                        }
+                        disabled={!canModifyName}
+                        className={!canModifyName ? 'bg-gray-50' : ''}
+                      />
+                      {!canModifyName && (
+                        <p className="text-xs text-text-secondary mt-1">
+                          Modifiable uniquement par la RH
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <div className="relative">
+                        <Input
+                          id="email"
+                          type="email"
+                          value={personalInfo.email}
+                          disabled
+                          className="bg-gray-50"
+                        />
+                        <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-green-600" />
+                      </div>
+                      <p className="text-xs text-green-600 mt-1">Vérifié</p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="phone">Téléphone</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={personalInfo.phone}
+                        onChange={(e) =>
+                          setPersonalInfo({ ...personalInfo, phone: e.target.value })
+                        }
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Langue de l'interface
-                    </label>
-                    <select
-                      value={personalInfo.language}
-                      onChange={(e) =>
-                        setPersonalInfo({ ...personalInfo, language: e.target.value })
-                      }
-                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button
+                      onClick={handleSaveProfile}
+                      disabled={updateProfileMutation.isPending}
                     >
-                      <option value="Français">Français</option>
-                      <option value="English">English</option>
-                      <option value="العربية">العربية</option>
-                    </select>
+                      {updateProfileMutation.isPending ? 'Sauvegarde...' : 'Sauvegarder'}
+                    </Button>
                   </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
+
+              {/* Roles & Permissions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <KeyRound className="h-5 w-5" />
+                    Rôles & Permissions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {profile?.roles && profile.roles.length > 0 ? (
+                    <>
+                      <div className="space-y-2">
+                        <Label>Rôles RBAC</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {profile.roles.map((role: any) => (
+                            <Badge
+                              key={role.id}
+                              variant={role.isSystem ? 'default' : 'secondary'}
+                            >
+                              {role.name}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Permissions ({profile?.permissions?.length || 0})</Label>
+                        <details className="text-sm">
+                          <summary className="cursor-pointer text-text-secondary hover:text-text-primary">
+                            Voir les permissions
+                          </summary>
+                          <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                            {profile?.permissions?.map((perm: string) => (
+                              <div key={perm} className="text-xs text-text-secondary">
+                                {perm}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-text-secondary">Aucun rôle assigné</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Employee Information */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-[18px] font-semibold text-[#212529]">
-                      Informations employé
-                    </h2>
-                    <p className="text-[13px] text-[#6C757D] mt-0.5">
-                      Données RH liées à votre fiche employé
-                    </p>
-                  </div>
-                  <span className="text-[13px] text-[#6C757D]">Synchronisé RH</span>
-                </div>
-              </div>
-
-              <div className="p-6">
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Matricule
-                    </label>
-                    <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#212529] font-mono">
-                      {employeeInfo.matricule}
+            {profile?.employee && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    Informations employé
+                    <Badge variant="outline" className="ml-auto">
+                      Synchronisé RH
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <Label>Matricule</Label>
+                      <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm font-mono">
+                        {profile.employee.matricule}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Poste</Label>
+                      <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm">
+                        {profile.employee.position || '-'}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Département</Label>
+                      <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm">
+                        {profile.employee.department?.name || '-'}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Site</Label>
+                      <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm">
+                        {profile.employee.site?.name || '-'}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Équipe</Label>
+                      <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm">
+                        {profile.employee.team?.name || '-'}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Date d'embauche</Label>
+                      <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm">
+                        {profile.employee.hireDate
+                          ? format(new Date(profile.employee.hireDate), 'dd/MM/yyyy', { locale: fr })
+                          : '-'}
+                      </div>
                     </div>
                   </div>
-
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Poste
-                    </label>
-                    <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#212529]">
-                      {employeeInfo.position}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Service / Département
-                    </label>
-                    <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#212529]">
-                      {employeeInfo.department}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Site affecté
-                    </label>
-                    <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#212529]">
-                      {employeeInfo.site}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Équipe
-                    </label>
-                    <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#212529]">
-                      {employeeInfo.team}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Shift actuel
-                    </label>
-                    <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#212529]">
-                      {employeeInfo.shift}
-                    </div>
-                  </div>
-
-                  <div className="col-span-2">
-                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
-                      Date d'embauche
-                    </label>
-                    <div className="px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-[14px] text-[#212529]">
-                      {employeeInfo.hireDate}
-                    </div>
-                    <p className="text-[11px] text-[#6C757D] mt-1.5">
-                      Modifiable uniquement par la RH
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Preferences & Notifications */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-[18px] font-semibold text-[#212529]">
-                      Préférences & notifications
-                    </h2>
-                    <p className="text-[13px] text-[#6C757D] mt-0.5">
-                      Langue, fuseau horaire et canaux de notification
-                    </p>
-                  </div>
-                  <span className="text-[13px] text-[#6C757D]">Personnel</span>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-6">
-                {/* Language Options */}
-                <div>
-                  <label className="block text-[14px] font-semibold text-[#212529] mb-3">
-                    Langues disponibles
-                  </label>
-                  <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-[#0052CC] text-white rounded-lg text-[13px] font-medium">
-                      Français
-                    </button>
-                    <button className="px-4 py-2 bg-gray-100 text-[#6C757D] rounded-lg text-[13px] font-medium hover:bg-gray-200">
-                      English
-                    </button>
-                    <button className="px-4 py-2 bg-gray-100 text-[#6C757D] rounded-lg text-[13px] font-medium hover:bg-gray-200">
-                      العربية
-                    </button>
-                  </div>
-                </div>
-
-                {/* Timezone */}
-                <div>
-                  <label className="block text-[14px] font-semibold text-[#212529] mb-3">
-                    Fuseau horaire
-                  </label>
-                  <select
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                  >
-                    <option value="(GMT+0100) Europe / Casablanca">
-                      (GMT+0100) Europe / Casablanca
-                    </option>
-                    <option value="(GMT+0100) Europe / Paris">
-                      (GMT+0100) Europe / Paris
-                    </option>
-                  </select>
-                  <p className="text-[12px] text-[#6C757D] mt-1.5">
-                    Utilisé pour l'affichage des pointages et plannings
+                  <p className="text-xs text-text-secondary mt-4">
+                    Ces informations sont modifiables uniquement par la RH
                   </p>
-                </div>
+                </CardContent>
+              </Card>
+            )}
 
-                {/* Notifications */}
-                <div>
-                  <label className="block text-[14px] font-semibold text-[#212529] mb-3">
-                    Notifications
-                  </label>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <div className="text-[14px] font-medium text-[#212529]">
-                          Email - Congés & absences
-                        </div>
-                        <div className="text-[12px] text-[#6C757D] mt-0.5">
-                          Demandes, validations, refus, rappels d'échéance
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={notifications.emailLeaves}
-                          onChange={(e) =>
-                            setNotifications({ ...notifications, emailLeaves: e.target.checked })
-                          }
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0052CC]"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <div className="text-[14px] font-medium text-[#212529]">
-                          Email - Planning & shifts
-                        </div>
-                        <div className="text-[12px] text-[#6C757D] mt-0.5">
-                          Nouveaux plannings, remplacements, changements d'équipe
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={notifications.emailPlanning}
-                          onChange={(e) =>
-                            setNotifications({ ...notifications, emailPlanning: e.target.checked })
-                          }
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0052CC]"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <div className="text-[14px] font-medium text-[#212529]">
-                          Email - Alertes
-                        </div>
-                        <div className="text-[12px] text-[#6C757D] mt-0.5">
-                          Retards répétés, dépassements d'heures, connexions suspectes
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={notifications.emailAlerts}
-                          onChange={(e) =>
-                            setNotifications({ ...notifications, emailAlerts: e.target.checked })
-                          }
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0052CC]"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <div className="text-[14px] font-medium text-[#212529]">
-                          Notifications push mobile
-                        </div>
-                        <div className="text-[12px] text-[#6C757D] mt-0.5">
-                          Requiert l'application mobile installée
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={notifications.pushMobile}
-                          onChange={(e) =>
-                            setNotifications({ ...notifications, pushMobile: e.target.checked })
-                          }
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0052CC]"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                      <div>
-                        <div className="text-[14px] font-medium text-[#212529]">
-                          Notifications bureau (desktop)
-                        </div>
-                        <div className="text-[12px] text-[#6C757D] mt-0.5">
-                          Demandes à valider, alertes planning, rappels
-                        </div>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={notifications.pushDesktop}
-                          onChange={(e) =>
-                            setNotifications({ ...notifications, pushDesktop: e.target.checked })
-                          }
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0052CC]"></div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <button className="text-[14px] text-[#0052CC] hover:underline font-medium">
-                  Télécharger mes données (RGPD)
-                </button>
-                <div className="flex gap-3">
-                  <button className="px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium">
-                    Annuler
-                  </button>
-                  <button
-                    onClick={handleSavePreferences}
-                    disabled={updatePreferencesMutation.isPending}
-                    className="px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {updatePreferencesMutation.isPending ? 'Sauvegarde...' : 'Sauvegarder les modifications'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Security & Stats */}
-          <div className="col-span-5 space-y-6">
-            {/* Account Security */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
+            {/* Export RGPD */}
+            <Card>
+              <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-[18px] font-semibold text-[#212529]">
-                      Sécurité du compte
-                    </h2>
-                    <p className="text-[13px] text-[#6C757D] mt-0.5">
-                      Mot de passe, sessions actives et sécurité
+                    <h3 className="font-semibold">Télécharger mes données (RGPD)</h3>
+                    <p className="text-sm text-text-secondary mt-1">
+                      Obtenez une copie de toutes vos données personnelles
                     </p>
                   </div>
-                  <span className="text-[13px] text-[#6C757D]">Recommandé</span>
+                  <Button
+                    variant="outline"
+                    onClick={handleExportData}
+                    disabled={exportDataMutation.isPending}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {exportDataMutation.isPending ? 'Téléchargement...' : 'Télécharger'}
+                  </Button>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              <div className="p-6 space-y-6">
-                {/* Current Password */}
-                <div>
-                  <label className="block text-[14px] font-semibold text-[#212529] mb-3">
-                    Mot de passe actuel
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showCurrentPassword ? 'text' : 'password'}
-                      value={passwordData.currentPassword}
-                      onChange={(e) =>
-                        setPasswordData({ ...passwordData, currentPassword: e.target.value })
-                      }
-                      placeholder="••••••••"
-                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] pr-10 focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                    />
-                    <button
-                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#6C757D]"
-                    >
-                      {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* New Password */}
-                <div>
-                  <label className="block text-[14px] font-semibold text-[#212529] mb-3">
-                    Nouveau mot de passe
-                  </label>
-                  <div className="relative mb-2">
-                    <input
-                      type={showNewPassword ? 'text' : 'password'}
-                      value={passwordData.newPassword}
-                      onChange={(e) =>
-                        setPasswordData({ ...passwordData, newPassword: e.target.value })
-                      }
-                      placeholder="Choisissez un mot de passe robuste"
-                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] pr-10 focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                    />
-                    <button
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#6C757D]"
-                    >
-                      {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+          {/* Sécurité Tab */}
+          <TabsContent value="security" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Change Password */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Shield className="h-5 w-5" />
+                    Changer le mot de passe
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="currentPassword">Mot de passe actuel</Label>
+                    <div className="relative">
+                      <Input
+                        id="currentPassword"
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={passwordData.currentPassword}
+                        onChange={(e) =>
+                          setPasswordData({ ...passwordData, currentPassword: e.target.value })
+                        }
+                        placeholder="••••••••"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary"
+                      >
+                        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Confirm Password */}
-                  <input
-                    type="password"
-                    value={passwordData.confirmPassword}
-                    onChange={(e) =>
-                      setPasswordData({ ...passwordData, confirmPassword: e.target.value })
-                    }
-                    placeholder="Ressaisissez le nouveau mot de passe"
-                    className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] mb-3 focus:outline-none focus:ring-2 focus:ring-[#0052CC] focus:border-transparent"
-                  />
+                  <div>
+                    <Label htmlFor="newPassword">Nouveau mot de passe</Label>
+                    <div className="relative">
+                      <Input
+                        id="newPassword"
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={passwordData.newPassword}
+                        onChange={(e) =>
+                          setPasswordData({ ...passwordData, newPassword: e.target.value })
+                        }
+                        placeholder="Choisissez un mot de passe robuste"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="confirmPassword">Confirmer le mot de passe</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={(e) =>
+                        setPasswordData({ ...passwordData, confirmPassword: e.target.value })
+                      }
+                      placeholder="Ressaisissez le nouveau mot de passe"
+                    />
+                  </div>
 
                   {/* Password Strength */}
                   {passwordData.newPassword && (
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[12px] text-[#6C757D]">
-                          Force du mot de passe : {passwordStrength.label}
+                        <span className="text-xs text-text-secondary">
+                          Force : {passwordStrength.label}
                         </span>
                       </div>
                       <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -782,167 +620,337 @@ export default function ProfilePage() {
                           style={{ width: `${passwordStrength.strength}%` }}
                         ></div>
                       </div>
-                      <p className="text-[11px] text-[#6C757D] mt-2">
-                        Utilisez au moins 12 caractères, avec majuscules, minuscules, chiffres et symboles.
-                      </p>
                     </div>
                   )}
 
-                  {/* Change Password Button */}
-                  <button
+                  <Button
                     onClick={handleChangePassword}
-                    disabled={!passwordData.currentPassword || !passwordData.newPassword || changePasswordMutation.isPending}
-                    className="w-full px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={
+                      !passwordData.currentPassword ||
+                      !passwordData.newPassword ||
+                      changePasswordMutation.isPending
+                    }
+                    className="w-full"
                   >
                     {changePasswordMutation.isPending ? 'Changement...' : 'Changer le mot de passe'}
-                  </button>
-                </div>
+                  </Button>
+                </CardContent>
+              </Card>
 
-                {/* Active Sessions */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <label className="block text-[14px] font-semibold text-[#212529]">
-                      Sessions actives
-                    </label>
-                    <span className="text-[13px] text-[#6C757D]">Sécurité</span>
-                  </div>
-                  <p className="text-[12px] text-[#6C757D] mb-4">
-                    Connexions récentes à votre compte
-                  </p>
-
-                  <div className="space-y-3">
-                    {sessionsLoading ? (
-                      <div className="text-center py-4">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0052CC] mx-auto"></div>
-                      </div>
-                    ) : sessions && sessions.length > 0 ? (
-                      sessions.map((session: any) => (
+              {/* Active Sessions */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Monitor className="h-5 w-5" />
+                    Sessions actives
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {sessionsLoading ? (
+                    <div className="text-center py-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                    </div>
+                  ) : sessions && sessions.length > 0 ? (
+                    <div className="space-y-3">
+                      {sessions.map((session: any) => (
                         <div
                           key={session.id}
-                          className={`p-4 rounded-lg border ${
+                          className={`p-3 rounded-lg border ${
                             session.isCurrent
                               ? 'bg-green-50 border-green-200'
                               : 'bg-gray-50 border-gray-200'
                           }`}
                         >
                           <div className="flex items-start justify-between mb-2">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                               {session.os === 'Android' || session.os === 'iOS' ? (
-                                <Smartphone className="w-5 h-5 text-[#6C757D]" />
+                                <Smartphone className="h-4 w-4 text-text-secondary" />
                               ) : (
-                                <Monitor className="w-5 h-5 text-[#6C757D]" />
+                                <Monitor className="h-4 w-4 text-text-secondary" />
                               )}
                               <div>
-                                <div className="text-[14px] font-semibold text-[#212529]">
+                                <div className="text-sm font-medium">
                                   {session.device} - {session.browser}
                                 </div>
-                                <div className="text-[12px] text-[#6C757D]">
-                                  {session.location} - IP {session.ip}
+                                <div className="text-xs text-text-secondary">
+                                  {session.location} - {session.ip}
                                 </div>
                               </div>
                             </div>
                             {session.isCurrent && (
-                              <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-[11px] font-semibold">
-                                Session actuelle
-                              </span>
+                              <Badge variant="success" className="text-xs">
+                                Actuelle
+                              </Badge>
                             )}
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-[12px] text-[#6C757D]">{session.lastActive}</span>
+                            <span className="text-xs text-text-secondary">
+                              {session.lastActive}
+                            </span>
                             {!session.isCurrent && (
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => handleRevokeSession(session.id)}
                                 disabled={revokeSessionMutation.isPending}
-                                className="text-[12px] text-red-600 hover:underline font-medium disabled:opacity-50"
+                                className="text-red-600 hover:text-red-700 text-xs"
                               >
                                 Révoquer
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-center text-[#6C757D] py-4">Aucune session active</p>
-                    )}
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <p className="text-[12px] text-[#6C757D] mb-3">
-                      Si vous ne reconnaissez pas une session, changez votre mot de passe immédiatement.
-                    </p>
-                    <button className="text-[13px] text-red-600 hover:underline font-medium">
-                      Déconnecter autres sessions
-                    </button>
-                  </div>
-                </div>
-              </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-center text-text-secondary py-4">Aucune session active</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
+          </TabsContent>
 
-            {/* Personal Statistics */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-[18px] font-semibold text-[#212529]">
-                      Statistiques personnelles
-                    </h2>
-                    <p className="text-[13px] text-[#6C757D] mt-0.5">
-                      Vos indicateurs de présence pour ce mois
-                    </p>
-                  </div>
-                  <span className="text-[13px] text-[#6C757D]">Employé</span>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-[12px] text-[#6C757D] mb-1">Jours travaillés ce mois</div>
-                    <div className="text-[28px] font-bold text-[#212529] mb-1">
-                      {stats.workedDays.value}
-                    </div>
-                    <div className="text-[11px] text-[#6C757D]">{stats.workedDays.subtitle}</div>
-                  </div>
-
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-[12px] text-[#6C757D] mb-1">Heures totales</div>
-                    <div className="text-[28px] font-bold text-[#212529] mb-1">
-                      {stats.totalHours.value}
-                    </div>
-                    <div className="text-[11px] text-[#6C757D]">{stats.totalHours.subtitle}</div>
-                  </div>
+          {/* Préférences Tab */}
+          <TabsContent value="preferences" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  Préférences & Notifications
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Language */}
+                <div>
+                  <Label>Langue</Label>
+                  <select
+                    value={userPreferences.language}
+                    onChange={(e) =>
+                      setUserPreferences({ ...userPreferences, language: e.target.value })
+                    }
+                    className="w-full mt-2 px-3 py-2 border rounded-lg"
+                  >
+                    <option value="fr">Français</option>
+                    <option value="en">English</option>
+                    <option value="ar">العربية</option>
+                  </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-[12px] text-[#6C757D] mb-1">Retards</div>
-                    <div className="text-[28px] font-bold text-orange-600 mb-1">
-                      {stats.lateCount.value}
-                    </div>
-                    <div className="text-[11px] text-[#6C757D]">{stats.lateCount.subtitle}</div>
-                  </div>
+                {/* Timezone */}
+                <div>
+                  <Label>Fuseau horaire</Label>
+                  <select
+                    value={userPreferences.timezone}
+                    onChange={(e) =>
+                      setUserPreferences({ ...userPreferences, timezone: e.target.value })
+                    }
+                    className="w-full mt-2 px-3 py-2 border rounded-lg"
+                  >
+                    <option value="Africa/Casablanca">(GMT+1) Africa/Casablanca</option>
+                    <option value="Europe/Paris">(GMT+1) Europe/Paris</option>
+                    <option value="UTC">(GMT+0) UTC</option>
+                  </select>
+                </div>
 
-                  <div className="p-4 bg-gray-50 rounded-lg">
-                    <div className="text-[12px] text-[#6C757D] mb-1">Heures supplémentaires</div>
-                    <div className="text-[28px] font-bold text-green-600 mb-1">
-                      {stats.overtime.value}
+                {/* Notifications */}
+                <div>
+                  <Label>Notifications</Label>
+                  <div className="mt-4 space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="font-medium">Email - Congés & absences</div>
+                        <div className="text-sm text-text-secondary">
+                          Demandes, validations, refus
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={userPreferences.notifications.email.leaves}
+                          onChange={(e) =>
+                            setUserPreferences({
+                              ...userPreferences,
+                              notifications: {
+                                ...userPreferences.notifications,
+                                email: {
+                                  ...userPreferences.notifications.email,
+                                  leaves: e.target.checked,
+                                },
+                              },
+                            })
+                          }
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                      </label>
                     </div>
-                    <div className="text-[11px] text-[#6C757D]">{stats.overtime.subtitle}</div>
+
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="font-medium">Email - Planning & shifts</div>
+                        <div className="text-sm text-text-secondary">
+                          Nouveaux plannings, remplacements
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={userPreferences.notifications.email.planning}
+                          onChange={(e) =>
+                            setUserPreferences({
+                              ...userPreferences,
+                              notifications: {
+                                ...userPreferences.notifications,
+                                email: {
+                                  ...userPreferences.notifications.email,
+                                  planning: e.target.checked,
+                                },
+                              },
+                            })
+                          }
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="font-medium">Notifications push mobile</div>
+                        <div className="text-sm text-text-secondary">
+                          Requiert l'application mobile
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={userPreferences.notifications.push.mobile}
+                          onChange={(e) =>
+                            setUserPreferences({
+                              ...userPreferences,
+                              notifications: {
+                                ...userPreferences.notifications,
+                                push: {
+                                  ...userPreferences.notifications.push,
+                                  mobile: e.target.checked,
+                                },
+                              },
+                            })
+                          }
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                      </label>
+                    </div>
                   </div>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="text-[12px] text-[#6C757D] mb-1">Congés pris</div>
-                  <div className="text-[28px] font-bold text-[#0052CC] mb-1">
-                    {stats.leaveTaken.value}
-                  </div>
-                  <div className="text-[11px] text-[#6C757D]">{stats.leaveTaken.subtitle}</div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button
+                    onClick={handleSavePreferences}
+                    disabled={updatePreferencesMutation.isPending}
+                  >
+                    {updatePreferencesMutation.isPending
+                      ? 'Sauvegarde...'
+                      : 'Sauvegarder les modifications'}
+                  </Button>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Statistiques Tab */}
+          <TabsContent value="stats" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-text-secondary mb-1">Jours travaillés</p>
+                      <p className="text-2xl font-bold">
+                        {stats?.workedDays?.value || 0}
+                      </p>
+                      <p className="text-xs text-text-secondary mt-1">
+                        {stats?.workedDays?.subtitle || ''}
+                      </p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-primary opacity-20" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-text-secondary mb-1">Heures totales</p>
+                      <p className="text-2xl font-bold">
+                        {stats?.totalHours?.value || '0h'}
+                      </p>
+                      <p className="text-xs text-text-secondary mt-1">
+                        {stats?.totalHours?.subtitle || ''}
+                      </p>
+                    </div>
+                    <Clock className="h-8 w-8 text-primary opacity-20" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-text-secondary mb-1">Retards</p>
+                      <p className="text-2xl font-bold text-orange-600">
+                        {stats?.lateCount?.value || 0}
+                      </p>
+                      <p className="text-xs text-text-secondary mt-1">
+                        {stats?.lateCount?.subtitle || ''}
+                      </p>
+                    </div>
+                    <AlertCircle className="h-8 w-8 text-orange-600 opacity-20" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-text-secondary mb-1">Heures supplémentaires</p>
+                      <p className="text-2xl font-bold text-green-600">
+                        {stats?.overtime?.value || '0h'}
+                      </p>
+                      <p className="text-xs text-text-secondary mt-1">
+                        {stats?.overtime?.subtitle || ''}
+                      </p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-green-600 opacity-20" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-text-secondary mb-1">Congés pris</p>
+                      <p className="text-2xl font-bold text-primary">
+                        {stats?.leaveTaken?.value || 0}
+                      </p>
+                      <p className="text-xs text-text-secondary mt-1">
+                        {stats?.leaveTaken?.subtitle || ''}
+                      </p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-primary opacity-20" />
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
+          </TabsContent>
+        </Tabs>
+      </DashboardLayout>
+    </ProtectedRoute>
   );
 }
+

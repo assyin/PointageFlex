@@ -3,7 +3,7 @@ export declare class CreateLeaveDto {
     leaveTypeId: string;
     startDate: string;
     endDate: string;
-    days: number;
+    days?: number;
     reason?: string;
     document?: string;
 }

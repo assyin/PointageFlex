@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmployeesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
+const manager_level_util_1 = require("../../common/utils/manager-level.util");
 const XLSX = require("xlsx");
 let EmployeesService = class EmployeesService {
     constructor(prisma) {
@@ -53,8 +54,40 @@ let EmployeesService = class EmployeesService {
             },
         });
     }
-    async findAll(tenantId, filters) {
+    async findAll(tenantId, filters, userId, userPermissions) {
         const where = { tenantId };
+        const hasViewAll = userPermissions?.includes('employee.view_all');
+        const hasViewOwn = userPermissions?.includes('employee.view_own');
+        const hasViewTeam = userPermissions?.includes('employee.view_team');
+        const hasViewDepartment = userPermissions?.includes('employee.view_department');
+        const hasViewSite = userPermissions?.includes('employee.view_site');
+        if (!hasViewAll && hasViewOwn && userId) {
+            const employee = await this.prisma.employee.findFirst({
+                where: { userId, tenantId },
+                select: { id: true },
+            });
+            if (employee) {
+                where.id = employee.id;
+            }
+            else {
+                return [];
+            }
+        }
+        else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
+            const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+            if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+                where.departmentId = managerLevel.departmentId;
+            }
+            else if (managerLevel.type === 'SITE' && hasViewSite) {
+                where.siteId = managerLevel.siteId;
+            }
+            else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+                where.teamId = managerLevel.teamId;
+            }
+            else if (managerLevel.type) {
+                return [];
+            }
+        }
         if (filters?.siteId)
             where.siteId = filters.siteId;
         if (filters?.departmentId)

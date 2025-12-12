@@ -119,10 +119,19 @@ export function useDeleteSchedule() {
       toast.success('Planning supprimé avec succès');
     },
     onError: (error: any) => {
-      const errorMessage = translateErrorMessage(error);
+      const statusCode = error?.response?.status;
+      let errorMessage = translateErrorMessage(error);
+      let description = 'Impossible de supprimer le planning.';
+
+      // Message spécifique pour les erreurs 403 (permissions)
+      if (statusCode === 403) {
+        errorMessage = 'Accès refusé';
+        description = 'Vous n\'avez pas les permissions nécessaires pour supprimer un planning. Seuls les administrateurs RH et les managers peuvent effectuer cette action.';
+      }
+
       toast.error(errorMessage, {
-        description: 'Impossible de supprimer le planning.',
-        duration: 5000,
+        description,
+        duration: 6000,
       });
     },
   });
@@ -142,10 +151,19 @@ export function useBulkDeleteSchedules() {
       toast.success(`${count} planning(s) supprimé(s) avec succès`);
     },
     onError: (error: any) => {
-      const errorMessage = translateErrorMessage(error);
+      const statusCode = error?.response?.status;
+      let errorMessage = translateErrorMessage(error);
+      let description = 'Impossible de supprimer les plannings.';
+
+      // Message spécifique pour les erreurs 403 (permissions)
+      if (statusCode === 403) {
+        errorMessage = 'Accès refusé';
+        description = 'Vous n\'avez pas les permissions nécessaires pour supprimer des plannings. Seuls les administrateurs RH et les managers peuvent effectuer cette action.';
+      }
+
       toast.error(errorMessage, {
-        description: 'Impossible de supprimer les plannings.',
-        duration: 5000,
+        description,
+        duration: 6000,
       });
     },
   });

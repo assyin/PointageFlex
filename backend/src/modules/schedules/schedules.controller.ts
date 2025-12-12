@@ -23,8 +23,10 @@ import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { CreateReplacementDto } from './dto/create-replacement.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
+import { LegacyRole } from '@prisma/client';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Role } from '@prisma/client';
+
 
 @ApiTags('Schedules')
 @Controller('schedules')
@@ -37,7 +39,7 @@ export class SchedulesController {
   ) {}
 
   @Post()
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('schedule.create')
   @ApiOperation({ summary: 'Create new schedule' })
   create(@CurrentUser() user: any, @Body() dto: CreateScheduleDto) {
     // Log pour debug
@@ -46,13 +48,14 @@ export class SchedulesController {
   }
 
   @Post('bulk')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('schedule.create')
   @ApiOperation({ summary: 'Create multiple schedules' })
   createBulk(@CurrentUser() user: any, @Body() dto: BulkScheduleDto) {
     return this.schedulesService.createBulk(user.tenantId, dto.schedules);
   }
 
   @Get()
+  @RequirePermissions('schedule.view_all', 'schedule.view_own', 'schedule.view_team')
   @ApiOperation({ summary: 'Get all schedules' })
   findAll(
     @CurrentUser() user: any,
@@ -77,10 +80,13 @@ export class SchedulesController {
         startDate,
         endDate,
       },
+      user.userId,
+      user.permissions || [],
     );
   }
 
   @Get('week/:date')
+  @RequirePermissions('schedule.view_all', 'schedule.view_own', 'schedule.view_team')
   @ApiOperation({ summary: 'Get week schedule' })
   getWeek(
     @CurrentUser() user: any,
@@ -95,6 +101,7 @@ export class SchedulesController {
   }
 
   @Get('month/:date')
+  @RequirePermissions('schedule.view_all', 'schedule.view_own', 'schedule.view_team')
   @ApiOperation({ summary: 'Get month schedule' })
   getMonth(
     @CurrentUser() user: any,
@@ -109,6 +116,7 @@ export class SchedulesController {
   }
 
   @Get('alerts')
+  @RequirePermissions('schedule.view_all')
   @ApiOperation({ summary: 'Get legal alerts for date range' })
   getAlerts(
     @CurrentUser() user: any,
@@ -124,7 +132,7 @@ export class SchedulesController {
 
   // Replacements endpoints
   @Post('replacements')
-  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.EMPLOYEE)
+  @RequirePermissions('schedule.create', 'schedule.request_replacement')
   @ApiOperation({ summary: 'Create replacement request' })
   createReplacement(
     @CurrentUser() user: any,
@@ -134,6 +142,7 @@ export class SchedulesController {
   }
 
   @Get('replacements')
+  @RequirePermissions('schedule.view_all', 'schedule.view_own')
   @ApiOperation({ summary: 'Get all replacements' })
   findAllReplacements(
     @CurrentUser() user: any,
@@ -149,7 +158,7 @@ export class SchedulesController {
   }
 
   @Patch('replacements/:id/approve')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('schedule.approve')
   @ApiOperation({ summary: 'Approve replacement' })
   approveReplacement(
     @CurrentUser() user: any,
@@ -163,7 +172,7 @@ export class SchedulesController {
   }
 
   @Patch('replacements/:id/reject')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('schedule.approve')
   @ApiOperation({ summary: 'Reject replacement' })
   rejectReplacement(
     @CurrentUser() user: any,
@@ -183,7 +192,7 @@ export class SchedulesController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('schedule.update')
   @ApiOperation({ summary: 'Update schedule' })
   update(
     @CurrentUser() user: any,
@@ -194,21 +203,21 @@ export class SchedulesController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('schedule.delete')
   @ApiOperation({ summary: 'Delete schedule' })
   remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.schedulesService.remove(user.tenantId, id);
   }
 
   @Delete('bulk')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('schedule.delete')
   @ApiOperation({ summary: 'Delete multiple schedules' })
   removeBulk(@CurrentUser() user: any, @Body() body: { ids: string[] }) {
     return this.schedulesService.removeBulk(user.tenantId, body.ids);
   }
 
   @Post('import/excel')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('schedule.create', 'schedule.import')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Import schedules from Excel file' })
@@ -240,7 +249,7 @@ export class SchedulesController {
   }
 
   @Get('import/template')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('schedule.create')
   @ApiOperation({ summary: 'Download Excel template for schedule import' })
   async downloadTemplate(@Res() res: Response) {
     const XLSX = require('xlsx');

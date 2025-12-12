@@ -23,13 +23,13 @@ export declare class SchedulesService {
         siteId?: string;
         startDate?: string;
         endDate?: string;
-    }): Promise<{
+    }, userId?: string, userPermissions?: string[]): Promise<{
         data: ({
             employee: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
                 position: string;
                 department: {
                     id: string;
@@ -81,9 +81,9 @@ export declare class SchedulesService {
     findOne(tenantId: string, id: string): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
             position: string;
         };
         team: {
@@ -120,9 +120,9 @@ export declare class SchedulesService {
     update(tenantId: string, id: string, dto: UpdateScheduleDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         team: {
             id: string;
@@ -181,9 +181,9 @@ export declare class SchedulesService {
         schedules: ({
             employee: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
                 position: string;
                 department: {
                     id: string;
@@ -253,13 +253,13 @@ export declare class SchedulesService {
             updatedAt: Date;
             tenantId: string;
             employeeId: string;
+            status: import(".prisma/client").$Enums.LeaveStatus;
             leaveTypeId: string;
             startDate: Date;
             endDate: Date;
             days: import("@prisma/client/runtime/library").Decimal;
             reason: string | null;
             document: string | null;
-            status: import(".prisma/client").$Enums.LeaveStatus;
             managerApprovedBy: string | null;
             managerApprovedAt: Date | null;
             managerComment: string | null;
@@ -296,14 +296,14 @@ export declare class SchedulesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            reason: string | null;
-            status: import(".prisma/client").$Enums.ReplacementStatus;
             date: Date;
+            status: import(".prisma/client").$Enums.ReplacementStatus;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            reason: string | null;
             shiftId: string;
             originalEmployeeId: string;
             replacementEmployeeId: string;
-            approvedBy: string | null;
-            approvedAt: Date | null;
         })[];
     }>;
     getMonthSchedule(tenantId: string, date: string, filters?: {
@@ -315,9 +315,9 @@ export declare class SchedulesService {
         schedules: ({
             employee: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
                 position: string;
                 department: {
                     id: string;
@@ -387,13 +387,13 @@ export declare class SchedulesService {
             updatedAt: Date;
             tenantId: string;
             employeeId: string;
+            status: import(".prisma/client").$Enums.LeaveStatus;
             leaveTypeId: string;
             startDate: Date;
             endDate: Date;
             days: import("@prisma/client/runtime/library").Decimal;
             reason: string | null;
             document: string | null;
-            status: import(".prisma/client").$Enums.LeaveStatus;
             managerApprovedBy: string | null;
             managerApprovedAt: Date | null;
             managerComment: string | null;
@@ -430,14 +430,14 @@ export declare class SchedulesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            reason: string | null;
-            status: import(".prisma/client").$Enums.ReplacementStatus;
             date: Date;
+            status: import(".prisma/client").$Enums.ReplacementStatus;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            reason: string | null;
             shiftId: string;
             originalEmployeeId: string;
             replacementEmployeeId: string;
-            approvedBy: string | null;
-            approvedAt: Date | null;
         })[];
     }>;
     createBulk(tenantId: string, schedules: CreateScheduleDto[]): Promise<{
@@ -462,29 +462,29 @@ export declare class SchedulesService {
         };
         originalEmployee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         replacementEmployee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        reason: string | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        reason: string | null;
         shiftId: string;
         originalEmployeeId: string;
         replacementEmployeeId: string;
-        approvedBy: string | null;
-        approvedAt: Date | null;
     }>;
     findAllReplacements(tenantId: string, filters?: {
         status?: string;
@@ -506,29 +506,29 @@ export declare class SchedulesService {
         };
         originalEmployee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         replacementEmployee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        reason: string | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        reason: string | null;
         shiftId: string;
         originalEmployeeId: string;
         replacementEmployeeId: string;
-        approvedBy: string | null;
-        approvedAt: Date | null;
     })[]>;
     approveReplacement(tenantId: string, id: string, approvedBy: string): Promise<{
         shift: {
@@ -559,14 +559,14 @@ export declare class SchedulesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        reason: string | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        reason: string | null;
         shiftId: string;
         originalEmployeeId: string;
         replacementEmployeeId: string;
-        approvedBy: string | null;
-        approvedAt: Date | null;
     }>;
     rejectReplacement(tenantId: string, id: string, approvedBy: string): Promise<{
         shift: {
@@ -597,14 +597,14 @@ export declare class SchedulesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        reason: string | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        reason: string | null;
         shiftId: string;
         originalEmployeeId: string;
         replacementEmployeeId: string;
-        approvedBy: string | null;
-        approvedAt: Date | null;
     }>;
     private parseDate;
     importFromExcel(tenantId: string, fileBuffer: Buffer): Promise<ImportScheduleResultDto>;

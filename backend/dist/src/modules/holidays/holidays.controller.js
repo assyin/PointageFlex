@@ -69,7 +69,7 @@ let HolidaysController = class HolidaysController {
 exports.HolidaysController = HolidaysController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Créer un nouveau jour férié' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -98,7 +98,7 @@ __decorate([
 ], HolidaysController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Mettre à jour un jour férié' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -109,7 +109,7 @@ __decorate([
 ], HolidaysController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Supprimer un jour férié' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -119,7 +119,7 @@ __decorate([
 ], HolidaysController.prototype, "remove", null);
 __decorate([
     (0, common_1.Post)('import-csv'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiOperation)({ summary: 'Importer des jours fériés depuis un fichier CSV' }),

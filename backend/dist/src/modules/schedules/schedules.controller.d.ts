@@ -29,9 +29,9 @@ export declare class SchedulesController {
         data: ({
             employee: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
                 position: string;
                 department: {
                     id: string;
@@ -86,9 +86,9 @@ export declare class SchedulesController {
         schedules: ({
             employee: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
                 position: string;
                 department: {
                     id: string;
@@ -158,13 +158,13 @@ export declare class SchedulesController {
             updatedAt: Date;
             tenantId: string;
             employeeId: string;
+            status: import(".prisma/client").$Enums.LeaveStatus;
             leaveTypeId: string;
             startDate: Date;
             endDate: Date;
             days: import("@prisma/client/runtime/library").Decimal;
             reason: string | null;
             document: string | null;
-            status: import(".prisma/client").$Enums.LeaveStatus;
             managerApprovedBy: string | null;
             managerApprovedAt: Date | null;
             managerComment: string | null;
@@ -201,14 +201,14 @@ export declare class SchedulesController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            reason: string | null;
-            status: import(".prisma/client").$Enums.ReplacementStatus;
             date: Date;
+            status: import(".prisma/client").$Enums.ReplacementStatus;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            reason: string | null;
             shiftId: string;
             originalEmployeeId: string;
             replacementEmployeeId: string;
-            approvedBy: string | null;
-            approvedAt: Date | null;
         })[];
     }>;
     getMonth(user: any, date: string, teamId?: string, siteId?: string): Promise<{
@@ -217,9 +217,9 @@ export declare class SchedulesController {
         schedules: ({
             employee: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
                 position: string;
                 department: {
                     id: string;
@@ -289,13 +289,13 @@ export declare class SchedulesController {
             updatedAt: Date;
             tenantId: string;
             employeeId: string;
+            status: import(".prisma/client").$Enums.LeaveStatus;
             leaveTypeId: string;
             startDate: Date;
             endDate: Date;
             days: import("@prisma/client/runtime/library").Decimal;
             reason: string | null;
             document: string | null;
-            status: import(".prisma/client").$Enums.LeaveStatus;
             managerApprovedBy: string | null;
             managerApprovedAt: Date | null;
             managerComment: string | null;
@@ -332,14 +332,14 @@ export declare class SchedulesController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            reason: string | null;
-            status: import(".prisma/client").$Enums.ReplacementStatus;
             date: Date;
+            status: import(".prisma/client").$Enums.ReplacementStatus;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            reason: string | null;
             shiftId: string;
             originalEmployeeId: string;
             replacementEmployeeId: string;
-            approvedBy: string | null;
-            approvedAt: Date | null;
         })[];
     }>;
     getAlerts(user: any, startDate: string, endDate: string): Promise<import("./alerts.service").LegalAlert[]>;
@@ -359,29 +359,29 @@ export declare class SchedulesController {
         };
         originalEmployee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         replacementEmployee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        reason: string | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        reason: string | null;
         shiftId: string;
         originalEmployeeId: string;
         replacementEmployeeId: string;
-        approvedBy: string | null;
-        approvedAt: Date | null;
     }>;
     findAllReplacements(user: any, status?: string, startDate?: string, endDate?: string): Promise<({
         shift: {
@@ -399,29 +399,29 @@ export declare class SchedulesController {
         };
         originalEmployee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         replacementEmployee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        reason: string | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        reason: string | null;
         shiftId: string;
         originalEmployeeId: string;
         replacementEmployeeId: string;
-        approvedBy: string | null;
-        approvedAt: Date | null;
     })[]>;
     approveReplacement(user: any, id: string): Promise<{
         shift: {
@@ -452,14 +452,14 @@ export declare class SchedulesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        reason: string | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        reason: string | null;
         shiftId: string;
         originalEmployeeId: string;
         replacementEmployeeId: string;
-        approvedBy: string | null;
-        approvedAt: Date | null;
     }>;
     rejectReplacement(user: any, id: string): Promise<{
         shift: {
@@ -490,21 +490,21 @@ export declare class SchedulesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        reason: string | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        reason: string | null;
         shiftId: string;
         originalEmployeeId: string;
         replacementEmployeeId: string;
-        approvedBy: string | null;
-        approvedAt: Date | null;
     }>;
     findOne(user: any, id: string): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
             position: string;
         };
         team: {
@@ -541,9 +541,9 @@ export declare class SchedulesController {
     update(user: any, id: string, dto: UpdateScheduleDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         team: {
             id: string;

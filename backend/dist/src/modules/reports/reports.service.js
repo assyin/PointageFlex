@@ -12,12 +12,937 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
+const dashboard_stats_dto_1 = require("./dto/dashboard-stats.dto");
 const client_1 = require("@prisma/client");
+const manager_level_util_1 = require("../../common/utils/manager-level.util");
 let ReportsService = class ReportsService {
     constructor(prisma) {
         this.prisma = prisma;
     }
-    async getDashboardStats(tenantId, query) {
+    async getDashboardStats(tenantId, query, userId, userRole) {
+        let scope = query.scope;
+        if (!scope && userId && tenantId) {
+            const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+            if (managerLevel.type === 'DEPARTMENT') {
+                scope = dashboard_stats_dto_1.DashboardScope.DEPARTMENT;
+            }
+            else if (managerLevel.type === 'SITE') {
+                scope = dashboard_stats_dto_1.DashboardScope.SITE;
+            }
+            else if (managerLevel.type === 'TEAM') {
+                scope = dashboard_stats_dto_1.DashboardScope.TEAM;
+            }
+            else {
+                scope = dashboard_stats_dto_1.DashboardScope.PERSONAL;
+            }
+        }
+        else {
+            scope = scope || dashboard_stats_dto_1.DashboardScope.PERSONAL;
+        }
+        this.validateScopeAccess(scope, userRole);
+        switch (scope) {
+            case dashboard_stats_dto_1.DashboardScope.PERSONAL:
+                if (!userId) {
+                    throw new common_1.ForbiddenException('User ID required for personal dashboard');
+                }
+                return this.getPersonalDashboardStats(userId, tenantId, query);
+            case dashboard_stats_dto_1.DashboardScope.TEAM:
+                if (!userId) {
+                    throw new common_1.ForbiddenException('User ID required for team dashboard');
+                }
+                return this.getTeamDashboardStats(userId, tenantId, query);
+            case dashboard_stats_dto_1.DashboardScope.DEPARTMENT:
+                if (!userId || !tenantId) {
+                    throw new common_1.ForbiddenException('User ID and Tenant ID required for department dashboard');
+                }
+                return this.getDepartmentDashboardStats(userId, tenantId, query);
+            case dashboard_stats_dto_1.DashboardScope.SITE:
+                if (!userId || !tenantId) {
+                    throw new common_1.ForbiddenException('User ID and Tenant ID required for site dashboard');
+                }
+                return this.getSiteDashboardStats(userId, tenantId, query);
+            case dashboard_stats_dto_1.DashboardScope.TENANT:
+                if (!tenantId) {
+                    throw new common_1.ForbiddenException('Tenant ID required for tenant dashboard');
+                }
+                return this.getTenantDashboardStats(tenantId, query);
+            case dashboard_stats_dto_1.DashboardScope.PLATFORM:
+                if (userRole !== 'SUPER_ADMIN') {
+                    throw new common_1.ForbiddenException('Only SUPER_ADMIN can access platform dashboard');
+                }
+                return this.getPlatformDashboardStats(query);
+            default:
+                return this.getTenantDashboardStats(tenantId, query);
+        }
+    }
+    validateScopeAccess(scope, userRole) {
+        switch (scope) {
+            case dashboard_stats_dto_1.DashboardScope.PERSONAL:
+                return;
+            case dashboard_stats_dto_1.DashboardScope.TEAM:
+                if (userRole !== 'MANAGER' && userRole !== 'ADMIN_RH' && userRole !== 'SUPER_ADMIN') {
+                    throw new common_1.ForbiddenException('Insufficient permissions for team dashboard');
+                }
+                return;
+            case dashboard_stats_dto_1.DashboardScope.DEPARTMENT:
+                if (userRole !== 'MANAGER' && userRole !== 'ADMIN_RH' && userRole !== 'SUPER_ADMIN') {
+                    throw new common_1.ForbiddenException('Insufficient permissions for department dashboard');
+                }
+                return;
+            case dashboard_stats_dto_1.DashboardScope.SITE:
+                if (userRole !== 'MANAGER' && userRole !== 'ADMIN_RH' && userRole !== 'SUPER_ADMIN') {
+                    throw new common_1.ForbiddenException('Insufficient permissions for site dashboard');
+                }
+                return;
+            case dashboard_stats_dto_1.DashboardScope.TENANT:
+                if (userRole !== 'ADMIN_RH' && userRole !== 'SUPER_ADMIN') {
+                    throw new common_1.ForbiddenException('Insufficient permissions for tenant dashboard');
+                }
+                return;
+            case dashboard_stats_dto_1.DashboardScope.PLATFORM:
+                if (userRole !== 'SUPER_ADMIN') {
+                    throw new common_1.ForbiddenException('Only SUPER_ADMIN can access platform dashboard');
+                }
+                return;
+            default:
+                throw new common_1.ForbiddenException('Invalid dashboard scope');
+        }
+    }
+    async getPersonalDashboardStats(userId, tenantId, query) {
+        const startDate = query.startDate ? new Date(query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const endDate = query.endDate ? new Date(query.endDate) : new Date();
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                employee: {
+                    include: {
+                        department: true,
+                        team: true,
+                    },
+                },
+            },
+        });
+        if (!user || !user.employee) {
+            throw new common_1.ForbiddenException('User is not linked to an employee');
+        }
+        const employeeId = user.employee.id;
+        const empTenantId = user.employee.tenantId;
+        const attendanceEntries = await this.prisma.attendance.findMany({
+            where: {
+                employeeId,
+                tenantId: empTenantId,
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+                type: client_1.AttendanceType.IN,
+            },
+            select: {
+                timestamp: true,
+                hasAnomaly: true,
+                anomalyType: true,
+            },
+        });
+        const workedDays = new Set(attendanceEntries.map((a) => {
+            const date = new Date(a.timestamp);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        })).size;
+        const lateCount = attendanceEntries.filter((a) => a.hasAnomaly && a.anomalyType?.includes('LATE')).length;
+        const totalAttendances = await this.prisma.attendance.count({
+            where: {
+                employeeId,
+                tenantId: empTenantId,
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+        });
+        const overtimeStats = await this.prisma.overtime.aggregate({
+            where: {
+                employeeId,
+                tenantId: empTenantId,
+                date: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+                status: client_1.OvertimeStatus.APPROVED,
+            },
+            _sum: { hours: true },
+            _count: { id: true },
+        });
+        const leaveStats = await this.prisma.leave.aggregate({
+            where: {
+                employeeId,
+                tenantId: empTenantId,
+                startDate: {
+                    gte: startDate,
+                },
+                endDate: {
+                    lte: endDate,
+                },
+                status: {
+                    in: [client_1.LeaveStatus.APPROVED, client_1.LeaveStatus.HR_APPROVED],
+                },
+            },
+            _sum: { days: true },
+            _count: { id: true },
+        });
+        const pendingLeaves = await this.prisma.leave.count({
+            where: {
+                employeeId,
+                tenantId: empTenantId,
+                status: {
+                    in: [client_1.LeaveStatus.PENDING, client_1.LeaveStatus.MANAGER_APPROVED],
+                },
+            },
+        });
+        const pendingOvertime = await this.prisma.overtime.count({
+            where: {
+                employeeId,
+                tenantId: empTenantId,
+                status: client_1.OvertimeStatus.PENDING,
+            },
+        });
+        const last7Days = [];
+        const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            date.setHours(0, 0, 0, 0);
+            const nextDate = new Date(date);
+            nextDate.setDate(nextDate.getDate() + 1);
+            const dayAttendance = await this.prisma.attendance.findMany({
+                where: {
+                    employeeId,
+                    tenantId: empTenantId,
+                    timestamp: { gte: date, lt: nextDate },
+                },
+            });
+            const hasEntry = dayAttendance.some(a => a.type === client_1.AttendanceType.IN);
+            const hasLate = dayAttendance.some(a => a.hasAnomaly && a.anomalyType?.includes('LATE'));
+            last7Days.push({
+                day: dayNames[date.getDay()],
+                date: date.toISOString().split('T')[0],
+                present: hasEntry ? 1 : 0,
+                late: hasLate ? 1 : 0,
+            });
+        }
+        return {
+            scope: 'personal',
+            employees: {
+                total: 1,
+                activeToday: workedDays > 0 ? 1 : 0,
+                onLeave: 0,
+            },
+            pendingApprovals: {
+                leaves: pendingLeaves,
+                overtime: pendingOvertime,
+            },
+            attendance: {
+                total: totalAttendances,
+                anomalies: lateCount,
+                anomalyRate: totalAttendances > 0 ? ((lateCount / totalAttendances) * 100).toFixed(2) : 0,
+            },
+            overtime: {
+                totalRecords: overtimeStats._count.id,
+                totalHours: overtimeStats._sum.hours || 0,
+            },
+            leaves: {
+                totalRequests: leaveStats._count.id,
+                totalDays: leaveStats._sum.days || 0,
+                current: pendingLeaves,
+            },
+            period: {
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+            },
+            personal: {
+                workedDays,
+                totalHours: Math.floor(totalAttendances / 2),
+                lateCount,
+                overtimeHours: overtimeStats._sum.hours || 0,
+                leaveDays: leaveStats._sum.days || 0,
+            },
+            weeklyAttendance: last7Days,
+        };
+    }
+    async getTeamDashboardStats(userId, tenantId, query) {
+        const startDate = query.startDate ? new Date(query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const endDate = query.endDate ? new Date(query.endDate) : new Date();
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                employee: {
+                    include: {
+                        team: {
+                            include: {
+                                employees: {
+                                    where: { isActive: true },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        if (!user || !user.employee || !user.employee.team) {
+            throw new common_1.ForbiddenException('User is not linked to an employee with a team');
+        }
+        const team = user.employee.team;
+        const teamId = team.id;
+        const empTenantId = user.employee.tenantId;
+        const teamEmployeeIds = team.employees.map(e => e.id);
+        const totalTeamEmployees = team.employees.length;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const activeToday = await this.prisma.attendance.groupBy({
+            by: ['employeeId'],
+            where: {
+                tenantId: empTenantId,
+                employeeId: { in: teamEmployeeIds },
+                timestamp: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+                type: client_1.AttendanceType.IN,
+            },
+        });
+        const attendanceCount = await this.prisma.attendance.count({
+            where: {
+                tenantId: empTenantId,
+                employeeId: { in: teamEmployeeIds },
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+        });
+        const anomaliesCount = await this.prisma.attendance.count({
+            where: {
+                tenantId: empTenantId,
+                employeeId: { in: teamEmployeeIds },
+                hasAnomaly: true,
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+        });
+        const pendingLeaves = await this.prisma.leave.count({
+            where: {
+                tenantId: empTenantId,
+                employeeId: { in: teamEmployeeIds },
+                status: {
+                    in: [client_1.LeaveStatus.PENDING, client_1.LeaveStatus.MANAGER_APPROVED],
+                },
+            },
+        });
+        const pendingOvertime = await this.prisma.overtime.count({
+            where: {
+                tenantId: empTenantId,
+                employeeId: { in: teamEmployeeIds },
+                status: client_1.OvertimeStatus.PENDING,
+            },
+        });
+        const overtimeStats = await this.prisma.overtime.aggregate({
+            where: {
+                tenantId: empTenantId,
+                employeeId: { in: teamEmployeeIds },
+                date: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+                status: client_1.OvertimeStatus.APPROVED,
+            },
+            _sum: { hours: true },
+            _count: { id: true },
+        });
+        const attendanceRate = totalTeamEmployees > 0
+            ? ((activeToday.length / totalTeamEmployees) * 100).toFixed(1)
+            : 0;
+        const last7Days = [];
+        const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            date.setHours(0, 0, 0, 0);
+            const nextDate = new Date(date);
+            nextDate.setDate(nextDate.getDate() + 1);
+            const dayAttendance = await this.prisma.attendance.findMany({
+                where: {
+                    tenantId: empTenantId,
+                    employeeId: { in: teamEmployeeIds },
+                    timestamp: { gte: date, lt: nextDate },
+                    type: client_1.AttendanceType.IN,
+                },
+                select: { employeeId: true, hasAnomaly: true, anomalyType: true },
+            });
+            const late = dayAttendance.filter(a => a.hasAnomaly && a.anomalyType?.includes('LATE')).length;
+            const absent = totalTeamEmployees - new Set(dayAttendance.map(a => a.employeeId)).size;
+            last7Days.push({
+                day: dayNames[date.getDay()],
+                date: date.toISOString().split('T')[0],
+                retards: late,
+                absences: absent,
+            });
+        }
+        return {
+            scope: 'team',
+            team: {
+                id: teamId,
+                name: team.name,
+            },
+            employees: {
+                total: totalTeamEmployees,
+                activeToday: activeToday.length,
+                onLeave: 0,
+            },
+            pendingApprovals: {
+                leaves: pendingLeaves,
+                overtime: pendingOvertime,
+            },
+            attendance: {
+                total: attendanceCount,
+                anomalies: anomaliesCount,
+                anomalyRate: attendanceCount > 0 ? ((anomaliesCount / attendanceCount) * 100).toFixed(2) : 0,
+            },
+            overtime: {
+                totalRecords: overtimeStats._count.id,
+                totalHours: overtimeStats._sum.hours || 0,
+            },
+            leaves: {
+                totalRequests: 0,
+                totalDays: 0,
+                current: pendingLeaves,
+            },
+            period: {
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+            },
+            attendanceRate: Number(attendanceRate),
+            weeklyAttendance: last7Days,
+        };
+    }
+    async getDepartmentDashboardStats(userId, tenantId, query) {
+        const startDate = query.startDate ? new Date(query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const endDate = query.endDate ? new Date(query.endDate) : new Date();
+        const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+        if (managerLevel.type !== 'DEPARTMENT' || !managerLevel.departmentId) {
+            throw new common_1.ForbiddenException('User is not a department manager');
+        }
+        const department = await this.prisma.department.findFirst({
+            where: {
+                id: managerLevel.departmentId,
+                tenantId,
+            },
+            include: {
+                employees: {
+                    where: { isActive: true },
+                },
+            },
+        });
+        if (!department) {
+            throw new common_1.ForbiddenException('Department not found');
+        }
+        const departmentEmployeeIds = department.employees.map(e => e.id);
+        const totalDepartmentEmployees = department.employees.length;
+        const sites = await this.prisma.site.findMany({
+            where: {
+                tenantId,
+                employees: {
+                    some: {
+                        departmentId: managerLevel.departmentId,
+                        isActive: true,
+                    },
+                },
+            },
+            include: {
+                _count: {
+                    select: {
+                        employees: true,
+                    },
+                },
+            },
+        });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const activeToday = await this.prisma.attendance.groupBy({
+            by: ['employeeId'],
+            where: {
+                tenantId,
+                employeeId: { in: departmentEmployeeIds },
+                timestamp: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+                type: client_1.AttendanceType.IN,
+            },
+        });
+        const attendanceCount = await this.prisma.attendance.count({
+            where: {
+                tenantId,
+                employeeId: { in: departmentEmployeeIds },
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+        });
+        const anomaliesCount = await this.prisma.attendance.count({
+            where: {
+                tenantId,
+                employeeId: { in: departmentEmployeeIds },
+                hasAnomaly: true,
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+        });
+        const pendingLeaves = await this.prisma.leave.count({
+            where: {
+                tenantId,
+                employeeId: { in: departmentEmployeeIds },
+                status: {
+                    in: [client_1.LeaveStatus.PENDING, client_1.LeaveStatus.MANAGER_APPROVED],
+                },
+            },
+        });
+        const pendingOvertime = await this.prisma.overtime.count({
+            where: {
+                tenantId,
+                employeeId: { in: departmentEmployeeIds },
+                status: client_1.OvertimeStatus.PENDING,
+            },
+        });
+        const overtimeStats = await this.prisma.overtime.aggregate({
+            where: {
+                tenantId,
+                employeeId: { in: departmentEmployeeIds },
+                date: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+                status: client_1.OvertimeStatus.APPROVED,
+            },
+            _sum: { hours: true },
+            _count: { id: true },
+        });
+        const leaveStats = await this.prisma.leave.aggregate({
+            where: {
+                tenantId,
+                employeeId: { in: departmentEmployeeIds },
+                startDate: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+                status: client_1.LeaveStatus.APPROVED,
+            },
+            _sum: { days: true },
+            _count: { id: true },
+        });
+        const attendanceRate = totalDepartmentEmployees > 0
+            ? ((activeToday.length / totalDepartmentEmployees) * 100).toFixed(1)
+            : 0;
+        const last7Days = [];
+        const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            date.setHours(0, 0, 0, 0);
+            const nextDate = new Date(date);
+            nextDate.setDate(nextDate.getDate() + 1);
+            const dayAttendance = await this.prisma.attendance.findMany({
+                where: {
+                    tenantId,
+                    employeeId: { in: departmentEmployeeIds },
+                    timestamp: { gte: date, lt: nextDate },
+                    type: client_1.AttendanceType.IN,
+                },
+                select: { employeeId: true, hasAnomaly: true, anomalyType: true },
+            });
+            const late = dayAttendance.filter(a => a.hasAnomaly && a.anomalyType?.includes('LATE')).length;
+            const absent = totalDepartmentEmployees - new Set(dayAttendance.map(a => a.employeeId)).size;
+            last7Days.push({
+                day: dayNames[date.getDay()],
+                date: date.toISOString().split('T')[0],
+                retards: late,
+                absences: absent,
+            });
+        }
+        return {
+            scope: 'department',
+            department: {
+                id: department.id,
+                name: department.name,
+                code: department.code,
+            },
+            sites: sites.map(site => ({
+                id: site.id,
+                name: site.name,
+                code: site.code,
+                employeeCount: site._count.employees,
+            })),
+            employees: {
+                total: totalDepartmentEmployees,
+                activeToday: activeToday.length,
+                onLeave: 0,
+            },
+            pendingApprovals: {
+                leaves: pendingLeaves,
+                overtime: pendingOvertime,
+            },
+            attendance: {
+                total: attendanceCount,
+                anomalies: anomaliesCount,
+                anomalyRate: attendanceCount > 0 ? ((anomaliesCount / attendanceCount) * 100).toFixed(2) : 0,
+            },
+            overtime: {
+                totalRecords: overtimeStats._count.id,
+                totalHours: overtimeStats._sum.hours || 0,
+            },
+            leaves: {
+                totalRequests: leaveStats._count.id,
+                totalDays: leaveStats._sum.days || 0,
+                current: pendingLeaves,
+            },
+            period: {
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+            },
+            attendanceRate: Number(attendanceRate),
+            weeklyAttendance: last7Days,
+        };
+    }
+    async getSiteDashboardStats(userId, tenantId, query) {
+        const startDate = query.startDate ? new Date(query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const endDate = query.endDate ? new Date(query.endDate) : new Date();
+        const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+        if (managerLevel.type !== 'SITE' || !managerLevel.siteId) {
+            throw new common_1.ForbiddenException('User is not a site manager');
+        }
+        const site = await this.prisma.site.findFirst({
+            where: {
+                id: managerLevel.siteId,
+                tenantId,
+            },
+            include: {
+                employees: {
+                    where: { isActive: true },
+                    include: {
+                        department: {
+                            select: {
+                                id: true,
+                                name: true,
+                                code: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        if (!site) {
+            throw new common_1.ForbiddenException('Site not found');
+        }
+        const siteEmployeeIds = site.employees.map(e => e.id);
+        const totalSiteEmployees = site.employees.length;
+        const departments = await this.prisma.department.findMany({
+            where: {
+                tenantId,
+                employees: {
+                    some: {
+                        siteId: managerLevel.siteId,
+                        isActive: true,
+                    },
+                },
+            },
+            include: {
+                _count: {
+                    select: {
+                        employees: true,
+                    },
+                },
+            },
+        });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const activeToday = await this.prisma.attendance.groupBy({
+            by: ['employeeId'],
+            where: {
+                tenantId,
+                employeeId: { in: siteEmployeeIds },
+                timestamp: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+                type: client_1.AttendanceType.IN,
+            },
+        });
+        const attendanceCount = await this.prisma.attendance.count({
+            where: {
+                tenantId,
+                employeeId: { in: siteEmployeeIds },
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+        });
+        const anomaliesCount = await this.prisma.attendance.count({
+            where: {
+                tenantId,
+                employeeId: { in: siteEmployeeIds },
+                hasAnomaly: true,
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+        });
+        const pendingLeaves = await this.prisma.leave.count({
+            where: {
+                tenantId,
+                employeeId: { in: siteEmployeeIds },
+                status: {
+                    in: [client_1.LeaveStatus.PENDING, client_1.LeaveStatus.MANAGER_APPROVED],
+                },
+            },
+        });
+        const pendingOvertime = await this.prisma.overtime.count({
+            where: {
+                tenantId,
+                employeeId: { in: siteEmployeeIds },
+                status: client_1.OvertimeStatus.PENDING,
+            },
+        });
+        const overtimeStats = await this.prisma.overtime.aggregate({
+            where: {
+                tenantId,
+                employeeId: { in: siteEmployeeIds },
+                date: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+                status: client_1.OvertimeStatus.APPROVED,
+            },
+            _sum: { hours: true },
+            _count: { id: true },
+        });
+        const leaveStats = await this.prisma.leave.aggregate({
+            where: {
+                tenantId,
+                employeeId: { in: siteEmployeeIds },
+                startDate: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+                status: client_1.LeaveStatus.APPROVED,
+            },
+            _sum: { days: true },
+            _count: { id: true },
+        });
+        const attendanceRate = totalSiteEmployees > 0
+            ? ((activeToday.length / totalSiteEmployees) * 100).toFixed(1)
+            : 0;
+        const last7Days = [];
+        const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            date.setHours(0, 0, 0, 0);
+            const nextDate = new Date(date);
+            nextDate.setDate(nextDate.getDate() + 1);
+            const dayAttendance = await this.prisma.attendance.findMany({
+                where: {
+                    tenantId,
+                    employeeId: { in: siteEmployeeIds },
+                    timestamp: { gte: date, lt: nextDate },
+                    type: client_1.AttendanceType.IN,
+                },
+                select: { employeeId: true, hasAnomaly: true, anomalyType: true },
+            });
+            const late = dayAttendance.filter(a => a.hasAnomaly && a.anomalyType?.includes('LATE')).length;
+            const absent = totalSiteEmployees - new Set(dayAttendance.map(a => a.employeeId)).size;
+            last7Days.push({
+                day: dayNames[date.getDay()],
+                date: date.toISOString().split('T')[0],
+                retards: late,
+                absences: absent,
+            });
+        }
+        return {
+            scope: 'site',
+            site: {
+                id: site.id,
+                name: site.name,
+                code: site.code,
+                city: site.city,
+            },
+            departments: departments.map(dept => ({
+                id: dept.id,
+                name: dept.name,
+                code: dept.code,
+                employeeCount: dept._count.employees,
+            })),
+            employees: {
+                total: totalSiteEmployees,
+                activeToday: activeToday.length,
+                onLeave: 0,
+            },
+            pendingApprovals: {
+                leaves: pendingLeaves,
+                overtime: pendingOvertime,
+            },
+            attendance: {
+                total: attendanceCount,
+                anomalies: anomaliesCount,
+                anomalyRate: attendanceCount > 0 ? ((anomaliesCount / attendanceCount) * 100).toFixed(2) : 0,
+            },
+            overtime: {
+                totalRecords: overtimeStats._count.id,
+                totalHours: overtimeStats._sum.hours || 0,
+            },
+            leaves: {
+                totalRequests: leaveStats._count.id,
+                totalDays: leaveStats._sum.days || 0,
+                current: pendingLeaves,
+            },
+            period: {
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+            },
+            attendanceRate: Number(attendanceRate),
+            weeklyAttendance: last7Days,
+        };
+    }
+    async getPlatformDashboardStats(query) {
+        const startDate = query.startDate ? new Date(query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const endDate = query.endDate ? new Date(query.endDate) : new Date();
+        const totalEmployees = await this.prisma.employee.count({
+            where: { isActive: true },
+        });
+        const totalTenants = await this.prisma.tenant.count();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const activeToday = await this.prisma.attendance.groupBy({
+            by: ['employeeId'],
+            where: {
+                timestamp: {
+                    gte: today,
+                    lt: tomorrow,
+                },
+                type: client_1.AttendanceType.IN,
+            },
+        });
+        const attendanceCount = await this.prisma.attendance.count({
+            where: {
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+        });
+        const anomaliesCount = await this.prisma.attendance.count({
+            where: {
+                hasAnomaly: true,
+                timestamp: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+        });
+        const pendingLeaves = await this.prisma.leave.count({
+            where: {
+                status: {
+                    in: [client_1.LeaveStatus.PENDING, client_1.LeaveStatus.MANAGER_APPROVED],
+                },
+            },
+        });
+        const pendingOvertime = await this.prisma.overtime.count({
+            where: {
+                status: client_1.OvertimeStatus.PENDING,
+            },
+        });
+        const overtimeStats = await this.prisma.overtime.aggregate({
+            where: {
+                date: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+                status: client_1.OvertimeStatus.APPROVED,
+            },
+            _sum: { hours: true },
+            _count: { id: true },
+        });
+        const leaveStats = await this.prisma.leave.aggregate({
+            where: {
+                startDate: { gte: startDate },
+                endDate: { lte: endDate },
+                status: {
+                    in: [client_1.LeaveStatus.APPROVED, client_1.LeaveStatus.HR_APPROVED],
+                },
+            },
+            _sum: { days: true },
+            _count: { id: true },
+        });
+        const attendanceRate = totalEmployees > 0
+            ? ((activeToday.length / totalEmployees) * 100).toFixed(1)
+            : 0;
+        return {
+            scope: 'platform',
+            tenants: {
+                total: totalTenants,
+                active: totalTenants,
+            },
+            employees: {
+                total: totalEmployees,
+                activeToday: activeToday.length,
+                onLeave: 0,
+            },
+            pendingApprovals: {
+                leaves: pendingLeaves,
+                overtime: pendingOvertime,
+            },
+            attendance: {
+                total: attendanceCount,
+                anomalies: anomaliesCount,
+                anomalyRate: attendanceCount > 0 ? ((anomaliesCount / attendanceCount) * 100).toFixed(2) : 0,
+            },
+            overtime: {
+                totalRecords: overtimeStats._count.id,
+                totalHours: overtimeStats._sum.hours || 0,
+            },
+            leaves: {
+                totalRequests: leaveStats._count.id,
+                totalDays: leaveStats._sum.days || 0,
+                current: pendingLeaves,
+            },
+            period: {
+                startDate: startDate.toISOString(),
+                endDate: endDate.toISOString(),
+            },
+            attendanceRate: Number(attendanceRate),
+        };
+    }
+    async getTenantDashboardStats(tenantId, query) {
+        const startDate = query.startDate ? new Date(query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+        const endDate = query.endDate ? new Date(query.endDate) : new Date();
+        const result = await this.getTenantDashboardStatsInternal(tenantId, query);
+        return {
+            ...result,
+            scope: 'tenant',
+        };
+    }
+    async getTenantDashboardStatsInternal(tenantId, query) {
         const startDate = query.startDate ? new Date(query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
         const endDate = query.endDate ? new Date(query.endDate) : new Date();
         const totalEmployees = await this.prisma.employee.count({

@@ -1,21 +1,82 @@
 import axios from 'axios';
 import { isAuthenticated } from '../utils/auth';
 
+// Déterminer l'URL de l'API automatiquement
+const getApiUrl = () => {
+  // Si défini dans les variables d'environnement, l'utiliser
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  
+  // Sinon, détecter automatiquement selon l'environnement
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    
+    console.log('[API Client] Détection automatique - hostname:', hostname);
+    
+    // Si on accède via IP WSL (172.17.x.x), utiliser cette IP pour l'API
+    if (hostname.startsWith('172.17.')) {
+      const apiUrl = `http://${hostname}:3000/api/v1`;
+      console.log('[API Client] Utilisation de l\'IP WSL:', apiUrl);
+      return apiUrl;
+    }
+    
+    // Si on accède via localhost, utiliser localhost
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      console.log('[API Client] Utilisation de localhost');
+      return 'http://localhost:3000/api/v1';
+    }
+    
+    // Par défaut, utiliser l'IP WSL la plus courante
+    console.log('[API Client] Utilisation de l\'IP WSL par défaut');
+    return 'http://172.17.112.163:3000/api/v1';
+  }
+  
+  // Par défaut pour SSR - utiliser l'IP WSL
+  return 'http://172.17.112.163:3000/api/v1';
+};
+
+// Obtenir l'URL de l'API
+let apiBaseURL = getApiUrl();
+
+// Si on est côté client et que l'URL est encore localhost, forcer la détection
+if (typeof window !== 'undefined') {
+  const currentHostname = window.location.hostname;
+  if (apiBaseURL.includes('localhost') && currentHostname.startsWith('172.17.')) {
+    apiBaseURL = `http://${currentHostname}:3000/api/v1`;
+    console.log('[API Client] URL corrigée pour IP WSL:', apiBaseURL);
+  }
+}
+
+console.log('[API Client] URL de base configurée:', apiBaseURL);
+console.log('[API Client] Hostname actuel:', typeof window !== 'undefined' ? window.location.hostname : 'SSR');
+
+// Créer l'instance axios avec un interceptor pour mettre à jour l'URL si nécessaire
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: apiBaseURL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor pour ajouter le token
+// Request interceptor pour ajouter le token et corriger l'URL si nécessaire
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
+      // Corriger l'URL si on accède via IP WSL mais que l'URL de base est localhost
+      const currentHostname = window.location.hostname;
+      if (currentHostname.startsWith('172.17.') && config.baseURL?.includes('localhost')) {
+        config.baseURL = `http://${currentHostname}:3000/api/v1`;
+        console.log('[API Client] URL corrigée dans l\'interceptor:', config.baseURL);
+      }
       // Vérifier si le token est valide avant d'envoyer la requête
       // Ne pas envoyer la requête si le token est expiré (évite les erreurs 401)
       // Exception pour les routes d'authentification
-      if (!isAuthenticated() && !config.url?.includes('/auth/')) {
+      const isAuthRoute = config.url?.includes('/auth/login') ||
+                          config.url?.includes('/auth/register') ||
+                          config.url?.includes('/auth/refresh');
+
+      if (!isAuthenticated() && !isAuthRoute) {
         // Créer une promesse qui ne sera jamais résolue pour empêcher l'envoi de la requête
         // Cela évite les erreurs 401 dans la console
         const silentError: any = Object.create(null);
@@ -71,9 +132,19 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Gérer silencieusement les erreurs 401 pour éviter de polluer la console
+    // Gérer les erreurs 401
     if (error.response?.status === 401) {
-      // Supprimer l'erreur de la console en créant une erreur silencieuse
+      // Si on est sur une route d'authentification (login/register), retourner l'erreur telle quelle
+      const isAuthRoute = originalRequest.url?.includes('/auth/login') ||
+                          originalRequest.url?.includes('/auth/register') ||
+                          originalRequest.url?.includes('/auth/refresh');
+
+      if (isAuthRoute) {
+        // Retourner l'erreur sans la masquer pour que le formulaire de login puisse l'afficher
+        return Promise.reject(error);
+      }
+
+      // Supprimer l'erreur de la console en créant une erreur silencieuse pour les autres routes
       const silentError: any = Object.create(null);
       silentError.name = '';
       silentError.message = '';
@@ -83,7 +154,7 @@ apiClient.interceptors.response.use(
       silentError.config = undefined;
       silentError.request = undefined;
       silentError.isAxiosError = false;
-      
+
       // Si la requête a déjà été retentée ou si on est sur la page de login, rejeter silencieusement
       if (originalRequest._retry || (typeof window !== 'undefined' && window.location.pathname.includes('/login'))) {
         // Ne pas afficher l'erreur dans la console
@@ -133,8 +204,10 @@ apiClient.interceptors.response.use(
       // Essayer de refresh le token
       if (refreshToken) {
         try {
+          // Utiliser getApiUrl() pour obtenir l'URL correcte
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || getApiUrl();
           const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
+            `${apiUrl}/auth/refresh`,
             { refreshToken },
             {
               // Ne pas utiliser l'intercepteur pour cette requête

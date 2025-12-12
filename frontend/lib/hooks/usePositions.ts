@@ -33,10 +33,10 @@ export function useCreatePosition() {
       queryClient.invalidateQueries({ queryKey: ['positions'] });
       queryClient.invalidateQueries({ queryKey: ['positions', 'stats'] });
       queryClient.invalidateQueries({ queryKey: ['positions', 'categories'] });
-      toast.success('Fonction créée avec succès');
+      toast.success('Fonction crÃ©Ã©e avec succÃ¨s');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Erreur lors de la création de la fonction');
+      toast.error(error.response?.data?.message || 'Erreur lors de la crÃ©ation de la fonction');
     },
   });
 }
@@ -52,7 +52,7 @@ export function useUpdatePosition() {
       queryClient.invalidateQueries({ queryKey: ['positions', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['positions', 'stats'] });
       queryClient.invalidateQueries({ queryKey: ['positions', 'categories'] });
-      toast.success('Fonction modifiée avec succès');
+      toast.success('Fonction modifiÃ©e avec succÃ¨s');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Erreur lors de la modification de la fonction');
@@ -70,7 +70,7 @@ export function useDeletePosition() {
       queryClient.removeQueries({ queryKey: ['positions', id] });
       queryClient.invalidateQueries({ queryKey: ['positions', 'stats'] });
       queryClient.invalidateQueries({ queryKey: ['positions', 'categories'] });
-      toast.success('Fonction supprimée avec succès');
+      toast.success('Fonction supprimÃ©e avec succÃ¨s');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.message || 'Erreur lors de la suppression de la fonction');

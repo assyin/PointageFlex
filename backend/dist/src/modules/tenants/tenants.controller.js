@@ -49,7 +49,7 @@ let TenantsController = class TenantsController {
         if (!user) {
             throw new common_1.ForbiddenException('User not authenticated');
         }
-        const allowedRoles = [client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN];
+        const allowedRoles = [client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN];
         const isAdmin = allowedRoles.includes(user.role);
         const isOwnTenant = user.tenantId === id;
         if (!isAdmin && !isOwnTenant) {
@@ -61,7 +61,7 @@ let TenantsController = class TenantsController {
 exports.TenantsController = TenantsController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Create new tenant (Super Admin only)' }),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
@@ -70,7 +70,7 @@ __decorate([
 ], TenantsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Get all tenants (Super Admin only)' }),
     __param(0, (0, common_1.Query)('page')),
     __param(1, (0, common_1.Query)('limit')),
@@ -89,7 +89,7 @@ __decorate([
 ], TenantsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH),
     (0, swagger_1.ApiOperation)({ summary: 'Update tenant' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
@@ -99,7 +99,7 @@ __decorate([
 ], TenantsController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({ summary: 'Delete tenant (Super Admin only)' }),
     __param(0, (0, common_1.Param)('id')),
     __metadata("design:type", Function),

@@ -65,7 +65,7 @@ let TeamsController = class TeamsController {
 exports.TeamsController = TeamsController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Create new team' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -96,7 +96,7 @@ __decorate([
 ], TeamsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Update team' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -107,7 +107,7 @@ __decorate([
 ], TeamsController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH),
     (0, swagger_1.ApiOperation)({ summary: 'Delete team' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -117,7 +117,7 @@ __decorate([
 ], TeamsController.prototype, "remove", null);
 __decorate([
     (0, common_1.Post)(':id/members'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Add a member to the team' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -128,7 +128,7 @@ __decorate([
 ], TeamsController.prototype, "addMember", null);
 __decorate([
     (0, common_1.Delete)(':id/members/:employeeId'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Remove a member from the team' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -139,7 +139,7 @@ __decorate([
 ], TeamsController.prototype, "removeMember", null);
 __decorate([
     (0, common_1.Post)(':id/members/bulk'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Add multiple members to the team' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -150,7 +150,7 @@ __decorate([
 ], TeamsController.prototype, "addMembersBulk", null);
 __decorate([
     (0, common_1.Delete)(':id/members/bulk'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Remove multiple members from the team' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),

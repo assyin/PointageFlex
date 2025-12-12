@@ -36,7 +36,8 @@ __decorate([
     __metadata("design:type", String)
 ], CreateLeaveDto.prototype, "endDate", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 5, description: 'Number of days' }),
+    (0, swagger_1.ApiPropertyOptional)({ example: 5, description: 'Number of days (calculated automatically if not provided)' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0.5),
     __metadata("design:type", Number)

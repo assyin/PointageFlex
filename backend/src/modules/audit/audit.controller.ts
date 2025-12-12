@@ -15,7 +15,7 @@ import { QueryAuditLogDto } from './dto/query-audit-log.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Role } from '@prisma/client';
+import { LegacyRole } from '@prisma/client';
 
 @ApiTags('Audit')
 @Controller('audit')
@@ -25,7 +25,7 @@ export class AuditController {
   constructor(private auditService: AuditService) {}
 
   @Post()
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Create audit log entry' })
   create(
     @CurrentUser() user: any,
@@ -44,7 +44,7 @@ export class AuditController {
   }
 
   @Get()
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get all audit logs' })
   findAll(
     @CurrentUser() user: any,
@@ -61,7 +61,7 @@ export class AuditController {
   }
 
   @Get('summary/actions')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get audit log action summary' })
   getActionSummary(
     @CurrentUser() user: any,
@@ -72,7 +72,7 @@ export class AuditController {
   }
 
   @Get('summary/entities')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get audit log entity summary' })
   getEntitySummary(
     @CurrentUser() user: any,
@@ -83,7 +83,7 @@ export class AuditController {
   }
 
   @Get('user/:userId')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get user activity logs' })
   getUserActivity(
     @CurrentUser() user: any,
@@ -100,7 +100,7 @@ export class AuditController {
   }
 
   @Get(':id')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get audit log by ID' })
   findOne(@CurrentUser() user: any, @Param('id') id: string) {
     return this.auditService.findOne(user.tenantId, id);

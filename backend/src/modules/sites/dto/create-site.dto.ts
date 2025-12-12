@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsUUID } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateSiteDto {
@@ -35,4 +35,14 @@ export class CreateSiteDto {
   @IsOptional()
   @IsString()
   timezone?: string;
+
+  @ApiPropertyOptional({ description: 'ID du manager régional du site (optionnel)' })
+  @IsOptional()
+  @IsUUID()
+  managerId?: string;
+
+  @ApiPropertyOptional({ description: 'ID du département auquel appartient le site (optionnel)' })
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string;
 }

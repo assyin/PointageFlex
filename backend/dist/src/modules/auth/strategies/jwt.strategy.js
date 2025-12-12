@@ -39,13 +39,45 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         if (!user || !user.isActive) {
             throw new common_1.UnauthorizedException('User not found or inactive');
         }
+        const tenantId = payload.tenantId || user.tenantId;
+        const userTenantRoles = tenantId
+            ? await this.prisma.userTenantRole.findMany({
+                where: {
+                    userId: user.id,
+                    tenantId,
+                    isActive: true,
+                },
+                include: {
+                    role: {
+                        include: {
+                            permissions: {
+                                include: {
+                                    permission: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            })
+            : [];
+        const roles = userTenantRoles.map((utr) => utr.role.code);
+        const permissions = new Set();
+        userTenantRoles.forEach((utr) => {
+            utr.role.permissions.forEach((rp) => {
+                if (rp.permission.isActive) {
+                    permissions.add(rp.permission.code);
+                }
+            });
+        });
         return {
             userId: user.id,
             email: user.email,
             firstName: user.firstName,
             lastName: user.lastName,
             role: user.role,
-            tenantId: user.tenantId,
+            tenantId: tenantId || user.tenantId,
+            roles: Array.from(roles),
+            permissions: Array.from(permissions),
         };
     }
 };

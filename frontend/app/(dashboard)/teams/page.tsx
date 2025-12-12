@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PermissionGate } from '@/components/auth/PermissionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -145,7 +147,8 @@ export default function TeamsPage() {
   ];
 
   return (
-    <DashboardLayout title="Équipes"  subtitle="Gestion des équipes">
+    <ProtectedRoute permissions={['tenant.manage_teams', 'employee.view_team']}>
+      <DashboardLayout title="Équipes"  subtitle="Gestion des équipes">
       <div className="p-8">
         {/* Header */}
         <div className="mb-8">
@@ -159,28 +162,30 @@ export default function TeamsPage() {
               </p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" className="gap-2">
-                <UserPlus className="w-4 h-4" />
-                Assigner des employés
-              </Button>
-              <Button 
-                className="gap-2"
-                onClick={() => {
-                  setEditingTeam(null);
-                  setFormData({
-                    name: '',
-                    code: '',
-                    description: '',
-                    managerId: '',
-                    rotationEnabled: false,
-                    rotationCycleDays: 14,
-                  });
-                  setShowForm(true);
-                }}
-              >
-                <Plus className="w-4 h-4" />
-                Nouvelle équipe
-              </Button>
+              <PermissionGate permission="tenant.manage_teams">
+                <Button variant="outline" className="gap-2">
+                  <UserPlus className="w-4 h-4" />
+                  Assigner des employés
+                </Button>
+                <Button 
+                  className="gap-2"
+                  onClick={() => {
+                    setEditingTeam(null);
+                    setFormData({
+                      name: '',
+                      code: '',
+                      description: '',
+                      managerId: '',
+                      rotationEnabled: false,
+                      rotationCycleDays: 14,
+                    });
+                    setShowForm(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4" />
+                  Nouvelle équipe
+                </Button>
+              </PermissionGate>
             </div>
           </div>
         </div>
@@ -306,42 +311,44 @@ export default function TeamsPage() {
                             </td>
                             <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center gap-2">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="gap-1"
-                                  onClick={() => {
-                                    setEditingTeam(team);
-                                    setFormData({
-                                      name: team.name,
-                                      code: team.code,
-                                      description: team.description || '',
-                                      managerId: team.managerId || '',
-                                      rotationEnabled: team.rotationEnabled || false,
-                                      rotationCycleDays: team.rotationCycleDays || 14,
-                                    });
-                                    setShowForm(true);
-                                  }}
-                                >
-                                  <Edit className="w-4 h-4" />
-                                  Modifier
-                                </Button>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="gap-1 text-danger hover:text-danger"
-                                  onClick={async () => {
-                                    if (confirm(`Êtes-vous sûr de vouloir supprimer l'équipe "${team.name}" ?`)) {
-                                      await deleteMutation.mutateAsync(team.id);
-                                      if (selectedTeamId === team.id) {
-                                        setSelectedTeamId(null);
+                                <PermissionGate permission="tenant.manage_teams">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="gap-1"
+                                    onClick={() => {
+                                      setEditingTeam(team);
+                                      setFormData({
+                                        name: team.name,
+                                        code: team.code,
+                                        description: team.description || '',
+                                        managerId: team.managerId || '',
+                                        rotationEnabled: team.rotationEnabled || false,
+                                        rotationCycleDays: team.rotationCycleDays || 14,
+                                      });
+                                      setShowForm(true);
+                                    }}
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                    Modifier
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="gap-1 text-danger hover:text-danger"
+                                    onClick={async () => {
+                                      if (confirm(`Êtes-vous sûr de vouloir supprimer l'équipe "${team.name}" ?`)) {
+                                        await deleteMutation.mutateAsync(team.id);
+                                        if (selectedTeamId === team.id) {
+                                          setSelectedTeamId(null);
+                                        }
                                       }
-                                    }
-                                  }}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                  Supprimer
-                                </Button>
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    Supprimer
+                                  </Button>
+                                </PermissionGate>
                               </div>
                             </td>
                           </tr>
@@ -393,15 +400,17 @@ export default function TeamsPage() {
                       Membres de l'équipe sélectionnée
                     </CardTitle>
                     <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-2"
-                        onClick={() => setShowAddMembersModal(true)}
-                      >
-                        <UserPlus className="w-4 h-4" />
-                        Assigner des employés
-                      </Button>
+                      <PermissionGate permission="tenant.manage_teams">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-2"
+                          onClick={() => setShowAddMembersModal(true)}
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          Assigner des employés
+                        </Button>
+                      </PermissionGate>
                     </div>
                   </div>
                   <p className="text-sm text-text-secondary mt-1">
@@ -489,7 +498,7 @@ export default function TeamsPage() {
                   {editingTeam ? 'Modifier l\'équipe' : 'Nouvelle équipe'}
                 </CardTitle>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
                   onClick={() => {
                     setShowForm(false);
@@ -808,6 +817,7 @@ export default function TeamsPage() {
           )}
         </div>
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </ProtectedRoute>
   );
 }

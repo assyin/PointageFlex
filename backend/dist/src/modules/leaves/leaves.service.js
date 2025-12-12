@@ -13,6 +13,7 @@ exports.LeavesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
 const client_1 = require("@prisma/client");
+const manager_level_util_1 = require("../../common/utils/manager-level.util");
 let LeavesService = class LeavesService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -41,6 +42,11 @@ let LeavesService = class LeavesService {
         if (endDate < startDate) {
             throw new common_1.BadRequestException('End date must be after start date');
         }
+        let days = dto.days;
+        if (!days) {
+            const timeDiff = endDate.getTime() - startDate.getTime();
+            days = Math.ceil(timeDiff / (1000 * 60 * 60 * 24)) + 1;
+        }
         const overlapping = await this.prisma.leave.findFirst({
             where: {
                 employeeId: dto.employeeId,
@@ -65,7 +71,7 @@ let LeavesService = class LeavesService {
                 leaveTypeId: dto.leaveTypeId,
                 startDate,
                 endDate,
-                days: dto.days,
+                days,
                 reason: dto.reason,
                 document: dto.document,
                 status: client_1.LeaveStatus.PENDING,
@@ -83,9 +89,104 @@ let LeavesService = class LeavesService {
             },
         });
     }
-    async findAll(tenantId, page = 1, limit = 20, filters) {
+    async findAll(tenantId, page = 1, limit = 20, filters, userId, userPermissions) {
         const skip = (page - 1) * limit;
         const where = { tenantId };
+        const hasViewAll = userPermissions?.includes('leave.view_all');
+        const hasViewOwn = userPermissions?.includes('leave.view_own');
+        const hasViewTeam = userPermissions?.includes('leave.view_team');
+        const hasViewDepartment = userPermissions?.includes('leave.view_department');
+        const hasViewSite = userPermissions?.includes('leave.view_site');
+        if (!hasViewAll && hasViewOwn && userId) {
+            const employee = await this.prisma.employee.findFirst({
+                where: { userId, tenantId },
+                select: { id: true },
+            });
+            if (employee) {
+                where.employeeId = employee.id;
+            }
+            else {
+                return {
+                    data: [],
+                    meta: {
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0,
+                    },
+                };
+            }
+        }
+        else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
+            const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+            if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+                const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                if (managedEmployeeIds.length === 0) {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
+                where.employeeId = { in: managedEmployeeIds };
+            }
+            else if (managerLevel.type === 'SITE' && hasViewSite) {
+                const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                if (managedEmployeeIds.length === 0) {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
+                where.employeeId = { in: managedEmployeeIds };
+            }
+            else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+                const employee = await this.prisma.employee.findFirst({
+                    where: { userId, tenantId },
+                    select: { teamId: true },
+                });
+                if (employee?.teamId) {
+                    const teamMembers = await this.prisma.employee.findMany({
+                        where: { teamId: employee.teamId, tenantId },
+                        select: { id: true },
+                    });
+                    where.employeeId = {
+                        in: teamMembers.map(m => m.id),
+                    };
+                }
+                else {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
+            }
+            else if (managerLevel.type) {
+                return {
+                    data: [],
+                    meta: {
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0,
+                    },
+                };
+            }
+        }
         if (filters?.employeeId) {
             where.employeeId = filters.employeeId;
         }
@@ -212,7 +313,25 @@ let LeavesService = class LeavesService {
             throw new common_1.BadRequestException('Leave cannot be approved at this stage');
         }
         const updateData = {};
-        if (userRole === client_1.Role.MANAGER) {
+        if (userRole === client_1.LegacyRole.SUPER_ADMIN) {
+            if (dto.status === client_1.LeaveStatus.MANAGER_APPROVED) {
+                updateData.status = client_1.LeaveStatus.MANAGER_APPROVED;
+                updateData.managerApprovedBy = userId;
+                updateData.managerApprovedAt = new Date();
+                updateData.managerComment = dto.comment;
+            }
+            else if (dto.status === client_1.LeaveStatus.APPROVED || dto.status === client_1.LeaveStatus.HR_APPROVED) {
+                updateData.status = client_1.LeaveStatus.APPROVED;
+                updateData.hrApprovedBy = userId;
+                updateData.hrApprovedAt = new Date();
+                updateData.hrComment = dto.comment;
+            }
+            else if (dto.status === client_1.LeaveStatus.REJECTED) {
+                updateData.status = client_1.LeaveStatus.REJECTED;
+                updateData.hrComment = dto.comment;
+            }
+        }
+        else if (userRole === client_1.LegacyRole.MANAGER) {
             if (dto.status === client_1.LeaveStatus.MANAGER_APPROVED) {
                 updateData.status = client_1.LeaveStatus.MANAGER_APPROVED;
                 updateData.managerApprovedBy = userId;
@@ -221,12 +340,10 @@ let LeavesService = class LeavesService {
             }
             else if (dto.status === client_1.LeaveStatus.REJECTED) {
                 updateData.status = client_1.LeaveStatus.REJECTED;
-                updateData.managerApprovedBy = userId;
-                updateData.managerApprovedAt = new Date();
                 updateData.managerComment = dto.comment;
             }
         }
-        if (userRole === client_1.Role.ADMIN_RH) {
+        else if (userRole === client_1.LegacyRole.ADMIN_RH) {
             if (dto.status === client_1.LeaveStatus.APPROVED || dto.status === client_1.LeaveStatus.HR_APPROVED) {
                 updateData.status = client_1.LeaveStatus.APPROVED;
                 updateData.hrApprovedBy = userId;
@@ -235,8 +352,6 @@ let LeavesService = class LeavesService {
             }
             else if (dto.status === client_1.LeaveStatus.REJECTED) {
                 updateData.status = client_1.LeaveStatus.REJECTED;
-                updateData.hrApprovedBy = userId;
-                updateData.hrApprovedAt = new Date();
                 updateData.hrComment = dto.comment;
             }
         }

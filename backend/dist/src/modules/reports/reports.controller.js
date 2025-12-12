@@ -21,13 +21,14 @@ const attendance_report_dto_1 = require("./dto/attendance-report.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
+const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const client_1 = require("@prisma/client");
 let ReportsController = class ReportsController {
     constructor(reportsService) {
         this.reportsService = reportsService;
     }
     getDashboardStats(user, query) {
-        return this.reportsService.getDashboardStats(user.tenantId, query);
+        return this.reportsService.getDashboardStats(user.tenantId, query, user.userId, user.role);
     }
     getAttendanceReport(user, dto) {
         return this.reportsService.getAttendanceReport(user.tenantId, dto);
@@ -42,8 +43,8 @@ let ReportsController = class ReportsController {
 exports.ReportsController = ReportsController;
 __decorate([
     (0, common_1.Get)('dashboard'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER, client_1.Role.SUPER_ADMIN),
-    (0, swagger_1.ApiOperation)({ summary: 'Get dashboard statistics' }),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER, client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.EMPLOYEE),
+    (0, swagger_1.ApiOperation)({ summary: 'Get dashboard statistics (supports scope: personal, team, tenant, platform)' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)()),
     __metadata("design:type", Function),
@@ -52,7 +53,7 @@ __decorate([
 ], ReportsController.prototype, "getDashboardStats", null);
 __decorate([
     (0, common_1.Get)('attendance'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Get attendance report' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)()),
@@ -62,7 +63,7 @@ __decorate([
 ], ReportsController.prototype, "getAttendanceReport", null);
 __decorate([
     (0, common_1.Get)('employee/:id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Get employee report' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -74,7 +75,7 @@ __decorate([
 ], ReportsController.prototype, "getEmployeeReport", null);
 __decorate([
     (0, common_1.Get)('team/:id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Get team report' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -88,7 +89,7 @@ exports.ReportsController = ReportsController = __decorate([
     (0, swagger_1.ApiTags)('Reports'),
     (0, common_1.Controller)('reports'),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     __metadata("design:paramtypes", [reports_service_1.ReportsService])
 ], ReportsController);
 //# sourceMappingURL=reports.controller.js.map

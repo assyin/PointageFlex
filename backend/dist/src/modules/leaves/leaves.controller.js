@@ -20,7 +20,7 @@ const create_leave_dto_1 = require("./dto/create-leave.dto");
 const update_leave_dto_1 = require("./dto/update-leave.dto");
 const approve_leave_dto_1 = require("./dto/approve-leave.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
-const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const client_1 = require("@prisma/client");
 let LeavesController = class LeavesController {
@@ -37,7 +37,7 @@ let LeavesController = class LeavesController {
             status,
             startDate,
             endDate,
-        });
+        }, user.userId, user.permissions || []);
     }
     findOne(user, id) {
         return this.leavesService.findOne(user.tenantId, id);
@@ -58,7 +58,7 @@ let LeavesController = class LeavesController {
 exports.LeavesController = LeavesController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('leave.create'),
     (0, swagger_1.ApiOperation)({ summary: 'Create new leave request' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -68,6 +68,7 @@ __decorate([
 ], LeavesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.RequirePermissions)('leave.view_all', 'leave.view_own'),
     (0, swagger_1.ApiOperation)({ summary: 'Get all leaves' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)('page')),
@@ -92,7 +93,7 @@ __decorate([
 ], LeavesController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('leave.update'),
     (0, swagger_1.ApiOperation)({ summary: 'Update leave request' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -103,7 +104,7 @@ __decorate([
 ], LeavesController.prototype, "update", null);
 __decorate([
     (0, common_1.Post)(':id/approve'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('leave.approve'),
     (0, swagger_1.ApiOperation)({ summary: 'Approve or reject leave request' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -114,6 +115,7 @@ __decorate([
 ], LeavesController.prototype, "approve", null);
 __decorate([
     (0, common_1.Post)(':id/cancel'),
+    (0, permissions_decorator_1.RequirePermissions)('leave.cancel'),
     (0, swagger_1.ApiOperation)({ summary: 'Cancel leave request' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -123,7 +125,7 @@ __decorate([
 ], LeavesController.prototype, "cancel", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH),
+    (0, permissions_decorator_1.RequirePermissions)('leave.delete'),
     (0, swagger_1.ApiOperation)({ summary: 'Delete leave request' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),

@@ -54,7 +54,7 @@ let AuthService = class AuthService {
                     firstName: dto.firstName,
                     lastName: dto.lastName,
                     tenantId: tenant.id,
-                    role: client_1.Role.ADMIN_RH,
+                    role: client_1.LegacyRole.ADMIN_RH,
                 },
                 select: {
                     id: true,
@@ -67,15 +67,48 @@ let AuthService = class AuthService {
             });
             return { tenant, user };
         });
+        const userTenantRoles = await this.prisma.userTenantRole.findMany({
+            where: {
+                userId: result.user.id,
+                tenantId: result.user.tenantId,
+                isActive: true,
+            },
+            include: {
+                role: {
+                    include: {
+                        permissions: {
+                            include: {
+                                permission: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        const roles = userTenantRoles.map((utr) => utr.role.code);
+        const permissions = new Set();
+        userTenantRoles.forEach((utr) => {
+            utr.role.permissions.forEach((rp) => {
+                if (rp.permission.isActive) {
+                    permissions.add(rp.permission.code);
+                }
+            });
+        });
         const tokens = await this.generateTokens(result.user);
         return {
             ...tokens,
-            user: result.user,
+            user: {
+                ...result.user,
+                roles: Array.from(roles),
+                permissions: Array.from(permissions),
+            },
         };
     }
     async login(dto) {
         const user = await this.prisma.user.findFirst({
-            where: { email: dto.email },
+            where: {
+                email: dto.email.toLowerCase().trim(),
+            },
             select: {
                 id: true,
                 email: true,
@@ -101,11 +134,45 @@ let AuthService = class AuthService {
             where: { id: user.id },
             data: { lastLoginAt: new Date() },
         });
+        const tenantId = user.tenantId;
+        const userTenantRoles = tenantId
+            ? await this.prisma.userTenantRole.findMany({
+                where: {
+                    userId: user.id,
+                    tenantId,
+                    isActive: true,
+                },
+                include: {
+                    role: {
+                        include: {
+                            permissions: {
+                                include: {
+                                    permission: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            })
+            : [];
+        const roles = userTenantRoles.map((utr) => utr.role.code);
+        const permissions = new Set();
+        userTenantRoles.forEach((utr) => {
+            utr.role.permissions.forEach((rp) => {
+                if (rp.permission.isActive) {
+                    permissions.add(rp.permission.code);
+                }
+            });
+        });
         const tokens = await this.generateTokens(user);
         const { password, ...userWithoutPassword } = user;
         return {
             ...tokens,
-            user: userWithoutPassword,
+            user: {
+                ...userWithoutPassword,
+                roles: Array.from(roles),
+                permissions: Array.from(permissions),
+            },
         };
     }
     async refreshTokens(userId) {
@@ -118,12 +185,56 @@ let AuthService = class AuthService {
                 lastName: true,
                 role: true,
                 tenantId: true,
+                isActive: true,
             },
         });
-        if (!user) {
-            throw new common_1.UnauthorizedException('User not found');
+        if (!user || !user.isActive) {
+            throw new common_1.UnauthorizedException('User not found or inactive');
         }
-        return this.generateTokens(user);
+        const tenantId = user.tenantId;
+        const userTenantRoles = tenantId
+            ? await this.prisma.userTenantRole.findMany({
+                where: {
+                    userId: user.id,
+                    tenantId,
+                    isActive: true,
+                },
+                include: {
+                    role: {
+                        include: {
+                            permissions: {
+                                include: {
+                                    permission: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            })
+            : [];
+        const roles = userTenantRoles.map((utr) => utr.role.code);
+        const permissions = new Set();
+        userTenantRoles.forEach((utr) => {
+            utr.role.permissions.forEach((rp) => {
+                if (rp.permission.isActive) {
+                    permissions.add(rp.permission.code);
+                }
+            });
+        });
+        const tokens = await this.generateTokens(user);
+        return {
+            ...tokens,
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                role: user.role,
+                tenantId: user.tenantId,
+                roles: Array.from(roles),
+                permissions: Array.from(permissions),
+            },
+        };
     }
     async generateTokens(user) {
         const payload = {

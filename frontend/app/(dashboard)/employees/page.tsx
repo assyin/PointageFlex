@@ -11,6 +11,7 @@ import { Plus, Search, Edit, Trash2, User, Mail, Phone, Upload, Download, FileSp
 import { useEmployees, useCreateEmployee, useDeleteEmployee, useDeleteAllEmployees } from '@/lib/hooks/useEmployees';
 import { ImportExcelModal } from '@/components/employees/ImportExcelModal';
 import { BulkAssignSiteModal } from '@/components/employees/BulkAssignSiteModal';
+import { PermissionGate } from '@/components/auth/PermissionGate';
 import { toast } from 'sonner';
 import apiClient from '@/lib/api/client';
 
@@ -154,39 +155,49 @@ export default function EmployeesPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleDeleteAll}
-              disabled={deleteAllMutation.isPending || !Array.isArray(employees) || employees.length === 0}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <XCircle className="h-4 w-4 mr-2" />
-              {deleteAllMutation.isPending ? 'Suppression...' : 'Tout Supprimer'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleExportExcel}
-              disabled={isExporting || !Array.isArray(employees) || employees.length === 0}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {isExporting ? 'Export en cours...' : 'Exporter Excel'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setShowBulkAssignModal(true)}
-              disabled={!Array.isArray(employees) || employees.length === 0}
-            >
-              <Building2 className="h-4 w-4 mr-2" />
-              Assigner à un site
-            </Button>
-            <Button variant="outline" onClick={() => setShowImportModal(true)}>
-              <Upload className="h-4 w-4 mr-2" />
-              Importer Excel
-            </Button>
-            <Button variant="primary" onClick={() => setShowCreateModal(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvel Employé
-            </Button>
+            <PermissionGate permission="employee.delete">
+              <Button
+                variant="outline"
+                onClick={handleDeleteAll}
+                disabled={deleteAllMutation.isPending || !Array.isArray(employees) || employees.length === 0}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                {deleteAllMutation.isPending ? 'Suppression...' : 'Tout Supprimer'}
+              </Button>
+            </PermissionGate>
+            <PermissionGate permissions={['employee.export', 'employee.view_all']}>
+              <Button
+                variant="outline"
+                onClick={handleExportExcel}
+                disabled={isExporting || !Array.isArray(employees) || employees.length === 0}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {isExporting ? 'Export en cours...' : 'Exporter Excel'}
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="employee.update">
+              <Button
+                variant="outline"
+                onClick={() => setShowBulkAssignModal(true)}
+                disabled={!Array.isArray(employees) || employees.length === 0}
+              >
+                <Building2 className="h-4 w-4 mr-2" />
+                Assigner à un site
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="employee.import">
+              <Button variant="outline" onClick={() => setShowImportModal(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Importer Excel
+              </Button>
+            </PermissionGate>
+            <PermissionGate permission="employee.create">
+              <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nouvel Employé
+              </Button>
+            </PermissionGate>
           </div>
         </div>
 
@@ -287,14 +298,29 @@ export default function EmployeesPage() {
                         </td>
                         <td className="p-3">
                           <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(employee.id)}
-                              disabled={deleteMutation.isPending}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            <PermissionGate permission="employee.update">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  // TODO: Implémenter l'édition
+                                  toast.info('Fonctionnalité d\'édition à venir');
+                                }}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                            </PermissionGate>
+                            <PermissionGate permission="employee.delete">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(employee.id)}
+                                disabled={deleteMutation.isPending}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </PermissionGate>
                           </div>
                         </td>
                       </tr>

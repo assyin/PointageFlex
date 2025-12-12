@@ -1,4 +1,4 @@
-import { api } from './client';
+import apiClient from './client';
 
 export interface Position {
   id: string;
@@ -61,37 +61,37 @@ export interface PositionStats {
 export const positionsApi = {
   getAll: async (category?: string) => {
     const params = category ? { category } : {};
-    const response = await api.get<Position[]>('/positions', { params });
+    const response = await apiClient.get<Position[]>('/positions', { params });
     return response.data;
   },
 
   getById: async (id: string) => {
-    const response = await api.get<Position>(`/positions/${id}`);
+    const response = await apiClient.get<Position>(`/positions/${id}`);
     return response.data;
   },
 
   create: async (data: CreatePositionDto) => {
-    const response = await api.post<Position>('/positions', data);
+    const response = await apiClient.post<Position>('/positions', data);
     return response.data;
   },
 
   update: async (id: string, data: UpdatePositionDto) => {
-    const response = await api.patch<Position>(`/positions/${id}`, data);
+    const response = await apiClient.patch<Position>(`/positions/${id}`, data);
     return response.data;
   },
 
   delete: async (id: string) => {
-    const response = await api.delete(`/positions/${id}`);
+    const response = await apiClient.delete(`/positions/${id}`);
     return response.data;
   },
 
   getStats: async () => {
-    const response = await api.get<PositionStats>('/positions/stats');
+    const response = await apiClient.get<PositionStats>('/positions/stats');
     return response.data;
   },
 
   getCategories: async () => {
-    const response = await api.get<string[]>('/positions/categories');
+    const response = await apiClient.get<string[]>('/positions/categories');
     return response.data;
   },
 };

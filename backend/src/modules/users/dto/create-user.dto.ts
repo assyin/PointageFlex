@@ -1,6 +1,6 @@
 import { IsEmail, IsString, IsEnum, IsOptional, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
+import { LegacyRole } from '@prisma/client';
 
 export class CreateUserDto {
   @ApiProperty()
@@ -25,7 +25,8 @@ export class CreateUserDto {
   @IsString()
   phone?: string;
 
-  @ApiProperty({ enum: Role })
-  @IsEnum(Role)
-  role: Role;
+  @ApiProperty({ enum: LegacyRole, required: false })
+  @IsOptional()
+  @IsEnum(LegacyRole)
+  role?: LegacyRole; // Optionnel: le nouveau système utilise UserTenantRole
 }

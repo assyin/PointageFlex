@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Delete, Body, UseGuards, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { LegacyRole } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { DataGeneratorService } from './data-generator.service';
 import { GenerateSingleAttendanceDto } from './dto/generate-single-attendance.dto';
@@ -7,7 +8,7 @@ import { CleanGeneratedDataDto } from './dto/clean-generated-data.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+
 
 @ApiTags('Data Generator')
 @Controller('data-generator')
@@ -17,7 +18,7 @@ export class DataGeneratorController {
   constructor(private readonly dataGeneratorService: DataGeneratorService) {}
 
   @Post('attendance/single')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({
     summary: 'Générer des pointages pour un employé pour une journée',
     description: 'Génère des pointages virtuels selon un scénario spécifique pour tester le système',
@@ -36,7 +37,7 @@ export class DataGeneratorController {
   }
 
   @Post('attendance/bulk')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({
     summary: 'Générer en masse des pointages pour plusieurs employés',
     description: 'Génère des pointages virtuels pour une période donnée avec une distribution de scénarios',
@@ -55,7 +56,7 @@ export class DataGeneratorController {
   }
 
   @Delete('attendance/clean')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Supprimer les données générées',
@@ -71,7 +72,7 @@ export class DataGeneratorController {
   }
 
   @Get('stats')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN, Role.MANAGER)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN, LegacyRole.MANAGER)
   @ApiOperation({
     summary: 'Obtenir les statistiques des données générées',
     description: 'Retourne un résumé des pointages virtuels générés',

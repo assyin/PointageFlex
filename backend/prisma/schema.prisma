@@ -44,6 +44,8 @@ model Tenant {
   teams             Team[]
   settings          TenantSettings?
   users             User[]
+  userTenantRoles   UserTenantRole[]
+  roles             Role[] // Rôles personnalisés par tenant (optionnel)
 
   @@index([slug])
 }
@@ -81,24 +83,26 @@ model TenantSettings {
 }
 
 model User {
-  id          String     @id @default(uuid())
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  tenantId    String
-  email       String
-  password    String
-  firstName   String
-  lastName    String
-  phone       String?
-  avatar      String?
-  isActive    Boolean    @default(true)
-  lastLoginAt DateTime?
-  role        Role       @default(EMPLOYEE)
-  auditLogs   AuditLog[]
-  employee    Employee?
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id              String           @id @default(uuid())
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  tenantId        String? // Optionnel pour compatibilité, mais on utilisera UserTenantRole
+  email           String           @unique // Email unique globalement
+  password        String
+  firstName       String
+  lastName        String
+  phone           String?
+  avatar          String?
+  isActive        Boolean          @default(true)
+  lastLoginAt     DateTime?
+  role            LegacyRole?      @default(EMPLOYEE) // Optionnel pour compatibilité
+  auditLogs       AuditLog[]
+  employee        Employee?
+  tenant          Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userTenantRoles UserTenantRole[]
+  preferences     UserPreferences?
+  sessions        UserSession[]
 
-  @@unique([tenantId, email])
   @@index([tenantId])
   @@index([email])
 }
@@ -125,8 +129,8 @@ model Employee {
   rib                       String?
   region                    String?
   categorie                 String?
-  position                  String             // Texte libre (legacy) - Gardé pour compatibilité
-  positionId                String?            // Relation vers Position (nouveau)
+  position                  String // Texte libre (legacy) - Gardé pour compatibilité
+  positionId                String? // Relation vers Position (nouveau)
   hireDate                  DateTime
   contractType              String?
   siteId                    String?
@@ -155,7 +159,9 @@ model Employee {
   schedules                 Schedule[]
   replacementsAsOriginal    ShiftReplacement[] @relation("OriginalEmployee")
   replacementsAsReplacement ShiftReplacement[] @relation("ReplacementEmployee")
-  managedTeams              Team[]              @relation("TeamManager")
+  managedTeams              Team[]             @relation("TeamManager")
+  managedSites              Site[]             @relation("SiteManager")
+  managedDepartments        Department[]       @relation("DepartmentManager")
 
   @@unique([tenantId, matricule])
   @@index([tenantId])
@@ -166,26 +172,32 @@ model Employee {
 }
 
 model Site {
-  id          String             @id @default(uuid())
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  tenantId    String
-  name        String
-  address     String?
-  city        String?
-  latitude    Decimal?
-  longitude   Decimal?
-  code        String?
-  phone       String?
-  timezone    String?
-  workingDays Json?
-  attendance  Attendance[]
-  devices     AttendanceDevice[]
-  employees   Employee[]
-  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id           String             @id @default(uuid())
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  tenantId     String
+  name         String
+  address      String?
+  city         String?
+  latitude     Decimal?
+  longitude    Decimal?
+  code         String?
+  phone        String?
+  timezone     String?
+  workingDays  Json?
+  managerId    String? // ID du manager régional du site (optionnel)
+  departmentId String? // ID du département principal du site
+  manager      Employee?          @relation("SiteManager", fields: [managerId], references: [id])
+  department   Department?        @relation("SiteDepartment", fields: [departmentId], references: [id])
+  attendance   Attendance[]
+  devices      AttendanceDevice[]
+  employees    Employee[]
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([tenantId, code])
+  @@index([managerId])
+  @@index([departmentId])
 }
 
 model Department {
@@ -196,11 +208,14 @@ model Department {
   name        String
   code        String?
   description String?
-  managerId   String?    // ID du manager du département
+  managerId   String? // ID du manager du département
+  manager     Employee?  @relation("DepartmentManager", fields: [managerId], references: [id])
   tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employees   Employee[]
+  sites       Site[]     @relation("SiteDepartment")
 
   @@index([tenantId])
+  @@index([managerId])
 }
 
 model Position {
@@ -208,9 +223,9 @@ model Position {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   tenantId    String
-  name        String     // Ex: "Développeur Full-Stack"
-  code        String?    // Ex: "DEV-FS"
-  category    String?    // Ex: "IT", "RH", "FINANCE", "PRODUCTION"
+  name        String // Ex: "Développeur Full-Stack"
+  code        String? // Ex: "DEV-FS"
+  category    String? // Ex: "IT", "RH", "FINANCE", "PRODUCTION"
   description String?
   tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employees   Employee[]
@@ -494,7 +509,124 @@ model Notification {
   @@index([isRead])
 }
 
-enum Role {
+// ============================================
+// RBAC Multi-Tenant Models
+// ============================================
+
+// Rôle : peut être système (SUPER_ADMIN) ou spécifique à un tenant
+model Role {
+  id          String           @id @default(uuid())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  tenantId    String? // null = rôle système (SUPER_ADMIN uniquement)
+  name        String // Ex: "ADMIN_RH", "MANAGER", "EMPLOYEE", "CUSTOM_ROLE"
+  code        String // Code unique : "ADMIN_RH", "MANAGER", etc.
+  description String?
+  isSystem    Boolean          @default(false) // Rôle système (non modifiable)
+  isActive    Boolean          @default(true)
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  userRoles   UserTenantRole[]
+
+  @@unique([tenantId, code]) // Code unique par tenant (ou global si tenantId null)
+  @@index([tenantId])
+  @@index([code])
+}
+
+// Permission : action atomique (ex: "employee.view_all", "attendance.edit")
+model Permission {
+  id              String           @id @default(uuid())
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  code            String           @unique // Ex: "employee.view_all", "attendance.edit"
+  name            String // Nom lisible : "Voir tous les employés"
+  description     String?
+  category        String // Ex: "employees", "attendance", "leaves", "reports"
+  isActive        Boolean          @default(true)
+  rolePermissions RolePermission[]
+
+  @@index([category])
+  @@index([code])
+}
+
+// Liaison n-à-n entre Role et Permission
+model RolePermission {
+  id           String     @id @default(uuid())
+  createdAt    DateTime   @default(now())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// Préférences utilisateur
+model UserPreferences {
+  id            String   @id @default(uuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  userId        String   @unique
+  language      String   @default("fr")
+  timezone      String   @default("Africa/Casablanca")
+  dateFormat    String   @default("DD/MM/YYYY")
+  timeFormat    String   @default("24h")
+  notifications Json? // { email: { leaves: boolean, planning: boolean, alerts: boolean }, push: { mobile: boolean, desktop: boolean }, sms: boolean }
+  theme         String   @default("light")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Sessions utilisateur (pour tracking des connexions)
+model UserSession {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  userId     String
+  tokenId    String   @unique // JWT jti (JWT ID) pour identifier le token
+  device     String?
+  browser    String?
+  os         String?
+  location   String?
+  ipAddress  String?
+  userAgent  String?
+  lastActive DateTime @default(now())
+  expiresAt  DateTime
+  isActive   Boolean  @default(true)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenId])
+  @@index([isActive])
+}
+
+// Liaison User-Tenant-Role : indique quel utilisateur a quel rôle dans quel tenant
+model UserTenantRole {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  userId     String
+  tenantId   String
+  roleId     String
+  assignedBy String? // ID de l'utilisateur qui a assigné ce rôle
+  assignedAt DateTime @default(now())
+  isActive   Boolean  @default(true)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId, roleId]) // Un utilisateur ne peut pas avoir le même rôle deux fois dans le même tenant
+  @@index([userId])
+  @@index([tenantId])
+  @@index([roleId])
+}
+
+// Enum LegacyRole : gardé pour compatibilité avec l'ancien système
+// Le nouveau système utilise le modèle Role avec UserTenantRole
+enum LegacyRole {
   SUPER_ADMIN
   ADMIN_RH
   MANAGER

@@ -9,9 +9,9 @@ export declare class TeamsController {
     create(user: any, dto: CreateTeamDto): Promise<{
         employees: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         }[];
     } & {
         id: string;
@@ -33,15 +33,15 @@ export declare class TeamsController {
             };
             employees: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
             }[];
             manager: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
             };
         } & {
             id: string;
@@ -69,10 +69,10 @@ export declare class TeamsController {
         };
         employees: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
+            matricule: string;
             position: string;
         }[];
     } & {
@@ -90,9 +90,9 @@ export declare class TeamsController {
     update(user: any, id: string, dto: UpdateTeamDto): Promise<{
         employees: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         }[];
     } & {
         id: string;
@@ -125,10 +125,10 @@ export declare class TeamsController {
         };
         employees: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
+            matricule: string;
             position: string;
         }[];
     } & {
@@ -150,10 +150,10 @@ export declare class TeamsController {
         };
         employees: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
+            matricule: string;
             position: string;
         }[];
     } & {
@@ -175,10 +175,10 @@ export declare class TeamsController {
         };
         employees: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
+            matricule: string;
             position: string;
         }[];
     } & {
@@ -200,10 +200,10 @@ export declare class TeamsController {
         };
         employees: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
+            matricule: string;
             position: string;
         }[];
     } & {

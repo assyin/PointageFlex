@@ -9,9 +9,9 @@ export declare class AttendanceController {
     create(tenantId: string, createAttendanceDto: CreateAttendanceDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
             photo: string;
         };
         site: {
@@ -20,9 +20,11 @@ export declare class AttendanceController {
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -34,12 +36,12 @@ export declare class AttendanceController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            siteId: string | null;
             isActive: boolean;
             name: string;
+            siteId: string | null;
+            ipAddress: string | null;
             deviceId: string;
             deviceType: import(".prisma/client").$Enums.DeviceType;
-            ipAddress: string | null;
             apiKey: string | null;
             lastSync: Date | null;
         };
@@ -52,9 +54,9 @@ export declare class AttendanceController {
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
         type: import(".prisma/client").$Enums.AttendanceType;
-        timestamp: Date;
         employeeId: string;
         deviceId: string | null;
+        timestamp: Date;
         method: import(".prisma/client").$Enums.DeviceType;
         hasAnomaly: boolean;
         anomalyType: string | null;
@@ -69,9 +71,9 @@ export declare class AttendanceController {
     handleWebhook(deviceId: string, tenantId: string, apiKey: string, webhookData: WebhookAttendanceDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -82,9 +84,9 @@ export declare class AttendanceController {
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
         type: import(".prisma/client").$Enums.AttendanceType;
-        timestamp: Date;
         employeeId: string;
         deviceId: string | null;
+        timestamp: Date;
         method: import(".prisma/client").$Enums.DeviceType;
         hasAnomaly: boolean;
         anomalyType: string | null;
@@ -99,9 +101,9 @@ export declare class AttendanceController {
     handlePushFromTerminal(body: any, headers: any): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -112,9 +114,9 @@ export declare class AttendanceController {
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
         type: import(".prisma/client").$Enums.AttendanceType;
-        timestamp: Date;
         employeeId: string;
         deviceId: string | null;
+        timestamp: Date;
         method: import(".prisma/client").$Enums.DeviceType;
         hasAnomaly: boolean;
         anomalyType: string | null;
@@ -128,12 +130,12 @@ export declare class AttendanceController {
     }>;
     private mapAttendanceType;
     private mapVerifyMode;
-    findAll(tenantId: string, employeeId?: string, siteId?: string, startDate?: string, endDate?: string, hasAnomaly?: string, type?: AttendanceType): Promise<({
+    findAll(user: any, tenantId: string, employeeId?: string, siteId?: string, startDate?: string, endDate?: string, hasAnomaly?: string, type?: AttendanceType): Promise<({
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
             photo: string;
             currentShift: {
                 id: string;
@@ -155,9 +157,11 @@ export declare class AttendanceController {
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -169,12 +173,12 @@ export declare class AttendanceController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            siteId: string | null;
             isActive: boolean;
             name: string;
+            siteId: string | null;
+            ipAddress: string | null;
             deviceId: string;
             deviceType: import(".prisma/client").$Enums.DeviceType;
-            ipAddress: string | null;
             apiKey: string | null;
             lastSync: Date | null;
         };
@@ -187,9 +191,9 @@ export declare class AttendanceController {
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
         type: import(".prisma/client").$Enums.AttendanceType;
-        timestamp: Date;
         employeeId: string;
         deviceId: string | null;
+        timestamp: Date;
         method: import(".prisma/client").$Enums.DeviceType;
         hasAnomaly: boolean;
         anomalyType: string | null;
@@ -204,9 +208,9 @@ export declare class AttendanceController {
     getAnomalies(tenantId: string, date?: string): Promise<({
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
             photo: string;
         };
     } & {
@@ -218,9 +222,9 @@ export declare class AttendanceController {
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
         type: import(".prisma/client").$Enums.AttendanceType;
-        timestamp: Date;
         employeeId: string;
         deviceId: string | null;
+        timestamp: Date;
         method: import(".prisma/client").$Enums.DeviceType;
         hasAnomaly: boolean;
         anomalyType: string | null;
@@ -242,9 +246,9 @@ export declare class AttendanceController {
     findOne(tenantId: string, id: string): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
             photo: string;
             position: string;
             department: {
@@ -276,9 +280,11 @@ export declare class AttendanceController {
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -290,12 +296,12 @@ export declare class AttendanceController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            siteId: string | null;
             isActive: boolean;
             name: string;
+            siteId: string | null;
+            ipAddress: string | null;
             deviceId: string;
             deviceType: import(".prisma/client").$Enums.DeviceType;
-            ipAddress: string | null;
             apiKey: string | null;
             lastSync: Date | null;
         };
@@ -308,9 +314,9 @@ export declare class AttendanceController {
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
         type: import(".prisma/client").$Enums.AttendanceType;
-        timestamp: Date;
         employeeId: string;
         deviceId: string | null;
+        timestamp: Date;
         method: import(".prisma/client").$Enums.DeviceType;
         hasAnomaly: boolean;
         anomalyType: string | null;
@@ -325,9 +331,9 @@ export declare class AttendanceController {
     correctAttendance(tenantId: string, id: string, correctionDto: CorrectAttendanceDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -338,9 +344,9 @@ export declare class AttendanceController {
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
         type: import(".prisma/client").$Enums.AttendanceType;
-        timestamp: Date;
         employeeId: string;
         deviceId: string | null;
+        timestamp: Date;
         method: import(".prisma/client").$Enums.DeviceType;
         hasAnomaly: boolean;
         anomalyType: string | null;

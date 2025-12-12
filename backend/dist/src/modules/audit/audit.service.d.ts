@@ -9,33 +9,33 @@ export declare class AuditService {
         createdAt: Date;
         tenantId: string;
         userId: string | null;
-        ipAddress: string | null;
         action: string;
         entity: string;
         entityId: string | null;
         oldValues: import("@prisma/client/runtime/library").JsonValue | null;
         newValues: import("@prisma/client/runtime/library").JsonValue | null;
+        ipAddress: string | null;
         userAgent: string | null;
     }>;
     findAll(tenantId: string, page?: number, limit?: number, filters?: QueryAuditLogDto): Promise<{
         data: ({
             user: {
                 id: string;
+                email: string;
                 firstName: string;
                 lastName: string;
-                email: string;
             };
         } & {
             id: string;
             createdAt: Date;
             tenantId: string;
             userId: string | null;
-            ipAddress: string | null;
             action: string;
             entity: string;
             entityId: string | null;
             oldValues: import("@prisma/client/runtime/library").JsonValue | null;
             newValues: import("@prisma/client/runtime/library").JsonValue | null;
+            ipAddress: string | null;
             userAgent: string | null;
         })[];
         meta: {
@@ -48,22 +48,22 @@ export declare class AuditService {
     findOne(tenantId: string, id: string): Promise<{
         user: {
             id: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
-            role: import(".prisma/client").$Enums.Role;
+            role: import(".prisma/client").$Enums.LegacyRole;
         };
     } & {
         id: string;
         createdAt: Date;
         tenantId: string;
         userId: string | null;
-        ipAddress: string | null;
         action: string;
         entity: string;
         entityId: string | null;
         oldValues: import("@prisma/client/runtime/library").JsonValue | null;
         newValues: import("@prisma/client/runtime/library").JsonValue | null;
+        ipAddress: string | null;
         userAgent: string | null;
     }>;
     getActionSummary(tenantId: string, startDate?: string, endDate?: string): Promise<{
@@ -80,12 +80,12 @@ export declare class AuditService {
             createdAt: Date;
             tenantId: string;
             userId: string | null;
-            ipAddress: string | null;
             action: string;
             entity: string;
             entityId: string | null;
             oldValues: import("@prisma/client/runtime/library").JsonValue | null;
             newValues: import("@prisma/client/runtime/library").JsonValue | null;
+            ipAddress: string | null;
             userAgent: string | null;
         }[];
         meta: {

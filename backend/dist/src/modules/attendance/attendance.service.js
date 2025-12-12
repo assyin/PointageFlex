@@ -14,6 +14,7 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
 const client_1 = require("@prisma/client");
 const matricule_util_1 = require("../../common/utils/matricule.util");
+const manager_level_util_1 = require("../../common/utils/manager-level.util");
 let AttendanceService = class AttendanceService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -108,8 +109,63 @@ let AttendanceService = class AttendanceService {
             },
         });
     }
-    async findAll(tenantId, filters) {
+    async findAll(tenantId, filters, userId, userPermissions) {
         const where = { tenantId };
+        const hasViewAll = userPermissions?.includes('attendance.view_all');
+        const hasViewOwn = userPermissions?.includes('attendance.view_own');
+        const hasViewTeam = userPermissions?.includes('attendance.view_team');
+        const hasViewDepartment = userPermissions?.includes('attendance.view_department');
+        const hasViewSite = userPermissions?.includes('attendance.view_site');
+        if (!hasViewAll && hasViewOwn && userId) {
+            const employee = await this.prisma.employee.findFirst({
+                where: { userId, tenantId },
+                select: { id: true },
+            });
+            if (employee) {
+                where.employeeId = employee.id;
+            }
+            else {
+                return [];
+            }
+        }
+        else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
+            const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+            if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+                const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                if (managedEmployeeIds.length === 0) {
+                    return [];
+                }
+                where.employeeId = { in: managedEmployeeIds };
+            }
+            else if (managerLevel.type === 'SITE' && hasViewSite) {
+                const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                if (managedEmployeeIds.length === 0) {
+                    return [];
+                }
+                where.employeeId = { in: managedEmployeeIds };
+            }
+            else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+                const employee = await this.prisma.employee.findFirst({
+                    where: { userId, tenantId },
+                    select: { teamId: true },
+                });
+                if (employee?.teamId) {
+                    const teamMembers = await this.prisma.employee.findMany({
+                        where: { teamId: employee.teamId, tenantId },
+                        select: { id: true },
+                    });
+                    where.employeeId = {
+                        in: teamMembers.map(m => m.id),
+                    };
+                }
+                else {
+                    return [];
+                }
+            }
+            else if (managerLevel.type) {
+                return [];
+            }
+        }
         if (filters?.employeeId)
             where.employeeId = filters.employeeId;
         if (filters?.siteId)

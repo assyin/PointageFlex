@@ -18,7 +18,7 @@ import { BulkMembersDto } from './dto/bulk-members.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Role } from '@prisma/client';
+import { LegacyRole } from '@prisma/client';
 
 @ApiTags('Teams')
 @Controller('teams')
@@ -28,7 +28,7 @@ export class TeamsController {
   constructor(private teamsService: TeamsService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Create new team' })
   create(@CurrentUser() user: any, @Body() dto: CreateTeamDto) {
     return this.teamsService.create(user.tenantId, dto);
@@ -61,7 +61,7 @@ export class TeamsController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Update team' })
   update(
     @CurrentUser() user: any,
@@ -72,14 +72,14 @@ export class TeamsController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
   @ApiOperation({ summary: 'Delete team' })
   remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.teamsService.remove(user.tenantId, id);
   }
 
   @Post(':id/members')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Add a member to the team' })
   addMember(
     @CurrentUser() user: any,
@@ -90,7 +90,7 @@ export class TeamsController {
   }
 
   @Delete(':id/members/:employeeId')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Remove a member from the team' })
   removeMember(
     @CurrentUser() user: any,
@@ -101,7 +101,7 @@ export class TeamsController {
   }
 
   @Post(':id/members/bulk')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Add multiple members to the team' })
   addMembersBulk(
     @CurrentUser() user: any,
@@ -112,7 +112,7 @@ export class TeamsController {
   }
 
   @Delete(':id/members/bulk')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Remove multiple members from the team' })
   removeMembersBulk(
     @CurrentUser() user: any,

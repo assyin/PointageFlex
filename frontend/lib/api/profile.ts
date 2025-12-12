@@ -77,4 +77,27 @@ export const profileApi = {
     const response = await apiClient.get('/users/me/stats');
     return response.data;
   },
+
+  exportData: async () => {
+    const response = await apiClient.get('/users/me/export', {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  uploadAvatar: async (file: File) => {
+    const formData = new FormData();
+    formData.append('avatar', file);
+    const response = await apiClient.post('/users/me/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  removeAvatar: async () => {
+    const response = await apiClient.delete('/users/me/avatar');
+    return response.data;
+  },
 };

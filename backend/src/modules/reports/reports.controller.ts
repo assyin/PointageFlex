@@ -12,27 +12,33 @@ import { AttendanceReportDto } from './dto/attendance-report.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Role } from '@prisma/client';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { LegacyRole } from '@prisma/client';
 
 @ApiTags('Reports')
 @Controller('reports')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class ReportsController {
   constructor(private reportsService: ReportsService) {}
 
   @Get('dashboard')
-  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Get dashboard statistics' })
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.MANAGER, LegacyRole.SUPER_ADMIN, LegacyRole.EMPLOYEE)
+  @ApiOperation({ summary: 'Get dashboard statistics (supports scope: personal, team, tenant, platform)' })
   getDashboardStats(
     @CurrentUser() user: any,
     @Query() query: DashboardStatsQueryDto,
   ) {
-    return this.reportsService.getDashboardStats(user.tenantId, query);
+    return this.reportsService.getDashboardStats(
+      user.tenantId,
+      query,
+      user.userId,
+      user.role,
+    );
   }
 
   @Get('attendance')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Get attendance report' })
   getAttendanceReport(
     @CurrentUser() user: any,
@@ -42,7 +48,7 @@ export class ReportsController {
   }
 
   @Get('employee/:id')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Get employee report' })
   getEmployeeReport(
     @CurrentUser() user: any,
@@ -54,7 +60,7 @@ export class ReportsController {
   }
 
   @Get('team/:id')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.MANAGER)
   @ApiOperation({ summary: 'Get team report' })
   getTeamReport(
     @CurrentUser() user: any,

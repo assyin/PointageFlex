@@ -21,6 +21,7 @@ const update_overtime_dto_1 = require("./dto/update-overtime.dto");
 const approve_overtime_dto_1 = require("./dto/approve-overtime.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const client_1 = require("@prisma/client");
 let OvertimeController = class OvertimeController {
@@ -37,7 +38,7 @@ let OvertimeController = class OvertimeController {
             startDate,
             endDate,
             isNightShift: isNightShift ? isNightShift === 'true' : undefined,
-        });
+        }, user.userId, user.permissions || []);
     }
     findOne(user, id) {
         return this.overtimeService.findOne(user.tenantId, id);
@@ -58,7 +59,7 @@ let OvertimeController = class OvertimeController {
 exports.OvertimeController = OvertimeController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Create new overtime record' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -68,6 +69,7 @@ __decorate([
 ], OvertimeController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.RequirePermissions)('overtime.view_all', 'overtime.view_own'),
     (0, swagger_1.ApiOperation)({ summary: 'Get all overtime records' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)('page')),
@@ -92,7 +94,7 @@ __decorate([
 ], OvertimeController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Update overtime record' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -103,7 +105,7 @@ __decorate([
 ], OvertimeController.prototype, "update", null);
 __decorate([
     (0, common_1.Post)(':id/approve'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('overtime.approve'),
     (0, swagger_1.ApiOperation)({ summary: 'Approve or reject overtime' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -114,7 +116,7 @@ __decorate([
 ], OvertimeController.prototype, "approve", null);
 __decorate([
     (0, common_1.Post)(':id/convert-to-recovery'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH),
+    (0, permissions_decorator_1.RequirePermissions)('overtime.approve'),
     (0, swagger_1.ApiOperation)({ summary: 'Convert overtime to recovery hours' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -124,7 +126,7 @@ __decorate([
 ], OvertimeController.prototype, "convertToRecovery", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH),
+    (0, permissions_decorator_1.RequirePermissions)('overtime.delete'),
     (0, swagger_1.ApiOperation)({ summary: 'Delete overtime record' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),

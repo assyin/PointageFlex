@@ -18,9 +18,11 @@ import { CorrectAttendanceDto } from './dto/correct-attendance.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
-import { Role, AttendanceType, DeviceType } from '@prisma/client';
+import { LegacyRole, AttendanceType, DeviceType } from '@prisma/client';
 
 @ApiTags('Attendance')
 @Controller('attendance')
@@ -30,7 +32,7 @@ export class AttendanceController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
+  @RequirePermissions('attendance.create')
   @ApiOperation({ summary: 'Create manual attendance record' })
   @ApiResponse({ status: 201, description: 'Attendance created successfully' })
   create(
@@ -170,11 +172,13 @@ export class AttendanceController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
+  @RequirePermissions('attendance.view_all', 'attendance.view_own', 'attendance.view_team')
   @ApiOperation({ summary: 'Get all attendance records with filters' })
   @ApiResponse({ status: 200, description: 'List of attendance records' })
   findAll(
+    @CurrentUser() user: any,
     @CurrentTenant() tenantId: string,
     @Query('employeeId') employeeId?: string,
     @Query('siteId') siteId?: string,
@@ -183,20 +187,25 @@ export class AttendanceController {
     @Query('hasAnomaly') hasAnomaly?: string,
     @Query('type') type?: AttendanceType,
   ) {
-    return this.attendanceService.findAll(tenantId, {
-      employeeId,
-      siteId,
-      startDate,
-      endDate,
-      hasAnomaly: hasAnomaly ? hasAnomaly === 'true' : undefined,
-      type,
-    });
+    return this.attendanceService.findAll(
+      tenantId,
+      {
+        employeeId,
+        siteId,
+        startDate,
+        endDate,
+        hasAnomaly: hasAnomaly ? hasAnomaly === 'true' : undefined,
+        type,
+      },
+      user.userId,
+      user.permissions || [],
+    );
   }
 
   @Get('anomalies')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
+  @RequirePermissions('attendance.view_all')
   @ApiOperation({ summary: 'Get attendance anomalies' })
   @ApiResponse({ status: 200, description: 'List of anomalies' })
   getAnomalies(
@@ -209,7 +218,7 @@ export class AttendanceController {
   @Get('daily-report')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
+  @RequirePermissions('attendance.view_all')
   @ApiOperation({ summary: 'Get daily attendance report' })
   @ApiResponse({ status: 200, description: 'Daily report' })
   getDailyReport(
@@ -235,7 +244,7 @@ export class AttendanceController {
   @Patch(':id/correct')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
+  @RequirePermissions('attendance.correct', 'attendance.edit')
   @ApiOperation({ summary: 'Correct attendance record' })
   @ApiResponse({ status: 200, description: 'Attendance corrected successfully' })
   @ApiResponse({ status: 404, description: 'Attendance not found' })

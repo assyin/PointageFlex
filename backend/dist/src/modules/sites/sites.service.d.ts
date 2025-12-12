@@ -4,10 +4,17 @@ import { UpdateSiteDto } from './dto/update-site.dto';
 export declare class SitesService {
     private prisma;
     constructor(prisma: PrismaService);
+    private validateManagerDepartmentConstraint;
     create(tenantId: string, dto: CreateSiteDto): Promise<{
         _count: {
             employees: number;
             devices: number;
+        };
+        manager: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -15,9 +22,11 @@ export declare class SitesService {
         updatedAt: Date;
         tenantId: string;
         phone: string | null;
-        address: string | null;
         name: string;
         code: string | null;
+        address: string | null;
+        departmentId: string | null;
+        managerId: string | null;
         city: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -25,27 +34,28 @@ export declare class SitesService {
         workingDays: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     findAll(tenantId: string): Promise<{
-        data: ({
+        data: {
             _count: {
-                attendance: number;
                 employees: number;
                 devices: number;
+                attendance: number;
             };
-        } & {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
             timezone: string | null;
             workingDays: import("@prisma/client/runtime/library").JsonValue | null;
-        })[];
+        }[];
         total: number;
     }>;
     findOne(tenantId: string, id: string): Promise<{
@@ -56,10 +66,16 @@ export declare class SitesService {
         };
         employees: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         }[];
+        manager: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            matricule: string;
+        };
         devices: {
             id: string;
             name: string;
@@ -71,9 +87,11 @@ export declare class SitesService {
         updatedAt: Date;
         tenantId: string;
         phone: string | null;
-        address: string | null;
         name: string;
         code: string | null;
+        address: string | null;
+        departmentId: string | null;
+        managerId: string | null;
         city: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -85,15 +103,23 @@ export declare class SitesService {
             employees: number;
             devices: number;
         };
+        manager: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            matricule: string;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
         phone: string | null;
-        address: string | null;
         name: string;
         code: string | null;
+        address: string | null;
+        departmentId: string | null;
+        managerId: string | null;
         city: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
         longitude: import("@prisma/client/runtime/library").Decimal | null;

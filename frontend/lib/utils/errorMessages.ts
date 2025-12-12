@@ -63,7 +63,7 @@ export function translateErrorMessage(error: ApiError | any): string {
       case 401:
         return 'Session expirée. Veuillez vous reconnecter.';
       case 403:
-        return 'Accès refusé. Vous n\'avez pas les permissions nécessaires.';
+        return 'Accès refusé. Vous n\'avez pas les permissions nécessaires pour effectuer cette action.';
       case 404:
         return 'Ressource introuvable.';
       case 409:

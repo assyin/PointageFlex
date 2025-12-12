@@ -7,9 +7,34 @@ const app_module_1 = require("./app.module");
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.setGlobalPrefix('api/v1');
+    const allowedOrigins = [
+        process.env.FRONTEND_URL,
+        'http://localhost:3001',
+        'http://127.0.0.1:3001',
+        'http://172.17.112.163:3001',
+    ].filter(Boolean);
     app.enableCors({
-        origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+        origin: (origin, callback) => {
+            if (process.env.NODE_ENV !== 'production') {
+                if (!origin || allowedOrigins.some(allowed => origin.startsWith(allowed.replace(/:\d+$/, ''))) || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('172.17.')) {
+                    callback(null, true);
+                }
+                else {
+                    callback(null, true);
+                }
+            }
+            else {
+                if (origin && allowedOrigins.includes(origin)) {
+                    callback(null, true);
+                }
+                else {
+                    callback(new Error('Not allowed by CORS'));
+                }
+            }
+        },
         credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-ID'],
     });
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
@@ -21,7 +46,13 @@ async function bootstrap() {
         exceptionFactory: (errors) => {
             const messages = errors.map((error) => {
                 const constraints = error.constraints || {};
-                return Object.values(constraints).join(', ');
+                const property = error.property;
+                const rejectedValue = error.value;
+                return {
+                    property,
+                    value: rejectedValue,
+                    constraints: Object.values(constraints),
+                };
             });
             return new common_1.BadRequestException({
                 statusCode: 400,

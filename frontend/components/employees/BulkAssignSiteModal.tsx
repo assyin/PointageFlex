@@ -52,15 +52,25 @@ export function BulkAssignSiteModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <Card className="w-full max-w-md">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 cursor-default"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+      aria-hidden="true"
+    >
+      <Card
+        className="w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5" />
             Assigner les employés à un site
           </CardTitle>
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
             onClick={onClose}
             className="h-8 w-8 p-0"

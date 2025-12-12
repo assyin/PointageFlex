@@ -1,3 +1,3 @@
-import { Role } from '@prisma/client';
+import { LegacyRole } from '@prisma/client';
 export declare const ROLES_KEY = "roles";
-export declare const Roles: (...roles: Role[]) => import("@nestjs/common").CustomDecorator<string>;
+export declare const Roles: (...roles: LegacyRole[]) => import("@nestjs/common").CustomDecorator<string>;

@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PermissionGate } from '@/components/auth/PermissionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -141,10 +143,11 @@ export default function AttendancePage() {
     : [];
 
   return (
-    <DashboardLayout
-      title="Pointages & Présences"
-      subtitle="Suivre les entrées/sorties, anomalies et intégrations biométriques"
-    >
+    <ProtectedRoute permissions={['attendance.view_all', 'attendance.view_own', 'attendance.view_team']}>
+      <DashboardLayout
+        title="Pointages & Présences"
+        subtitle="Suivre les entrées/sorties, anomalies et intégrations biométriques"
+      >
       <div className="space-y-6">
         {/* Anomalies Alert */}
         {anomaliesData && anomaliesData.length > 0 && (
@@ -223,24 +226,28 @@ export default function AttendancePage() {
                 </div>
 
                 <div className="flex gap-2 ml-auto">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleExport('csv')}
-                    disabled={exportMutation.isPending}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    CSV
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleExport('excel')}
-                    disabled={exportMutation.isPending}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Excel
-                  </Button>
+                  <PermissionGate permissions={['attendance.export', 'attendance.view_all']}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport('csv')}
+                      disabled={exportMutation.isPending}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      CSV
+                    </Button>
+                  </PermissionGate>
+                  <PermissionGate permissions={['attendance.export', 'attendance.view_all']}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport('excel')}
+                      disabled={exportMutation.isPending}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Excel
+                    </Button>
+                  </PermissionGate>
                   <Button
                     variant="primary"
                     size="sm"
@@ -443,5 +450,6 @@ export default function AttendancePage() {
         </Card>
       </div>
     </DashboardLayout>
+    </ProtectedRoute>
   );
 }

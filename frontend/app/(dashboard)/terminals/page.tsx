@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PermissionGate } from '@/components/auth/PermissionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -220,10 +222,11 @@ export default function TerminalsPage() {
   };
 
   return (
-    <DashboardLayout
-      title="Gestion des Terminaux"
-      subtitle="Configuration et surveillance des terminaux biométriques"
-    >
+    <ProtectedRoute permission="tenant.manage_devices">
+      <DashboardLayout
+        title="Gestion des Terminaux"
+        subtitle="Configuration et surveillance des terminaux biométriques"
+      >
       <div className="space-y-6">
         {/* Webhook Info Alert */}
         {showWebhookInfo && (
@@ -354,18 +357,22 @@ export default function TerminalsPage() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowWebhookInfo(!showWebhookInfo)}>
-              <Activity className="h-4 w-4 mr-2" />
-              Config Webhook
-            </Button>
+            <PermissionGate permission="tenant.manage_devices">
+              <Button variant="outline" size="sm" onClick={() => setShowWebhookInfo(!showWebhookInfo)}>
+                <Activity className="h-4 w-4 mr-2" />
+                Config Webhook
+              </Button>
+            </PermissionGate>
             <Button variant="outline" size="sm" onClick={() => refetch()}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Actualiser
             </Button>
-            <Button variant="primary" onClick={() => setShowCreateModal(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouveau Terminal
-            </Button>
+            <PermissionGate permission="tenant.manage_devices">
+              <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nouveau Terminal
+              </Button>
+            </PermissionGate>
           </div>
         </div>
 
@@ -430,23 +437,25 @@ export default function TerminalsPage() {
                         </td>
                         <td className="p-3">
                           <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleSync(device.id)}
-                              disabled={syncMutation.isPending}
-                            >
-                              <RefreshCw className="h-3 w-3 mr-1" />
-                              Sync
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDelete(device.id)}
-                              disabled={deleteMutation.isPending}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            <PermissionGate permission="tenant.manage_devices">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleSync(device.id)}
+                                disabled={syncMutation.isPending}
+                              >
+                                <RefreshCw className="h-3 w-3 mr-1" />
+                                Sync
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(device.id)}
+                                disabled={deleteMutation.isPending}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </PermissionGate>
                           </div>
                         </td>
                       </tr>

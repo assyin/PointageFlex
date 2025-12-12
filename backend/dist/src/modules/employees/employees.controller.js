@@ -23,9 +23,9 @@ const biometric_data_dto_1 = require("./dto/biometric-data.dto");
 const bulk_assign_site_dto_1 = require("./dto/bulk-assign-site.dto");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
-const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
+const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const current_tenant_decorator_1 = require("../../common/decorators/current-tenant.decorator");
-const client_1 = require("@prisma/client");
 let EmployeesController = class EmployeesController {
     constructor(employeesService) {
         this.employeesService = employeesService;
@@ -33,14 +33,14 @@ let EmployeesController = class EmployeesController {
     create(tenantId, createEmployeeDto) {
         return this.employeesService.create(tenantId, createEmployeeDto);
     }
-    findAll(tenantId, siteId, departmentId, teamId, isActive, search) {
+    findAll(user, tenantId, siteId, departmentId, teamId, isActive, search) {
         return this.employeesService.findAll(tenantId, {
             siteId,
             departmentId,
             teamId,
             isActive: isActive ? isActive === 'true' : undefined,
             search,
-        });
+        }, user.userId, user.permissions || []);
     }
     getStats(tenantId) {
         return this.employeesService.getStats(tenantId);
@@ -97,7 +97,7 @@ let EmployeesController = class EmployeesController {
 exports.EmployeesController = EmployeesController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('employee.create'),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new employee' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Employee created successfully' }),
     (0, swagger_1.ApiResponse)({ status: 409, description: 'Employee with this matricule already exists' }),
@@ -109,21 +109,23 @@ __decorate([
 ], EmployeesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.RequirePermissions)('employee.view_all', 'employee.view_own'),
     (0, swagger_1.ApiOperation)({ summary: 'Get all employees with filters' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'List of employees' }),
-    __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
-    __param(1, (0, common_1.Query)('siteId')),
-    __param(2, (0, common_1.Query)('departmentId')),
-    __param(3, (0, common_1.Query)('teamId')),
-    __param(4, (0, common_1.Query)('isActive')),
-    __param(5, (0, common_1.Query)('search')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(2, (0, common_1.Query)('siteId')),
+    __param(3, (0, common_1.Query)('departmentId')),
+    __param(4, (0, common_1.Query)('teamId')),
+    __param(5, (0, common_1.Query)('isActive')),
+    __param(6, (0, common_1.Query)('search')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], EmployeesController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('stats'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('employee.view_all'),
     (0, swagger_1.ApiOperation)({ summary: 'Get employee statistics' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Employee statistics' }),
     __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
@@ -133,7 +135,7 @@ __decorate([
 ], EmployeesController.prototype, "getStats", null);
 __decorate([
     (0, common_1.Get)('export/excel'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('employee.export', 'employee.view_all'),
     (0, swagger_1.ApiOperation)({ summary: 'Export all employees to Excel file' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Excel file generated' }),
     __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
@@ -155,7 +157,7 @@ __decorate([
 ], EmployeesController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('employee.update'),
     (0, swagger_1.ApiOperation)({ summary: 'Update employee' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Employee updated successfully' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Employee not found' }),
@@ -168,7 +170,7 @@ __decorate([
 ], EmployeesController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)('all'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('employee.delete'),
     (0, swagger_1.ApiOperation)({ summary: 'Delete all employees for tenant' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'All employees deleted successfully' }),
     __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
@@ -178,7 +180,7 @@ __decorate([
 ], EmployeesController.prototype, "removeAll", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('employee.delete'),
     (0, swagger_1.ApiOperation)({ summary: 'Delete employee' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Employee deleted successfully' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Employee not found' }),
@@ -190,7 +192,7 @@ __decorate([
 ], EmployeesController.prototype, "remove", null);
 __decorate([
     (0, common_1.Post)('import/excel'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('employee.create', 'employee.import'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiOperation)({ summary: 'Import employees from Excel file' }),
@@ -204,7 +206,7 @@ __decorate([
 ], EmployeesController.prototype, "importExcel", null);
 __decorate([
     (0, common_1.Post)(':id/biometric'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('employee.update'),
     (0, swagger_1.ApiOperation)({ summary: 'Update employee biometric data' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Biometric data updated successfully' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Employee not found' }),
@@ -217,7 +219,7 @@ __decorate([
 ], EmployeesController.prototype, "updateBiometric", null);
 __decorate([
     (0, common_1.Post)('bulk-assign-site'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('employee.update'),
     (0, swagger_1.ApiOperation)({ summary: 'Assigner des employés à un site en masse' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Employés assignés avec succès' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Site non trouvé' }),

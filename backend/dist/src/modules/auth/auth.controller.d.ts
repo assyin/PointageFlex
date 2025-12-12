@@ -6,30 +6,44 @@ export declare class AuthController {
     constructor(authService: AuthService);
     register(dto: RegisterDto): Promise<{
         user: {
+            roles: string[];
+            permissions: string[];
             id: string;
             tenantId: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
-            role: import(".prisma/client").$Enums.Role;
+            role: import(".prisma/client").$Enums.LegacyRole;
         };
         accessToken: string;
         refreshToken: string;
     }>;
     login(dto: LoginDto): Promise<{
         user: {
+            roles: string[];
+            permissions: string[];
             id: string;
             tenantId: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
             isActive: boolean;
-            role: import(".prisma/client").$Enums.Role;
+            role: import(".prisma/client").$Enums.LegacyRole;
         };
         accessToken: string;
         refreshToken: string;
     }>;
     refresh(user: any): Promise<{
+        user: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            role: import(".prisma/client").$Enums.LegacyRole;
+            tenantId: string;
+            roles: string[];
+            permissions: string[];
+        };
         accessToken: string;
         refreshToken: string;
     }>;

@@ -5,6 +5,7 @@ import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { BiometricDataDto } from './dto/biometric-data.dto';
 import { ImportEmployeeDto, ImportResultDto } from './dto/import-excel.dto';
 import { BulkAssignSiteDto } from './dto/bulk-assign-site.dto';
+import { getManagerLevel, getManagedEmployeeIds } from '../../common/utils/manager-level.util';
 import * as XLSX from 'xlsx';
 
 @Injectable()
@@ -51,14 +52,58 @@ export class EmployeesService {
     });
   }
 
-  async findAll(tenantId: string, filters?: {
-    siteId?: string;
-    departmentId?: string;
-    teamId?: string;
-    isActive?: boolean;
-    search?: string;
-  }) {
+  async findAll(
+    tenantId: string,
+    filters?: {
+      siteId?: string;
+      departmentId?: string;
+      teamId?: string;
+      isActive?: boolean;
+      search?: string;
+    },
+    userId?: string,
+    userPermissions?: string[],
+  ) {
     const where: any = { tenantId };
+
+    // Filtrer par employé si l'utilisateur n'a que la permission 'employee.view_own'
+    const hasViewAll = userPermissions?.includes('employee.view_all');
+    const hasViewOwn = userPermissions?.includes('employee.view_own');
+    const hasViewTeam = userPermissions?.includes('employee.view_team');
+    const hasViewDepartment = userPermissions?.includes('employee.view_department');
+    const hasViewSite = userPermissions?.includes('employee.view_site');
+
+    if (!hasViewAll && hasViewOwn && userId) {
+      // Récupérer l'employé lié à cet utilisateur
+      const employee = await this.prisma.employee.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      });
+
+      if (employee) {
+        where.id = employee.id;
+      } else {
+        // Si pas d'employé lié, retourner tableau vide
+        return [];
+      }
+    } else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
+      // Détecter le niveau hiérarchique du manager
+      const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
+
+      if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+        // Manager de département : filtrer par département
+        where.departmentId = managerLevel.departmentId;
+      } else if (managerLevel.type === 'SITE' && hasViewSite) {
+        // Manager de site : filtrer par site
+        where.siteId = managerLevel.siteId;
+      } else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+        // Manager d'équipe : filtrer par équipe
+        where.teamId = managerLevel.teamId;
+      } else if (managerLevel.type) {
+        // Manager détecté mais pas la permission correspondante
+        return [];
+      }
+    }
 
     if (filters?.siteId) where.siteId = filters.siteId;
     if (filters?.departmentId) where.departmentId = filters.departmentId;

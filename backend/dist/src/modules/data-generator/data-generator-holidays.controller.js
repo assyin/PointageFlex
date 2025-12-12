@@ -14,13 +14,13 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DataGeneratorHolidaysController = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const swagger_1 = require("@nestjs/swagger");
 const data_generator_holidays_service_1 = require("./data-generator-holidays.service");
 const generate_holidays_dto_1 = require("./dto/generate-holidays.dto");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
-const client_1 = require("@prisma/client");
 let DataGeneratorHolidaysController = class DataGeneratorHolidaysController {
     constructor(holidaysService) {
         this.holidaysService = holidaysService;
@@ -41,7 +41,7 @@ let DataGeneratorHolidaysController = class DataGeneratorHolidaysController {
 exports.DataGeneratorHolidaysController = DataGeneratorHolidaysController;
 __decorate([
     (0, common_1.Post)('generate'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({
         summary: 'Générer les jours fériés du Maroc',
         description: 'Génère automatiquement les jours fériés du Maroc (fixes et islamiques) pour une plage d\'années',
@@ -62,7 +62,7 @@ __decorate([
 ], DataGeneratorHolidaysController.prototype, "generateHolidays", null);
 __decorate([
     (0, common_1.Get)('stats'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({
         summary: 'Obtenir les statistiques des jours fériés',
         description: 'Retourne un résumé des jours fériés configurés',
@@ -78,7 +78,7 @@ __decorate([
 ], DataGeneratorHolidaysController.prototype, "getStats", null);
 __decorate([
     (0, common_1.Delete)('clean'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({
         summary: 'Supprimer tous les jours fériés',
         description: 'Supprime tous les jours fériés du tenant',

@@ -53,10 +53,10 @@ export declare class PositionsController {
         };
         employees: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
+            matricule: string;
             department: {
                 id: string;
                 name: string;

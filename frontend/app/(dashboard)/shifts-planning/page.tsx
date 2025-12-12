@@ -5,6 +5,8 @@ import { format, startOfWeek, endOfWeek, eachDayOfInterval, parseISO, isWithinIn
 import { fr } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PermissionGate } from '@/components/auth/PermissionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +32,7 @@ import { ImportSchedulesModal } from '@/components/schedules/ImportSchedulesModa
 import { formatErrorAlert } from '@/lib/utils/errorMessages';
 import { toast } from 'sonner';
 import { schedulesApi, type CreateScheduleDto } from '@/lib/api/schedules';
+import { canDeleteSchedule } from '@/lib/utils/auth';
 
 interface GroupedSchedule {
   shiftId: string;
@@ -61,6 +64,7 @@ interface GroupedSchedule {
 
 export default function ShiftsPlanningPage() {
   const router = useRouter();
+  const canDelete = canDeleteSchedule();
   
   // View state
   const [viewMode, setViewMode] = useState<'grouped' | 'detailed'>('grouped');
@@ -345,17 +349,29 @@ export default function ShiftsPlanningPage() {
 
   const handleDeleteSchedule = async (scheduleId: string) => {
     if (confirm('Êtes-vous sûr de vouloir supprimer ce planning ?')) {
-      await deleteScheduleMutation.mutateAsync(scheduleId);
-      refetch();
+      try {
+        await deleteScheduleMutation.mutateAsync(scheduleId);
+        refetch();
+      } catch (error: any) {
+        // L'erreur est déjà gérée par le hook useDeleteSchedule avec un toast
+        // On évite juste que l'erreur soit non catchée
+        console.error('Erreur lors de la suppression du planning:', error);
+      }
     }
   };
 
   const handleBulkDelete = async () => {
     if (selectedSchedules.size === 0) return;
     if (confirm(`Êtes-vous sûr de vouloir supprimer ${selectedSchedules.size} planning(s) ?`)) {
-      await bulkDeleteMutation.mutateAsync(Array.from(selectedSchedules));
-      setSelectedSchedules(new Set());
-      refetch();
+      try {
+        await bulkDeleteMutation.mutateAsync(Array.from(selectedSchedules));
+        setSelectedSchedules(new Set());
+        refetch();
+      } catch (error: any) {
+        // L'erreur est déjà gérée par le hook useBulkDeleteSchedules avec un toast
+        // On évite juste que l'erreur soit non catchée
+        console.error('Erreur lors de la suppression en masse des plannings:', error);
+      }
     }
   };
 
@@ -397,10 +413,11 @@ export default function ShiftsPlanningPage() {
   };
 
   return (
-    <DashboardLayout
-      title="Shifts & Planning"
-      subtitle="Planification des équipes et gestion des plannings"
-    >
+    <ProtectedRoute permissions={['schedule.view_all', 'schedule.view_own', 'schedule.view_team']}>
+      <DashboardLayout
+        title="Shifts & Planning"
+        subtitle="Planification des équipes et gestion des plannings"
+      >
       <div className="space-y-6">
         {/* Alert Summary Banner */}
         {filteredAlerts.length > 0 && (
@@ -444,22 +461,26 @@ export default function ShiftsPlanningPage() {
                   <Filter className="h-4 w-4 mr-2" />
                   {showAdvancedFilters ? 'Masquer' : 'Filtres avancés'}
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setShowCreateModal(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Créer un planning
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowImportModal(true)}
-                >
-              <Upload className="h-4 w-4 mr-2" />
-                  Importer
-            </Button>
+                <PermissionGate permissions={['schedule.create', 'schedule.manage_team']}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setShowCreateModal(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Créer un planning
+                  </Button>
+                </PermissionGate>
+                <PermissionGate permissions={['schedule.import', 'schedule.create']}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowImportModal(true)}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Importer
+                  </Button>
+                </PermissionGate>
           </div>
         </div>
           </CardHeader>
@@ -567,7 +588,7 @@ export default function ShiftsPlanningPage() {
               )}
 
               {/* Bulk actions */}
-              {selectedSchedules.size > 0 && (
+              {selectedSchedules.size > 0 && canDelete && (
                 <div className="flex items-center justify-between p-3 bg-primary/10 rounded-md border border-primary/20">
                   <span className="text-sm font-medium text-primary">
                     {selectedSchedules.size} planning(s) sélectionné(s)
@@ -635,13 +656,15 @@ export default function ShiftsPlanningPage() {
                     >
                       Réinitialiser les filtres
                     </Button>
-                    <Button
-                      variant="primary"
-                      onClick={() => setShowCreateModal(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Créer un planning
-                    </Button>
+                    <PermissionGate permissions={['schedule.create', 'schedule.manage_team']}>
+                      <Button
+                        variant="primary"
+                        onClick={() => setShowCreateModal(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Créer un planning
+                      </Button>
+                    </PermissionGate>
                   </div>
                 </CardContent>
               </Card>
@@ -656,14 +679,25 @@ export default function ShiftsPlanningPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-lg mb-1">{group.shiftName}</CardTitle>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
                           <Badge className={getShiftTypeColor(group.shiftType)}>
                             {getShiftTypeLabel(group.shiftType)}
                           </Badge>
                           {group.shiftCode && (
                             <Badge variant="default">{group.shiftCode}</Badge>
                           )}
-                  </div>
+                        </div>
+                        {/* Période de validation */}
+                        {filterDateStart && filterDateEnd && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <div className="flex items-center gap-2 text-xs">
+                              <Calendar className="h-3.5 w-3.5 text-gray-500" />
+                              <span className="text-gray-600">
+                                Période du <span className="font-semibold text-gray-900">{format(parseISO(filterDateStart), 'dd/MM/yyyy', { locale: fr })}</span> au <span className="font-semibold text-gray-900">{format(parseISO(filterDateEnd), 'dd/MM/yyyy', { locale: fr })}</span>
+                              </span>
+                            </div>
+                          </div>
+                        )}
                     </div>
                       <div
                         className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold"
@@ -853,14 +887,16 @@ export default function ShiftsPlanningPage() {
                                     <div className="text-xs text-text-secondary">
                                       {schedule.customEndTime || selectedShiftDetails.endTime}
                                     </div>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="mt-1 h-6 px-2 text-xs"
-                                      onClick={() => handleDeleteSchedule(schedule.id)}
-                                              >
-                                                <X className="h-3 w-3" />
-                                    </Button>
+                                    <PermissionGate permissions={['schedule.delete', 'schedule.manage_team']}>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-1 h-6 px-2 text-xs"
+                                        onClick={() => handleDeleteSchedule(schedule.id)}
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    </PermissionGate>
                                           </div>
                                 ) : (
                                   <span className="text-text-secondary text-xs">-</span>
@@ -979,7 +1015,8 @@ export default function ShiftsPlanningPage() {
           />
                                 )}
                               </div>
-    </DashboardLayout>
+      </DashboardLayout>
+    </ProtectedRoute>
   );
 }
 

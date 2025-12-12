@@ -17,7 +17,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
-import { Role } from '@prisma/client';
+import { LegacyRole } from '@prisma/client';
 
 @ApiTags('Devices')
 @ApiBearerAuth()
@@ -27,7 +27,7 @@ export class DevicesController {
   constructor(private readonly devicesService: DevicesService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
   @ApiOperation({ summary: 'Créer un nouveau terminal' })
   create(@CurrentUser() user: any, @Body() createDeviceDto: CreateDeviceDto) {
     return this.devicesService.create(user.tenantId, createDeviceDto);
@@ -52,7 +52,7 @@ export class DevicesController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
   @ApiOperation({ summary: 'Modifier un terminal' })
   update(
     @Param('id') id: string,
@@ -63,14 +63,14 @@ export class DevicesController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
   @ApiOperation({ summary: 'Supprimer un terminal' })
   remove(@Param('id') id: string, @CurrentUser() user: any) {
     return this.devicesService.remove(id, user.tenantId);
   }
 
   @Post(':id/sync')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
   @ApiOperation({ summary: 'Synchroniser un terminal' })
   sync(@Param('id') id: string, @CurrentUser() user: any) {
     return this.devicesService.syncDevice(id, user.tenantId);

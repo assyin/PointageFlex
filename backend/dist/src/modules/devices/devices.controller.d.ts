@@ -11,9 +11,11 @@ export declare class DevicesController {
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -25,45 +27,47 @@ export declare class DevicesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        siteId: string | null;
         isActive: boolean;
         name: string;
+        siteId: string | null;
+        ipAddress: string | null;
         deviceId: string;
         deviceType: import(".prisma/client").$Enums.DeviceType;
-        ipAddress: string | null;
         apiKey: string | null;
         lastSync: Date | null;
     }>;
     findAll(user: any, filters: any): Promise<({
+        _count: {
+            attendance: number;
+        };
         site: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
             timezone: string | null;
             workingDays: import("@prisma/client/runtime/library").JsonValue | null;
         };
-        _count: {
-            attendance: number;
-        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        siteId: string | null;
         isActive: boolean;
         name: string;
+        siteId: string | null;
+        ipAddress: string | null;
         deviceId: string;
         deviceType: import(".prisma/client").$Enums.DeviceType;
-        ipAddress: string | null;
         apiKey: string | null;
         lastSync: Date | null;
     })[]>;
@@ -74,35 +78,37 @@ export declare class DevicesController {
         offline: number;
     }>;
     findOne(id: string, user: any): Promise<{
+        _count: {
+            attendance: number;
+        };
         site: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
             timezone: string | null;
             workingDays: import("@prisma/client/runtime/library").JsonValue | null;
         };
-        _count: {
-            attendance: number;
-        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        siteId: string | null;
         isActive: boolean;
         name: string;
+        siteId: string | null;
+        ipAddress: string | null;
         deviceId: string;
         deviceType: import(".prisma/client").$Enums.DeviceType;
-        ipAddress: string | null;
         apiKey: string | null;
         lastSync: Date | null;
     }>;
@@ -113,9 +119,11 @@ export declare class DevicesController {
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -127,12 +135,12 @@ export declare class DevicesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        siteId: string | null;
         isActive: boolean;
         name: string;
+        siteId: string | null;
+        ipAddress: string | null;
         deviceId: string;
         deviceType: import(".prisma/client").$Enums.DeviceType;
-        ipAddress: string | null;
         apiKey: string | null;
         lastSync: Date | null;
     }>;
@@ -141,12 +149,12 @@ export declare class DevicesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        siteId: string | null;
         isActive: boolean;
         name: string;
+        siteId: string | null;
+        ipAddress: string | null;
         deviceId: string;
         deviceType: import(".prisma/client").$Enums.DeviceType;
-        ipAddress: string | null;
         apiKey: string | null;
         lastSync: Date | null;
     }>;
@@ -160,9 +168,11 @@ export declare class DevicesController {
                 updatedAt: Date;
                 tenantId: string;
                 phone: string | null;
-                address: string | null;
                 name: string;
                 code: string | null;
+                address: string | null;
+                departmentId: string | null;
+                managerId: string | null;
                 city: string | null;
                 latitude: import("@prisma/client/runtime/library").Decimal | null;
                 longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -174,12 +184,12 @@ export declare class DevicesController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            siteId: string | null;
             isActive: boolean;
             name: string;
+            siteId: string | null;
+            ipAddress: string | null;
             deviceId: string;
             deviceType: import(".prisma/client").$Enums.DeviceType;
-            ipAddress: string | null;
             apiKey: string | null;
             lastSync: Date | null;
         };

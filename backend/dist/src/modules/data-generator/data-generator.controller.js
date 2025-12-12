@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DataGeneratorController = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const swagger_1 = require("@nestjs/swagger");
 const data_generator_service_1 = require("./data-generator.service");
 const generate_single_attendance_dto_1 = require("./dto/generate-single-attendance.dto");
@@ -22,7 +23,6 @@ const clean_generated_data_dto_1 = require("./dto/clean-generated-data.dto");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
-const client_1 = require("@prisma/client");
 let DataGeneratorController = class DataGeneratorController {
     constructor(dataGeneratorService) {
         this.dataGeneratorService = dataGeneratorService;
@@ -47,7 +47,7 @@ let DataGeneratorController = class DataGeneratorController {
 exports.DataGeneratorController = DataGeneratorController;
 __decorate([
     (0, common_1.Post)('attendance/single'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({
         summary: 'Générer des pointages pour un employé pour une journée',
         description: 'Génère des pointages virtuels selon un scénario spécifique pour tester le système',
@@ -68,7 +68,7 @@ __decorate([
 ], DataGeneratorController.prototype, "generateSingle", null);
 __decorate([
     (0, common_1.Post)('attendance/bulk'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({
         summary: 'Générer en masse des pointages pour plusieurs employés',
         description: 'Génère des pointages virtuels pour une période donnée avec une distribution de scénarios',
@@ -89,7 +89,7 @@ __decorate([
 ], DataGeneratorController.prototype, "generateBulk", null);
 __decorate([
     (0, common_1.Delete)('attendance/clean'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, swagger_1.ApiOperation)({
         summary: 'Supprimer les données générées',
@@ -107,7 +107,7 @@ __decorate([
 ], DataGeneratorController.prototype, "cleanData", null);
 __decorate([
     (0, common_1.Get)('stats'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({
         summary: 'Obtenir les statistiques des données générées',
         description: 'Retourne un résumé des pointages virtuels générés',

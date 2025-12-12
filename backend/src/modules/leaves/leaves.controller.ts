@@ -16,8 +16,9 @@ import { UpdateLeaveDto } from './dto/update-leave.dto';
 import { ApproveLeaveDto } from './dto/approve-leave.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Role, LeaveStatus } from '@prisma/client';
+import { LegacyRole, LeaveStatus } from '@prisma/client';
 
 @ApiTags('Leaves')
 @Controller('leaves')
@@ -27,13 +28,14 @@ export class LeavesController {
   constructor(private leavesService: LeavesService) {}
 
   @Post()
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('leave.create')
   @ApiOperation({ summary: 'Create new leave request' })
   create(@CurrentUser() user: any, @Body() dto: CreateLeaveDto) {
     return this.leavesService.create(user.tenantId, dto);
   }
 
   @Get()
+  @RequirePermissions('leave.view_all', 'leave.view_own')
   @ApiOperation({ summary: 'Get all leaves' })
   findAll(
     @CurrentUser() user: any,
@@ -56,6 +58,8 @@ export class LeavesController {
         startDate,
         endDate,
       },
+      user.userId,
+      user.permissions || [],
     );
   }
 
@@ -66,7 +70,7 @@ export class LeavesController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('leave.update')
   @ApiOperation({ summary: 'Update leave request' })
   update(
     @CurrentUser() user: any,
@@ -77,7 +81,7 @@ export class LeavesController {
   }
 
   @Post(':id/approve')
-  @Roles(Role.ADMIN_RH, Role.MANAGER)
+  @RequirePermissions('leave.approve')
   @ApiOperation({ summary: 'Approve or reject leave request' })
   approve(
     @CurrentUser() user: any,
@@ -94,13 +98,14 @@ export class LeavesController {
   }
 
   @Post(':id/cancel')
+  @RequirePermissions('leave.cancel')
   @ApiOperation({ summary: 'Cancel leave request' })
   cancel(@CurrentUser() user: any, @Param('id') id: string) {
     return this.leavesService.cancel(user.tenantId, id, user.userId);
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN_RH)
+  @RequirePermissions('leave.delete')
   @ApiOperation({ summary: 'Delete leave request' })
   remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.leavesService.remove(user.tenantId, id);

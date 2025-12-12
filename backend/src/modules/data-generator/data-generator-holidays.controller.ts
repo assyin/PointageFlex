@@ -1,11 +1,12 @@
 import { Controller, Post, Get, Delete, Body, UseGuards, Req } from '@nestjs/common';
+import { LegacyRole } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { DataGeneratorHolidaysService } from './data-generator-holidays.service';
 import { GenerateHolidaysDto } from './dto/generate-holidays.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+
 
 @ApiTags('Data Generator - Holidays')
 @Controller('data-generator/holidays')
@@ -15,7 +16,7 @@ export class DataGeneratorHolidaysController {
   constructor(private readonly holidaysService: DataGeneratorHolidaysService) {}
 
   @Post('generate')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({
     summary: 'Générer les jours fériés du Maroc',
     description: 'Génère automatiquement les jours fériés du Maroc (fixes et islamiques) pour une plage d\'années',
@@ -34,7 +35,7 @@ export class DataGeneratorHolidaysController {
   }
 
   @Get('stats')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN, Role.MANAGER)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN, LegacyRole.MANAGER)
   @ApiOperation({
     summary: 'Obtenir les statistiques des jours fériés',
     description: 'Retourne un résumé des jours fériés configurés',
@@ -49,7 +50,7 @@ export class DataGeneratorHolidaysController {
   }
 
   @Delete('clean')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({
     summary: 'Supprimer tous les jours fériés',
     description: 'Supprime tous les jours fériés du tenant',
@@ -63,4 +64,3 @@ export class DataGeneratorHolidaysController {
     return this.holidaysService.cleanHolidays(tenantId);
   }
 }
-

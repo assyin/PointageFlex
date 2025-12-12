@@ -20,8 +20,11 @@ import { SitesModule } from './modules/sites/sites.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { PositionsModule } from './modules/positions/positions.module';
 import { HolidaysModule } from './modules/holidays/holidays.module';
+import { RolesModule } from './modules/roles/roles.module';
+import { PermissionsModule } from './modules/permissions/permissions.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { PermissionsGuard } from './common/guards/permissions.guard';
 import { TenantResolverMiddleware } from './common/middleware/tenant-resolver.middleware';
 
 @Module({
@@ -48,6 +51,8 @@ import { TenantResolverMiddleware } from './common/middleware/tenant-resolver.mi
     DepartmentsModule,
     PositionsModule,
     HolidaysModule,
+    RolesModule,
+    PermissionsModule,
   ],
   providers: [
     {
@@ -57,6 +62,10 @@ import { TenantResolverMiddleware } from './common/middleware/tenant-resolver.mi
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
     },
   ],
 })

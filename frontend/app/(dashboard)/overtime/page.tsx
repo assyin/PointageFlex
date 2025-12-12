@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { format } from 'date-fns';
+import React, { useState, useMemo } from 'react';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import {
   Plus,
   Clock,
@@ -17,6 +27,13 @@ import {
   TrendingUp,
   Search,
   RefreshCw,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  Calendar,
+  X,
+  User,
 } from 'lucide-react';
 import {
   useOvertimeRecords,
@@ -24,13 +41,50 @@ import {
   useRejectOvertime,
   useConvertToRecovery,
 } from '@/lib/hooks/useOvertime';
+import { useEmployees } from '@/lib/hooks/useEmployees';
+import { Textarea } from '@/components/ui/textarea';
+import { PermissionGate } from '@/components/auth/PermissionGate';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 export default function OvertimePage() {
+  // Search and basic filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  
+  // Advanced filters
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<string>('all');
+  // Par défaut, afficher les données d'aujourd'hui
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(today);
 
-  // Fetch overtime data
-  const { data: overtimeData, isLoading, error, refetch } = useOvertimeRecords();
+  // Rejection dialog
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [recordToReject, setRecordToReject] = useState<string | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+
+  // Build filters object for table
+  const filters = useMemo(() => {
+    const filterObj: any = {};
+    if (selectedEmployee !== 'all') filterObj.employeeId = selectedEmployee;
+    if (selectedStatus !== 'all') filterObj.status = selectedStatus;
+    if (selectedType !== 'all') filterObj.type = selectedType;
+    if (startDate) filterObj.startDate = startDate;
+    if (endDate) filterObj.endDate = endDate;
+    filterObj.page = currentPage;
+    filterObj.limit = itemsPerPage;
+    return filterObj;
+  }, [selectedEmployee, selectedStatus, selectedType, startDate, endDate, currentPage, itemsPerPage]);
+
+  // Fetch data for table (with all filters including date)
+  const { data: overtimeData, isLoading, error, refetch } = useOvertimeRecords(filters);
+  const { data: employeesData } = useEmployees();
 
   // Mutations
   const approveMutation = useApproveOvertime();
@@ -81,154 +135,401 @@ export default function OvertimePage() {
 
   const getTypeBadge = (type: string) => {
     const typeLabels: Record<string, { label: string; color: string }> = {
-      STANDARD: { label: 'Standard', color: 'bg-blue-100 text-blue-800' },
-      NIGHT: { label: 'Nuit', color: 'bg-purple-100 text-purple-800' },
-      HOLIDAY: { label: 'Jour férié', color: 'bg-orange-100 text-orange-800' },
-      EMERGENCY: { label: 'Urgence', color: 'bg-red-100 text-red-800' },
+      STANDARD: { label: 'Standard', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+      NIGHT: { label: 'Nuit', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+      HOLIDAY: { label: 'Jour férié', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
+      EMERGENCY: { label: 'Urgence', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' },
     };
-    const typeInfo = typeLabels[type] || { label: type, color: 'bg-gray-100 text-gray-800' };
+    const typeInfo = typeLabels[type] || { label: type, color: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' };
     return (
-      <span className={`px-2 py-1 rounded text-xs font-medium ${typeInfo.color}`}>
+      <span className={`px-2 py-1 rounded-md text-xs font-medium ${typeInfo.color}`}>
         {typeInfo.label}
       </span>
     );
   };
 
-  const handleApprove = async (id: string) => {
-    await approveMutation.mutateAsync(id);
+  // Fonction pour formater les heures avec 2 décimales et virgule
+  const formatHours = (hours: number | string): string => {
+    const numHours = typeof hours === 'number' ? hours : parseFloat(hours) || 0;
+    return numHours.toFixed(2).replace('.', ',') + 'H';
   };
 
-  const handleReject = async (id: string) => {
-    const reason = prompt('Raison du rejet:');
-    if (reason) {
-      await rejectMutation.mutateAsync({ id, reason });
+  const handleApprove = async (id: string) => {
+    try {
+      await approveMutation.mutateAsync(id);
+    } catch (error) {
+      // Error handled by mutation
+    }
+  };
+
+  const handleRejectClick = (id: string) => {
+    setRecordToReject(id);
+    setRejectReason('');
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!recordToReject || !rejectReason.trim()) {
+      return;
+    }
+    try {
+      await rejectMutation.mutateAsync({ id: recordToReject, reason: rejectReason });
+      setRejectDialogOpen(false);
+      setRejectReason('');
+      setRecordToReject(null);
+    } catch (error) {
+      // Error handled by mutation
     }
   };
 
   const handleConvertToRecovery = async (id: string) => {
     if (confirm('Convertir ces heures supplémentaires en récupération?')) {
-      await convertMutation.mutateAsync(id);
+      try {
+        await convertMutation.mutateAsync(id);
+      } catch (error) {
+        // Error handled by mutation
+      }
     }
   };
 
-  const filteredRecords = overtimeData?.data?.filter((record: any) => {
-    const matchesSearch =
-      searchQuery === '' ||
-      record.employee?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.employee?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      record.employee?.matricule?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Client-side filtering for search (since API might not support it)
+  const filteredRecords = useMemo(() => {
+    const records = overtimeData?.data || [];
+    if (!searchQuery) return records;
+    
+    const query = searchQuery.toLowerCase();
+    return records.filter((record: any) => {
+      const firstName = record.employee?.firstName?.toLowerCase() || '';
+      const lastName = record.employee?.lastName?.toLowerCase() || '';
+      const matricule = record.employee?.matricule?.toLowerCase() || '';
+      return firstName.includes(query) || lastName.includes(query) || matricule.includes(query);
+    });
+  }, [overtimeData?.data, searchQuery]);
 
-    const matchesStatus =
-      selectedStatus === 'all' ||
-      record.status === selectedStatus;
+  // Statistics - utiliser les données filtrées (overtimeData) pour refléter les filtres appliqués
+  const allRecords = overtimeData?.data || [];
+  
+  // Filtrer les enregistrements par statut (comparaison insensible à la casse pour sécurité)
+  const pendingCount = allRecords.filter((r: any) => {
+    const status = String(r.status || '').toUpperCase();
+    return status === 'PENDING';
+  }).length;
+  
+  const approvedCount = allRecords.filter((r: any) => {
+    const status = String(r.status || '').toUpperCase();
+    return status === 'APPROVED';
+  }).length;
+  
+  const totalHours = allRecords.reduce((sum: number, r: any) => {
+    const hours = typeof r.hours === 'number' ? r.hours : parseFloat(String(r.hours)) || 0;
+    return sum + hours;
+  }, 0);
 
-    return matchesSearch && matchesStatus;
-  }) || [];
+  // Pagination
+  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  const paginatedRecords = filteredRecords.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
-  const pendingCount = overtimeData?.data?.filter((r: any) => r.status === 'PENDING').length || 0;
-  const approvedCount = overtimeData?.data?.filter((r: any) => r.status === 'APPROVED').length || 0;
-  const totalHours = overtimeData?.data?.reduce((sum: number, r: any) => sum + (r.hours || 0), 0) || 0;
+  // Export function
+  const handleExport = () => {
+    const csvContent = [
+      ['Employé', 'Matricule', 'Date', 'Heures', 'Type', 'Statut', 'Converti'].join(','),
+      ...filteredRecords.map((record: any) => [
+        `${record.employee?.firstName || ''} ${record.employee?.lastName || ''}`,
+        record.employee?.matricule || '',
+        format(new Date(record.date), 'dd/MM/yyyy', { locale: fr }),
+        formatHours(record.hours),
+        record.type,
+        record.status,
+        record.convertedToRecovery ? 'Oui' : 'Non',
+      ].join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `heures-supplementaires-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const resetFilters = () => {
+    setSelectedStatus('all');
+    setSelectedEmployee('all');
+    setSelectedType('all');
+    const today = format(new Date(), 'yyyy-MM-dd');
+    setStartDate(today);
+    setEndDate(today);
+    setSearchQuery('');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = selectedStatus !== 'all' || selectedEmployee !== 'all' || 
+    selectedType !== 'all' || searchQuery !== '';
 
   return (
-    <DashboardLayout
-      title="Gestion des Heures Supplémentaires"
-      subtitle="Demandes, approbations et récupérations"
-    >
+    <ProtectedRoute permissions={['overtime.view_all', 'overtime.view_own']}>
+      <DashboardLayout
+        title="Gestion des Heures Supplémentaires"
+        subtitle="Demandes, approbations et récupérations"
+      >
       <div className="space-y-6">
         {/* Action Bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
-              <Input
-                type="text"
-                placeholder="Rechercher employé..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64"
-              />
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4 flex-wrap flex-1">
+              <div className="relative flex-1 min-w-[250px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+                <Input
+                  type="text"
+                  placeholder="Rechercher par nom, prénom ou matricule..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="PENDING">En attente</SelectItem>
+                  <SelectItem value="APPROVED">Approuvé</SelectItem>
+                  <SelectItem value="REJECTED">Rejeté</SelectItem>
+                  <SelectItem value="PAID">Payé</SelectItem>
+                  <SelectItem value="RECOVERED">Récupéré</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="whitespace-nowrap"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filtres avancés
+                {showAdvancedFilters ? (
+                  <ChevronUp className="h-4 w-4 ml-2" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                )}
+              </Button>
+
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetFilters}
+                  className="whitespace-nowrap"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Réinitialiser
+                </Button>
+              )}
             </div>
 
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3 py-2 border border-border rounded-lg text-sm"
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="PENDING">En attente</option>
-              <option value="APPROVED">Approuvé</option>
-              <option value="REJECTED">Rejeté</option>
-              <option value="PAID">Payé</option>
-              <option value="RECOVERED">Récupéré</option>
-            </select>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Actualiser
+              </Button>
+              <PermissionGate permissions={['overtime.export', 'overtime.view_all']}>
+                <Button variant="outline" size="sm" onClick={handleExport} disabled={filteredRecords.length === 0}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exporter
+                </Button>
+              </PermissionGate>
+              <PermissionGate permission="overtime.create">
+                <Button variant="primary" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nouvelle demande
+                </Button>
+              </PermissionGate>
+            </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Actualiser
-            </Button>
-            <Button variant="primary">
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle demande
-            </Button>
-          </div>
+          {/* Advanced Filters Panel */}
+          {showAdvancedFilters && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="employee-filter">Employé</Label>
+                    <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                      <SelectTrigger id="employee-filter">
+                        <SelectValue placeholder="Tous les employés" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous les employés</SelectItem>
+                        {employeesData?.data?.map((emp: any) => (
+                          <SelectItem key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.matricule})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="type-filter">Type</Label>
+                    <Select value={selectedType} onValueChange={setSelectedType}>
+                      <SelectTrigger id="type-filter">
+                        <SelectValue placeholder="Tous les types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Tous les types</SelectItem>
+                        <SelectItem value="STANDARD">Standard</SelectItem>
+                        <SelectItem value="NIGHT">Nuit</SelectItem>
+                        <SelectItem value="HOLIDAY">Jour férié</SelectItem>
+                        <SelectItem value="EMERGENCY">Urgence</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="start-date">Date de début</Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+                      <Input
+                        id="start-date"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="end-date">Date de fin</Label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+                      <Input
+                        id="end-date"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = format(new Date(), 'yyyy-MM-dd');
+                      setStartDate(today);
+                      setEndDate(today);
+                      setCurrentPage(1); // Réinitialiser la pagination
+                    }}
+                  >
+                    Aujourd'hui
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // Lundi
+                      const weekEnd = endOfWeek(today, { weekStartsOn: 1 }); // Dimanche
+                      setStartDate(format(weekStart, 'yyyy-MM-dd'));
+                      setEndDate(format(weekEnd, 'yyyy-MM-dd'));
+                      setCurrentPage(1); // Réinitialiser la pagination
+                    }}
+                  >
+                    Cette semaine
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const now = new Date();
+                      setStartDate(format(startOfMonth(now), 'yyyy-MM-dd'));
+                      setEndDate(format(endOfMonth(now), 'yyyy-MM-dd'));
+                      setCurrentPage(1); // Réinitialiser la pagination
+                    }}
+                  >
+                    Ce mois
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-secondary">Total heures</p>
-                  <p className="text-2xl font-bold text-text-primary mt-1">
-                    {totalHours}h
+                  <p className="text-sm font-medium text-text-secondary mb-1">Total heures</p>
+                  <p className="text-3xl font-bold text-text-primary">
+                    {formatHours(totalHours)}
                   </p>
                 </div>
-                <TrendingUp className="h-10 w-10 text-primary opacity-20" />
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-secondary">En attente</p>
-                  <p className="text-2xl font-bold text-warning mt-1">
+                  <p className="text-sm font-medium text-text-secondary mb-1">En attente</p>
+                  <p className="text-3xl font-bold text-warning">
                     {pendingCount}
                   </p>
                 </div>
-                <Clock className="h-10 w-10 text-warning opacity-20" />
+                <div className="h-12 w-12 rounded-full bg-warning/10 flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-warning" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-secondary">Approuvés</p>
-                  <p className="text-2xl font-bold text-success mt-1">
+                  <p className="text-sm font-medium text-text-secondary mb-1">Approuvés</p>
+                  <p className="text-3xl font-bold text-success">
                     {approvedCount}
                   </p>
                 </div>
-                <CheckCircle className="h-10 w-10 text-success opacity-20" />
+                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-success" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-secondary">Demandes</p>
-                  <p className="text-2xl font-bold text-text-primary mt-1">
-                    {overtimeData?.data?.length || 0}
+                  <p className="text-sm font-medium text-text-secondary mb-1">Total demandes</p>
+                  <p className="text-3xl font-bold text-text-primary">
+                    {allRecords.length}
                   </p>
                 </div>
-                <TrendingUp className="h-10 w-10 text-info opacity-20" />
+                <div className="h-12 w-12 rounded-full bg-info/10 flex items-center justify-center">
+                  <User className="h-6 w-6 text-info" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -247,8 +548,30 @@ export default function OvertimePage() {
 
         {/* Overtime Table */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
             <CardTitle>Heures supplémentaires</CardTitle>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="items-per-page" className="text-sm text-text-secondary">
+                Par page:
+              </Label>
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={(value) => {
+                  setItemsPerPage(Number(value));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger id="items-per-page" className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -266,100 +589,214 @@ export default function OvertimePage() {
             ) : filteredRecords.length === 0 ? (
               <div className="text-center py-12 text-text-secondary">
                 <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                <p>Aucune demande d'heures supplémentaires trouvée.</p>
+                <p className="font-medium">Aucune demande d'heures supplémentaires trouvée.</p>
+                <p className="text-sm mt-1">
+                  {hasActiveFilters ? 'Essayez de modifier vos filtres.' : 'Créez une nouvelle demande pour commencer.'}
+                </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-table-header text-left text-sm font-semibold text-text-primary">
-                      <th className="p-3">Employé</th>
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Heures</th>
-                      <th className="p-3">Type</th>
-                      <th className="p-3">Statut</th>
-                      <th className="p-3">Conversion</th>
-                      <th className="p-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-table-border">
-                    {filteredRecords.map((record: any) => (
-                      <tr key={record.id} className="hover:bg-table-hover transition-colors">
-                        <td className="p-3">
-                          <div className="font-medium text-text-primary">
-                            {record.employee?.firstName} {record.employee?.lastName}
-                          </div>
-                          <div className="text-sm text-text-secondary">
-                            {record.employee?.matricule}
-                          </div>
-                        </td>
-                        <td className="p-3 text-sm text-text-secondary">
-                          {format(new Date(record.date), 'dd/MM/yyyy', { locale: fr })}
-                        </td>
-                        <td className="p-3">
-                          <span className="font-semibold text-lg text-text-primary">
-                            {record.hours}h
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          {getTypeBadge(record.type)}
-                        </td>
-                        <td className="p-3">
-                          {getStatusBadge(record.status)}
-                        </td>
-                        <td className="p-3">
-                          {record.convertedToRecovery ? (
-                            <Badge variant="success">Converti</Badge>
-                          ) : (
-                            <span className="text-sm text-text-secondary">Non converti</span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-2">
-                            {record.status === 'PENDING' && (
-                              <>
-                                <Button
-                                  variant="success"
-                                  size="sm"
-                                  onClick={() => handleApprove(record.id)}
-                                  disabled={approveMutation.isPending}
-                                >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Approuver
-                                </Button>
-                                <Button
-                                  variant="danger"
-                                  size="sm"
-                                  onClick={() => handleReject(record.id)}
-                                  disabled={rejectMutation.isPending}
-                                >
-                                  <XCircle className="h-3 w-3 mr-1" />
-                                  Rejeter
-                                </Button>
-                              </>
-                            )}
-                            {record.status === 'APPROVED' && !record.convertedToRecovery && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleConvertToRecovery(record.id)}
-                                disabled={convertMutation.isPending}
-                              >
-                                <RefreshCw className="h-3 w-3 mr-1" />
-                                Convertir
-                              </Button>
-                            )}
-                          </div>
-                        </td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-table-header border-b border-table-border">
+                        <th className="p-4 text-left text-sm font-semibold text-text-primary">Employé</th>
+                        <th className="p-4 text-left text-sm font-semibold text-text-primary">Date</th>
+                        <th className="p-4 text-left text-sm font-semibold text-text-primary">Heures</th>
+                        <th className="p-4 text-left text-sm font-semibold text-text-primary">Type</th>
+                        <th className="p-4 text-left text-sm font-semibold text-text-primary">Statut</th>
+                        <th className="p-4 text-left text-sm font-semibold text-text-primary">Conversion</th>
+                        <th className="p-4 text-left text-sm font-semibold text-text-primary">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-table-border">
+                      {paginatedRecords.map((record: any) => (
+                        <tr key={record.id} className="hover:bg-table-hover transition-colors">
+                          <td className="p-4">
+                            <div className="font-medium text-text-primary">
+                              {record.employee?.firstName} {record.employee?.lastName}
+                            </div>
+                            <div className="text-sm text-text-secondary mt-0.5">
+                              {record.employee?.matricule}
+                            </div>
+                          </td>
+                          <td className="p-4 text-sm text-text-secondary">
+                            {format(new Date(record.date), 'dd MMM yyyy', { locale: fr })}
+                          </td>
+                          <td className="p-4">
+                            <span className="font-semibold text-lg text-text-primary">
+                              {formatHours(record.hours)}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            {getTypeBadge(record.type)}
+                          </td>
+                          <td className="p-4">
+                            {getStatusBadge(record.status)}
+                          </td>
+                          <td className="p-4">
+                            {record.convertedToRecovery ? (
+                              <Badge variant="success" className="text-xs">Converti</Badge>
+                            ) : (
+                              <span className="text-sm text-text-secondary">Non converti</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex gap-2">
+                              <PermissionGate permission="overtime.approve">
+                                {record.status === 'PENDING' && (
+                                  <>
+                                    <Button
+                                      variant="success"
+                                      size="sm"
+                                      onClick={() => handleApprove(record.id)}
+                                      disabled={approveMutation.isPending}
+                                      className="text-xs"
+                                    >
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Approuver
+                                    </Button>
+                                    <Button
+                                      variant="danger"
+                                      size="sm"
+                                      onClick={() => handleRejectClick(record.id)}
+                                      disabled={rejectMutation.isPending}
+                                      className="text-xs"
+                                    >
+                                      <XCircle className="h-3 w-3 mr-1" />
+                                      Rejeter
+                                    </Button>
+                                  </>
+                                )}
+                              </PermissionGate>
+                              <PermissionGate permission="overtime.approve">
+                                {record.status === 'APPROVED' && !record.convertedToRecovery && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleConvertToRecovery(record.id)}
+                                    disabled={convertMutation.isPending}
+                                    className="text-xs"
+                                  >
+                                    <RefreshCw className="h-3 w-3 mr-1" />
+                                    Convertir
+                                  </Button>
+                                )}
+                              </PermissionGate>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-table-border">
+                    <div className="text-sm text-text-secondary">
+                      Affichage de {(currentPage - 1) * itemsPerPage + 1} à{' '}
+                      {Math.min(currentPage * itemsPerPage, filteredRecords.length)} sur{' '}
+                      {filteredRecords.length} résultat(s)
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Précédent
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? 'primary' : 'outline'}
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className="min-w-[40px]"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Suivant
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+
+      {/* Rejection Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rejeter la demande</DialogTitle>
+            <DialogDescription>
+              Veuillez indiquer la raison du rejet de cette demande d'heures supplémentaires.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reject-reason">Raison du rejet *</Label>
+              <Textarea
+                id="reject-reason"
+                placeholder="Ex: Heures non justifiées, dépassement du quota autorisé..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleRejectConfirm}
+              disabled={!rejectReason.trim() || rejectMutation.isPending}
+            >
+              {rejectMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  En cours...
+                </>
+              ) : (
+                <>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Rejeter
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      </DashboardLayout>
+    </ProtectedRoute>
   );
 }

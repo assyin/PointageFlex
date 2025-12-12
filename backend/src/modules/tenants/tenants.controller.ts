@@ -18,7 +18,7 @@ import { UpdateTenantSettingsDto } from './dto/update-tenant-settings.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { Role } from '@prisma/client';
+import { LegacyRole } from '@prisma/client';
 
 @ApiTags('Tenants')
 @Controller('tenants')
@@ -28,14 +28,14 @@ export class TenantsController {
   constructor(private tenantsService: TenantsService) {}
 
   @Post()
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Create new tenant (Super Admin only)' })
   create(@Body() dto: CreateTenantDto) {
     return this.tenantsService.create(dto);
   }
 
   @Get()
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Get all tenants (Super Admin only)' })
   findAll(
     @Query('page') page?: string,
@@ -56,14 +56,14 @@ export class TenantsController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
   @ApiOperation({ summary: 'Update tenant' })
   update(@Param('id') id: string, @Body() dto: UpdateTenantDto) {
     return this.tenantsService.update(id, dto);
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Delete tenant (Super Admin only)' })
   remove(@Param('id') id: string) {
     return this.tenantsService.remove(id);
@@ -88,7 +88,7 @@ export class TenantsController {
       throw new ForbiddenException('User not authenticated');
     }
 
-    const allowedRoles = [Role.ADMIN_RH, Role.SUPER_ADMIN];
+    const allowedRoles = [LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN];
     const isAdmin = allowedRoles.includes(user.role);
     const isOwnTenant = user.tenantId === id;
 

@@ -6,4 +6,6 @@ export declare class CreateSiteDto {
     phone?: string;
     workingDays?: string[];
     timezone?: string;
+    managerId?: string;
+    departmentId?: string;
 }

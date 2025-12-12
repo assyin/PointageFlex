@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { LegacyRole } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { LeavesService } from './leaves.service';
 import { CreateLeaveTypeDto } from './dto/create-leave-type.dto';
@@ -6,7 +7,7 @@ import { UpdateLeaveTypeDto } from './dto/update-leave-type.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Role } from '@prisma/client';
+
 
 @ApiTags('Leave Types')
 @Controller('leave-types')
@@ -22,14 +23,14 @@ export class LeaveTypesController {
   }
 
   @Post()
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
   @ApiOperation({ summary: 'Create a new leave type' })
   create(@CurrentUser() user: any, @Body() dto: CreateLeaveTypeDto) {
     return this.leavesService.createLeaveType(user.tenantId, dto);
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
   @ApiOperation({ summary: 'Update a leave type' })
   update(
     @CurrentUser() user: any,
@@ -40,7 +41,7 @@ export class LeaveTypesController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN_RH)
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
   @ApiOperation({ summary: 'Delete a leave type' })
   remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.leavesService.deleteLeaveType(user.tenantId, id);

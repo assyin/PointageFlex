@@ -14,13 +14,13 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DataGeneratorSchedulesController = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const swagger_1 = require("@nestjs/swagger");
 const data_generator_schedules_service_1 = require("./data-generator-schedules.service");
 const generate_schedules_dto_1 = require("./dto/generate-schedules.dto");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
-const client_1 = require("@prisma/client");
 let DataGeneratorSchedulesController = class DataGeneratorSchedulesController {
     constructor(schedulesService) {
         this.schedulesService = schedulesService;
@@ -41,7 +41,7 @@ let DataGeneratorSchedulesController = class DataGeneratorSchedulesController {
 exports.DataGeneratorSchedulesController = DataGeneratorSchedulesController;
 __decorate([
     (0, common_1.Post)('generate'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({
         summary: 'Générer des plannings',
         description: 'Génère automatiquement des plannings pour une période donnée en assignant des shifts aux employés',
@@ -62,7 +62,7 @@ __decorate([
 ], DataGeneratorSchedulesController.prototype, "generateSchedules", null);
 __decorate([
     (0, common_1.Get)('stats'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({
         summary: 'Obtenir les statistiques des plannings',
         description: 'Retourne un résumé des plannings générés',
@@ -78,7 +78,7 @@ __decorate([
 ], DataGeneratorSchedulesController.prototype, "getStats", null);
 __decorate([
     (0, common_1.Delete)('clean'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({
         summary: 'Supprimer les plannings générés',
         description: 'Supprime tous les plannings ou ceux d\'une période donnée',

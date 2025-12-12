@@ -21,8 +21,9 @@ const webhook_attendance_dto_1 = require("./dto/webhook-attendance.dto");
 const correct_attendance_dto_1 = require("./dto/correct-attendance.dto");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
-const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
 const public_decorator_1 = require("../../common/decorators/public.decorator");
+const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const current_tenant_decorator_1 = require("../../common/decorators/current-tenant.decorator");
 const client_1 = require("@prisma/client");
 let AttendanceController = class AttendanceController {
@@ -97,7 +98,7 @@ let AttendanceController = class AttendanceController {
         };
         return map[modeNum] || client_1.DeviceType.MANUAL;
     }
-    findAll(tenantId, employeeId, siteId, startDate, endDate, hasAnomaly, type) {
+    findAll(user, tenantId, employeeId, siteId, startDate, endDate, hasAnomaly, type) {
         return this.attendanceService.findAll(tenantId, {
             employeeId,
             siteId,
@@ -105,7 +106,7 @@ let AttendanceController = class AttendanceController {
             endDate,
             hasAnomaly: hasAnomaly ? hasAnomaly === 'true' : undefined,
             type,
-        });
+        }, user.userId, user.permissions || []);
     }
     getAnomalies(tenantId, date) {
         return this.attendanceService.getAnomalies(tenantId, date);
@@ -125,7 +126,7 @@ __decorate([
     (0, common_1.Post)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('attendance.create'),
     (0, swagger_1.ApiOperation)({ summary: 'Create manual attendance record' }),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Attendance created successfully' }),
     __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
@@ -165,26 +166,28 @@ __decorate([
 ], AttendanceController.prototype, "handlePushFromTerminal", null);
 __decorate([
     (0, common_1.Get)(),
-    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, swagger_1.ApiBearerAuth)(),
+    (0, permissions_decorator_1.RequirePermissions)('attendance.view_all', 'attendance.view_own', 'attendance.view_team'),
     (0, swagger_1.ApiOperation)({ summary: 'Get all attendance records with filters' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'List of attendance records' }),
-    __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
-    __param(1, (0, common_1.Query)('employeeId')),
-    __param(2, (0, common_1.Query)('siteId')),
-    __param(3, (0, common_1.Query)('startDate')),
-    __param(4, (0, common_1.Query)('endDate')),
-    __param(5, (0, common_1.Query)('hasAnomaly')),
-    __param(6, (0, common_1.Query)('type')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(2, (0, common_1.Query)('employeeId')),
+    __param(3, (0, common_1.Query)('siteId')),
+    __param(4, (0, common_1.Query)('startDate')),
+    __param(5, (0, common_1.Query)('endDate')),
+    __param(6, (0, common_1.Query)('hasAnomaly')),
+    __param(7, (0, common_1.Query)('type')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], AttendanceController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('anomalies'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('attendance.view_all'),
     (0, swagger_1.ApiOperation)({ summary: 'Get attendance anomalies' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'List of anomalies' }),
     __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
@@ -197,7 +200,7 @@ __decorate([
     (0, common_1.Get)('daily-report'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('attendance.view_all'),
     (0, swagger_1.ApiOperation)({ summary: 'Get daily attendance report' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Daily report' }),
     __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
@@ -223,7 +226,7 @@ __decorate([
     (0, common_1.Patch)(':id/correct'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER, client_1.Role.SUPER_ADMIN),
+    (0, permissions_decorator_1.RequirePermissions)('attendance.correct', 'attendance.edit'),
     (0, swagger_1.ApiOperation)({ summary: 'Correct attendance record' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Attendance corrected successfully' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Attendance not found' }),

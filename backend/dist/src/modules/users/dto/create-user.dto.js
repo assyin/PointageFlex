@@ -44,8 +44,9 @@ __decorate([
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "phone", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ enum: client_1.Role }),
-    (0, class_validator_1.IsEnum)(client_1.Role),
+    (0, swagger_1.ApiProperty)({ enum: client_1.LegacyRole, required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(client_1.LegacyRole),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "role", void 0);
 //# sourceMappingURL=create-user.dto.js.map

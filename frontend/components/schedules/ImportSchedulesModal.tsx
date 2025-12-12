@@ -98,8 +98,18 @@ export function ImportSchedulesModal({ onClose, onSuccess }: ImportSchedulesModa
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-auto">
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 cursor-default"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+      aria-hidden="true"
+    >
+      <Card
+        className="w-full max-w-2xl max-h-[90vh] overflow-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />

@@ -10,8 +10,14 @@ export interface ReportFilters {
   format?: 'PDF' | 'EXCEL' | 'CSV';
 }
 
+export type DashboardScope = 'personal' | 'team' | 'tenant' | 'platform';
+
 export const reportsApi = {
-  getDashboardStats: async (filters?: { startDate?: string; endDate?: string }) => {
+  getDashboardStats: async (filters?: { 
+    startDate?: string; 
+    endDate?: string;
+    scope?: DashboardScope;
+  }) => {
     const response = await apiClient.get('/reports/dashboard', { params: filters });
     return response.data;
   },

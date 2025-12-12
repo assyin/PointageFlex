@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SchedulesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
+const manager_level_util_1 = require("../../common/utils/manager-level.util");
 const XLSX = require("xlsx");
 let SchedulesService = class SchedulesService {
     constructor(prisma) {
@@ -125,9 +126,98 @@ let SchedulesService = class SchedulesService {
             message: `${result.count} planning(s) créé(s)${dates.length - datesToCreate.length > 0 ? `, ${dates.length - datesToCreate.length} ignoré(s) (déjà existants)` : ''}`,
         };
     }
-    async findAll(tenantId, page = 1, limit = 20, filters) {
+    async findAll(tenantId, page = 1, limit = 20, filters, userId, userPermissions) {
         const skip = (page - 1) * limit;
         const where = { tenantId };
+        const hasViewAll = userPermissions?.includes('schedule.view_all');
+        const hasViewOwn = userPermissions?.includes('schedule.view_own');
+        const hasViewTeam = userPermissions?.includes('schedule.view_team');
+        const hasViewDepartment = userPermissions?.includes('schedule.view_department');
+        const hasViewSite = userPermissions?.includes('schedule.view_site');
+        if (!hasViewAll && hasViewOwn && userId) {
+            const employee = await this.prisma.employee.findFirst({
+                where: { userId, tenantId },
+                select: { id: true },
+            });
+            if (employee) {
+                where.employeeId = employee.id;
+            }
+            else {
+                return {
+                    data: [],
+                    meta: {
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0,
+                    },
+                };
+            }
+        }
+        else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
+            const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+            if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+                const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                if (managedEmployeeIds.length === 0) {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
+                where.employeeId = { in: managedEmployeeIds };
+            }
+            else if (managerLevel.type === 'SITE' && hasViewSite) {
+                const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                if (managedEmployeeIds.length === 0) {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
+                where.employeeId = { in: managedEmployeeIds };
+            }
+            else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+                const employee = await this.prisma.employee.findFirst({
+                    where: { userId, tenantId },
+                    select: { teamId: true },
+                });
+                if (employee?.teamId) {
+                    where.teamId = employee.teamId;
+                }
+                else {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
+            }
+            else if (managerLevel.type) {
+                return {
+                    data: [],
+                    meta: {
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0,
+                    },
+                };
+            }
+        }
         if (filters?.employeeId) {
             where.employeeId = filters.employeeId;
         }

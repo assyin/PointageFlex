@@ -9,22 +9,47 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DashboardStatsQueryDto = void 0;
+exports.DashboardStatsQueryDto = exports.DashboardScope = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+var DashboardScope;
+(function (DashboardScope) {
+    DashboardScope["PERSONAL"] = "personal";
+    DashboardScope["TEAM"] = "team";
+    DashboardScope["DEPARTMENT"] = "department";
+    DashboardScope["SITE"] = "site";
+    DashboardScope["TENANT"] = "tenant";
+    DashboardScope["PLATFORM"] = "platform";
+})(DashboardScope || (exports.DashboardScope = DashboardScope = {}));
 class DashboardStatsQueryDto {
 }
 exports.DashboardStatsQueryDto = DashboardStatsQueryDto;
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: '2025-01-01', description: 'Start date in YYYY-MM-DD format' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: '2025-01-01',
+        description: 'Start date in YYYY-MM-DD format'
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], DashboardStatsQueryDto.prototype, "startDate", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: '2025-01-31', description: 'End date in YYYY-MM-DD format' }),
+    (0, swagger_1.ApiPropertyOptional)({
+        example: '2025-01-31',
+        description: 'End date in YYYY-MM-DD format'
+    }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsDateString)(),
     __metadata("design:type", String)
 ], DashboardStatsQueryDto.prototype, "endDate", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: DashboardScope,
+        example: DashboardScope.TENANT,
+        description: 'Scope of dashboard data: personal, team, tenant, or platform'
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(DashboardScope),
+    __metadata("design:type", String)
+], DashboardStatsQueryDto.prototype, "scope", void 0);
 //# sourceMappingURL=dashboard-stats.dto.js.map

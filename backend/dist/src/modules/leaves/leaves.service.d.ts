@@ -2,16 +2,16 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateLeaveDto } from './dto/create-leave.dto';
 import { UpdateLeaveDto } from './dto/update-leave.dto';
 import { ApproveLeaveDto } from './dto/approve-leave.dto';
-import { LeaveStatus, Role } from '@prisma/client';
+import { LeaveStatus, LegacyRole } from '@prisma/client';
 export declare class LeavesService {
     private prisma;
     constructor(prisma: PrismaService);
     create(tenantId: string, dto: CreateLeaveDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         leaveType: {
             id: string;
@@ -30,13 +30,13 @@ export declare class LeavesService {
         updatedAt: Date;
         tenantId: string;
         employeeId: string;
+        status: import(".prisma/client").$Enums.LeaveStatus;
         leaveTypeId: string;
         startDate: Date;
         endDate: Date;
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
-        status: import(".prisma/client").$Enums.LeaveStatus;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -50,13 +50,13 @@ export declare class LeavesService {
         status?: LeaveStatus;
         startDate?: string;
         endDate?: string;
-    }): Promise<{
+    }, userId?: string, userPermissions?: string[]): Promise<{
         data: ({
             employee: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
             };
             leaveType: {
                 id: string;
@@ -75,13 +75,13 @@ export declare class LeavesService {
             updatedAt: Date;
             tenantId: string;
             employeeId: string;
+            status: import(".prisma/client").$Enums.LeaveStatus;
             leaveTypeId: string;
             startDate: Date;
             endDate: Date;
             days: import("@prisma/client/runtime/library").Decimal;
             reason: string | null;
             document: string | null;
-            status: import(".prisma/client").$Enums.LeaveStatus;
             managerApprovedBy: string | null;
             managerApprovedAt: Date | null;
             managerComment: string | null;
@@ -99,10 +99,10 @@ export declare class LeavesService {
     findOne(tenantId: string, id: string): Promise<{
         employee: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
+            matricule: string;
             position: string;
         };
         leaveType: {
@@ -122,13 +122,13 @@ export declare class LeavesService {
         updatedAt: Date;
         tenantId: string;
         employeeId: string;
+        status: import(".prisma/client").$Enums.LeaveStatus;
         leaveTypeId: string;
         startDate: Date;
         endDate: Date;
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
-        status: import(".prisma/client").$Enums.LeaveStatus;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -139,9 +139,9 @@ export declare class LeavesService {
     update(tenantId: string, id: string, dto: UpdateLeaveDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         leaveType: {
             id: string;
@@ -160,13 +160,13 @@ export declare class LeavesService {
         updatedAt: Date;
         tenantId: string;
         employeeId: string;
+        status: import(".prisma/client").$Enums.LeaveStatus;
         leaveTypeId: string;
         startDate: Date;
         endDate: Date;
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
-        status: import(".prisma/client").$Enums.LeaveStatus;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -174,12 +174,12 @@ export declare class LeavesService {
         hrApprovedAt: Date | null;
         hrComment: string | null;
     }>;
-    approve(tenantId: string, id: string, userId: string, userRole: Role, dto: ApproveLeaveDto): Promise<{
+    approve(tenantId: string, id: string, userId: string, userRole: LegacyRole, dto: ApproveLeaveDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         leaveType: {
             id: string;
@@ -198,13 +198,13 @@ export declare class LeavesService {
         updatedAt: Date;
         tenantId: string;
         employeeId: string;
+        status: import(".prisma/client").$Enums.LeaveStatus;
         leaveTypeId: string;
         startDate: Date;
         endDate: Date;
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
-        status: import(".prisma/client").$Enums.LeaveStatus;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -215,9 +215,9 @@ export declare class LeavesService {
     cancel(tenantId: string, id: string, userId: string): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
         leaveType: {
             id: string;
@@ -236,13 +236,13 @@ export declare class LeavesService {
         updatedAt: Date;
         tenantId: string;
         employeeId: string;
+        status: import(".prisma/client").$Enums.LeaveStatus;
         leaveTypeId: string;
         startDate: Date;
         endDate: Date;
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
-        status: import(".prisma/client").$Enums.LeaveStatus;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -256,13 +256,13 @@ export declare class LeavesService {
         updatedAt: Date;
         tenantId: string;
         employeeId: string;
+        status: import(".prisma/client").$Enums.LeaveStatus;
         leaveTypeId: string;
         startDate: Date;
         endDate: Date;
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
-        status: import(".prisma/client").$Enums.LeaveStatus;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;

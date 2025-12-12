@@ -50,10 +50,10 @@ export declare class DepartmentsController {
         };
         employees: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
+            matricule: string;
             position: string;
         }[];
     } & {

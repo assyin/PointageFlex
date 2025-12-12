@@ -4,7 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { Role } from '@prisma/client';
+import { LegacyRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -61,7 +61,7 @@ export class AuthService {
           firstName: dto.firstName,
           lastName: dto.lastName,
           tenantId: tenant.id,
-          role: Role.ADMIN_RH,
+          role: LegacyRole.ADMIN_RH,
         },
         select: {
           id: true,
@@ -76,17 +76,56 @@ export class AuthService {
       return { tenant, user };
     });
 
+    // Récupérer les rôles et permissions RBAC pour le nouvel utilisateur
+    const userTenantRoles = await this.prisma.userTenantRole.findMany({
+      where: {
+        userId: result.user.id,
+        tenantId: result.user.tenantId,
+        isActive: true,
+      },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Extraire les codes de rôles et permissions
+    const roles = userTenantRoles.map((utr) => utr.role.code);
+    const permissions = new Set<string>();
+    userTenantRoles.forEach((utr) => {
+      utr.role.permissions.forEach((rp) => {
+        if (rp.permission.isActive) {
+          permissions.add(rp.permission.code);
+        }
+      });
+    });
+
     const tokens = await this.generateTokens(result.user);
 
     return {
       ...tokens,
-      user: result.user,
+      user: {
+        ...result.user,
+        roles: Array.from(roles),
+        permissions: Array.from(permissions),
+      },
     };
   }
 
   async login(dto: LoginDto) {
+    // Utiliser findUnique si email est unique, sinon findFirst
+    // Note: Si email est unique dans le schéma, findUnique est plus sûr
     const user = await this.prisma.user.findFirst({
-      where: { email: dto.email },
+      where: { 
+        email: dto.email.toLowerCase().trim(), // Normaliser l'email
+      },
       select: {
         id: true,
         email: true,
@@ -119,13 +158,51 @@ export class AuthService {
       data: { lastLoginAt: new Date() },
     });
 
+    // Récupérer les rôles et permissions RBAC pour le tenant de l'utilisateur
+    const tenantId = user.tenantId;
+    const userTenantRoles = tenantId
+      ? await this.prisma.userTenantRole.findMany({
+          where: {
+            userId: user.id,
+            tenantId,
+            isActive: true,
+          },
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        })
+      : [];
+
+    // Extraire les codes de rôles et permissions
+    const roles = userTenantRoles.map((utr) => utr.role.code);
+    const permissions = new Set<string>();
+    userTenantRoles.forEach((utr) => {
+      utr.role.permissions.forEach((rp) => {
+        if (rp.permission.isActive) {
+          permissions.add(rp.permission.code);
+        }
+      });
+    });
+
     const tokens = await this.generateTokens(user);
 
     const { password, ...userWithoutPassword } = user;
 
     return {
       ...tokens,
-      user: userWithoutPassword,
+      user: {
+        ...userWithoutPassword,
+        roles: Array.from(roles),
+        permissions: Array.from(permissions),
+      },
     };
   }
 
@@ -139,14 +216,63 @@ export class AuthService {
         lastName: true,
         role: true,
         tenantId: true,
+        isActive: true,
       },
     });
 
-    if (!user) {
-      throw new UnauthorizedException('User not found');
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User not found or inactive');
     }
 
-    return this.generateTokens(user);
+    // Récupérer les rôles et permissions RBAC pour le tenant de l'utilisateur
+    const tenantId = user.tenantId;
+    const userTenantRoles = tenantId
+      ? await this.prisma.userTenantRole.findMany({
+          where: {
+            userId: user.id,
+            tenantId,
+            isActive: true,
+          },
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        })
+      : [];
+
+    // Extraire les codes de rôles et permissions
+    const roles = userTenantRoles.map((utr) => utr.role.code);
+    const permissions = new Set<string>();
+    userTenantRoles.forEach((utr) => {
+      utr.role.permissions.forEach((rp) => {
+        if (rp.permission.isActive) {
+          permissions.add(rp.permission.code);
+        }
+      });
+    });
+
+    const tokens = await this.generateTokens(user);
+
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        tenantId: user.tenantId,
+        roles: Array.from(roles),
+        permissions: Array.from(permissions),
+      },
+    };
   }
 
   private async generateTokens(user: any) {

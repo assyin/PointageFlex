@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LeaveTypesController = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const swagger_1 = require("@nestjs/swagger");
 const leaves_service_1 = require("./leaves.service");
 const create_leave_type_dto_1 = require("./dto/create-leave-type.dto");
@@ -21,7 +22,6 @@ const update_leave_type_dto_1 = require("./dto/update-leave-type.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
-const client_1 = require("@prisma/client");
 let LeaveTypesController = class LeaveTypesController {
     constructor(leavesService) {
         this.leavesService = leavesService;
@@ -50,7 +50,7 @@ __decorate([
 ], LeaveTypesController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH),
     (0, swagger_1.ApiOperation)({ summary: 'Create a new leave type' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -60,7 +60,7 @@ __decorate([
 ], LeaveTypesController.prototype, "create", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH),
     (0, swagger_1.ApiOperation)({ summary: 'Update a leave type' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -71,7 +71,7 @@ __decorate([
 ], LeaveTypesController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN_RH),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH),
     (0, swagger_1.ApiOperation)({ summary: 'Delete a leave type' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),

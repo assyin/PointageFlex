@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PermissionGate } from '@/components/auth/PermissionGate';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +27,13 @@ import {
   Settings,
   Edit,
   Trash2,
+  Filter,
+  X,
+  Download,
+  Loader2,
+  Building2,
+  Users,
+  Briefcase,
 } from 'lucide-react';
 import {
   useLeaves,
@@ -37,6 +46,10 @@ import {
   useUpdateLeaveType,
   useDeleteLeaveType,
 } from '@/lib/hooks/useLeaves';
+import { useEmployees } from '@/lib/hooks/useEmployees';
+import { useDepartments } from '@/lib/hooks/useDepartments';
+import { useSites } from '@/lib/hooks/useSites';
+import { Label } from '@/components/ui/label';
 
 // Create/Edit Leave Type Form Component
 function LeaveTypeForm({
@@ -181,6 +194,9 @@ function CreateLeaveForm({
   onCancel: () => void;
 }) {
   const createMutation = useCreateLeave();
+  const { data: employeesData } = useEmployees();
+  const employees = Array.isArray(employeesData) ? employeesData : [];
+
   const [formData, setFormData] = useState({
     employeeId: '',
     leaveTypeId: '',
@@ -226,16 +242,22 @@ function CreateLeaveForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label htmlFor="employeeId" className="block text-sm font-medium text-text-primary mb-2">
-          ID Employé *
+          Employé *
         </label>
-        <Input
+        <select
           id="employeeId"
-          type="text"
           required
           value={formData.employeeId}
           onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-          placeholder="ID de l'employé"
-        />
+          className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+        >
+          <option value="">Sélectionner un employé</option>
+          {employees.map((emp: any) => (
+            <option key={emp.id} value={emp.id}>
+              {emp.firstName} {emp.lastName} ({emp.matricule})
+            </option>
+          ))}
+        </select>
       </div>
 
       <div>
@@ -333,10 +355,26 @@ export default function LeavesPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Advanced filters
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filterLeaveType, setFilterLeaveType] = useState<string>('all');
+  const [filterDepartment, setFilterDepartment] = useState<string>('all');
+  const [filterSite, setFilterSite] = useState<string>('all');
+  const [filterEmployee, setFilterEmployee] = useState<string>('all');
+  const [filterDateStart, setFilterDateStart] = useState<string>('');
+  const [filterDateEnd, setFilterDateEnd] = useState<string>('');
 
   // Fetch leaves data
   const { data: leavesData, isLoading, error } = useLeaves();
   const { data: leaveTypesData } = useLeaveTypes();
+  const { data: employeesData } = useEmployees();
+  const { data: departmentsData } = useDepartments();
+  const { data: sitesData } = useSites();
+  
+  // Normalize data structures - handle both array and object with data property
+  const sites = Array.isArray(sitesData) ? sitesData : (sitesData?.data || sitesData || []);
+  const departments = Array.isArray(departmentsData) ? departmentsData : (departmentsData?.data || departmentsData || []);
 
   // Mutations
   const approveMutation = useApproveLeave();
@@ -414,17 +452,62 @@ export default function LeavesPage() {
   };
 
   const filteredLeaves = leavesData?.data?.filter((leave: any) => {
+    // Search filter
     const matchesSearch =
       searchQuery === '' ||
       leave.employee?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       leave.employee?.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       leave.employee?.matricule?.toLowerCase().includes(searchQuery.toLowerCase());
 
+    // Status filter
     const matchesStatus =
       selectedStatus === 'all' ||
       leave.status === selectedStatus;
 
-    return matchesSearch && matchesStatus;
+    // Leave type filter
+    const matchesLeaveType =
+      filterLeaveType === 'all' ||
+      leave.leaveTypeId === filterLeaveType;
+
+    // Department filter
+    const matchesDepartment =
+      filterDepartment === 'all' ||
+      leave.employee?.departmentId === filterDepartment;
+
+    // Site filter
+    const matchesSite =
+      filterSite === 'all' ||
+      leave.employee?.siteId === filterSite;
+
+    // Employee filter
+    const matchesEmployee =
+      filterEmployee === 'all' ||
+      leave.employeeId === filterEmployee;
+
+    // Date range filter
+    const matchesDateRange = (() => {
+      if (!filterDateStart && !filterDateEnd) return true;
+      const leaveStart = new Date(leave.startDate);
+      const leaveEnd = new Date(leave.endDate);
+      const filterStart = filterDateStart ? new Date(filterDateStart) : null;
+      const filterEnd = filterDateEnd ? new Date(filterDateEnd) : null;
+
+      if (filterStart && filterEnd) {
+        return (leaveStart >= filterStart && leaveStart <= filterEnd) ||
+               (leaveEnd >= filterStart && leaveEnd <= filterEnd) ||
+               (leaveStart <= filterStart && leaveEnd >= filterEnd);
+      }
+      if (filterStart) {
+        return leaveEnd >= filterStart;
+      }
+      if (filterEnd) {
+        return leaveStart <= filterEnd;
+      }
+      return true;
+    })();
+
+    return matchesSearch && matchesStatus && matchesLeaveType && 
+           matchesDepartment && matchesSite && matchesEmployee && matchesDateRange;
   }) || [];
 
   const pendingCount = leavesData?.data?.filter((l: any) => l.status === 'PENDING').length || 0;
@@ -445,108 +528,274 @@ export default function LeavesPage() {
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedStatus]);
+  }, [searchQuery, selectedStatus, filterLeaveType, filterDepartment, filterSite, filterEmployee, filterDateStart, filterDateEnd]);
+
+  // Reset filters
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedStatus('all');
+    setFilterLeaveType('all');
+    setFilterDepartment('all');
+    setFilterSite('all');
+    setFilterEmployee('all');
+    setFilterDateStart('');
+    setFilterDateEnd('');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = searchQuery || selectedStatus !== 'all' || filterLeaveType !== 'all' || 
+    filterDepartment !== 'all' || filterSite !== 'all' || filterEmployee !== 'all' || 
+    filterDateStart || filterDateEnd;
 
   return (
-    <DashboardLayout
-      title="Gestion des Congés & Absences"
-      subtitle="Demandes, validations et soldes de congés"
-    >
+    <ProtectedRoute permissions={['leave.view_all', 'leave.view_own', 'leave.view_team']}>
+      <DashboardLayout
+        title="Gestion des Congés & Absences"
+        subtitle="Demandes, validations et soldes de congés"
+      >
       <div className="space-y-6">
-        {/* Action Bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
-              <Input
-                type="text"
-                placeholder="Rechercher employé..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-64"
-              />
+        {/* Filters Card */}
+        <Card className="border border-gray-200 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-semibold text-gray-900">Filtres et actions</CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  {showAdvancedFilters ? 'Masquer' : 'Filtres avancés'}
+                </Button>
+                {hasActiveFilters && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResetFilters}
+                    className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Réinitialiser
+                  </Button>
+                )}
+                <PermissionGate permissions={['leavetype.view_all', 'leavetype.manage']}>
+                  <Button variant="outline" size="sm" onClick={() => setShowLeaveTypesModal(true)} className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                    <Settings className="h-4 w-4 mr-2" />
+                    Types
+                  </Button>
+                </PermissionGate>
+                <PermissionGate permission="leave.create">
+                  <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)} className="bg-gray-900 hover:bg-gray-800">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Nouvelle demande
+                  </Button>
+                </PermissionGate>
+              </div>
             </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Basic Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Rechercher par nom, matricule..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 h-11 border-gray-300 focus:border-gray-500 focus:ring-gray-500"
+                  />
+                </div>
 
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="px-3 py-2 border border-border rounded-lg text-sm"
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="PENDING">En attente</option>
-              <option value="MANAGER_APPROVED">Approuvé Manager</option>
-              <option value="HR_APPROVED">Approuvé RH</option>
-              <option value="APPROVED">Approuvé</option>
-              <option value="REJECTED">Rejeté</option>
-            </select>
-          </div>
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="h-11 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="PENDING">En attente</option>
+                  <option value="MANAGER_APPROVED">Approuvé Manager</option>
+                  <option value="HR_APPROVED">Approuvé RH</option>
+                  <option value="APPROVED">Approuvé</option>
+                  <option value="REJECTED">Rejeté</option>
+                  <option value="CANCELLED">Annulé</option>
+                </select>
 
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowLeaveTypesModal(true)}>
-              <Settings className="h-4 w-4 mr-2" />
-              Types de congé
-            </Button>
-            <Button variant="primary" onClick={() => setShowCreateModal(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nouvelle demande
-            </Button>
-          </div>
-        </div>
+                <select
+                  value={filterLeaveType}
+                  onChange={(e) => setFilterLeaveType(e.target.value)}
+                  className="h-11 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
+                >
+                  <option value="all">Tous les types de congé</option>
+                  {leaveTypesData?.map((type: any) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Advanced Filters */}
+              {showAdvancedFilters && (
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <Label htmlFor="filterDepartment" className="text-sm font-semibold text-gray-700 mb-2 block">
+                        <Building2 className="h-4 w-4 inline mr-1" />
+                        Département
+                      </Label>
+                      <select
+                        id="filterDepartment"
+                        value={filterDepartment}
+                        onChange={(e) => setFilterDepartment(e.target.value)}
+                        className="w-full h-11 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
+                      >
+                        <option value="all">Tous les départements</option>
+                        {departments?.map((dept: any) => (
+                          <option key={dept.id} value={dept.id}>
+                            {dept.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="filterSite" className="text-sm font-semibold text-gray-700 mb-2 block">
+                        <Briefcase className="h-4 w-4 inline mr-1" />
+                        Site
+                      </Label>
+                      <select
+                        id="filterSite"
+                        value={filterSite}
+                        onChange={(e) => setFilterSite(e.target.value)}
+                        className="w-full h-11 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
+                      >
+                        <option value="all">Tous les sites</option>
+                        {sites?.map((site: any) => (
+                          <option key={site.id} value={site.id}>
+                            {site.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="filterEmployee" className="text-sm font-semibold text-gray-700 mb-2 block">
+                        <Users className="h-4 w-4 inline mr-1" />
+                        Employé
+                      </Label>
+                      <select
+                        id="filterEmployee"
+                        value={filterEmployee}
+                        onChange={(e) => setFilterEmployee(e.target.value)}
+                        className="w-full h-11 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
+                      >
+                        <option value="all">Tous les employés</option>
+                        {employeesData?.data?.map((emp: any) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.firstName} {emp.lastName} ({emp.matricule})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="filterDateStart" className="text-sm font-semibold text-gray-700 mb-2 block">
+                        <Calendar className="h-4 w-4 inline mr-1" />
+                        Période
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          id="filterDateStart"
+                          type="date"
+                          value={filterDateStart}
+                          onChange={(e) => setFilterDateStart(e.target.value)}
+                          className="h-11 border-gray-300 focus:border-gray-500 focus:ring-gray-500"
+                          placeholder="Date début"
+                        />
+                        <Input
+                          id="filterDateEnd"
+                          type="date"
+                          value={filterDateEnd}
+                          onChange={(e) => setFilterDateEnd(e.target.value)}
+                          className="h-11 border-gray-300 focus:border-gray-500 focus:ring-gray-500"
+                          placeholder="Date fin"
+                          min={filterDateStart}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-secondary">Total demandes</p>
-                  <p className="text-2xl font-bold text-text-primary mt-1">
+                  <p className="text-sm font-medium text-gray-600 mb-1">Total demandes</p>
+                  <p className="text-3xl font-bold text-gray-900">
                     {leavesData?.data?.length || 0}
                   </p>
                 </div>
-                <FileText className="h-10 w-10 text-primary opacity-20" />
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <FileText className="h-6 w-6 text-blue-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4">
+          <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-secondary">En attente</p>
-                  <p className="text-2xl font-bold text-warning mt-1">
+                  <p className="text-sm font-medium text-gray-600 mb-1">En attente</p>
+                  <p className="text-3xl font-bold text-orange-600">
                     {pendingCount}
                   </p>
                 </div>
-                <Clock className="h-10 w-10 text-warning opacity-20" />
+                <div className="p-3 bg-orange-100 rounded-xl">
+                  <Clock className="h-6 w-6 text-orange-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4">
+          <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-secondary">Approuvé Manager</p>
-                  <p className="text-2xl font-bold text-info mt-1">
+                  <p className="text-sm font-medium text-gray-600 mb-1">Approuvé Manager</p>
+                  <p className="text-3xl font-bold text-blue-600">
                     {managerApprovedCount}
                   </p>
                 </div>
-                <AlertCircle className="h-10 w-10 text-info opacity-20" />
+                <div className="p-3 bg-blue-100 rounded-xl">
+                  <AlertCircle className="h-6 w-6 text-blue-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4">
+          <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-text-secondary">Approuvés</p>
-                  <p className="text-2xl font-bold text-success mt-1">
+                  <p className="text-sm font-medium text-gray-600 mb-1">Approuvés</p>
+                  <p className="text-3xl font-bold text-green-600">
                     {approvedCount}
                   </p>
                 </div>
-                <CheckCircle className="h-10 w-10 text-success opacity-20" />
+                <div className="p-3 bg-green-100 rounded-xl">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -566,9 +815,22 @@ export default function LeavesPage() {
         )}
 
         {/* Leaves Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Demandes de congés</CardTitle>
+        <Card className="border border-gray-200 shadow-sm">
+          <CardHeader className="pb-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-semibold text-gray-900">Demandes de congés</CardTitle>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">
+                  {filteredLeaves.length} résultat{filteredLeaves.length > 1 ? 's' : ''}
+                </span>
+                <PermissionGate permissions={['leave.export', 'leave.view_all']}>
+                  <Button variant="outline" size="sm" className="border-gray-300 text-gray-700 hover:bg-gray-50">
+                    <Download className="h-4 w-4 mr-2" />
+                    Exporter
+                  </Button>
+                </PermissionGate>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {!isMounted ? (
@@ -597,104 +859,117 @@ export default function LeavesPage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="bg-table-header text-left text-sm font-semibold text-text-primary">
-                      <th className="p-3">Employé</th>
-                      <th className="p-3">Type de congé</th>
-                      <th className="p-3">Période</th>
-                      <th className="p-3">Durée</th>
-                      <th className="p-3">Statut</th>
-                      <th className="p-3">Workflow</th>
-                      <th className="p-3">Actions</th>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-left text-sm font-semibold text-gray-700">
+                      <th className="px-4 py-4">Employé</th>
+                      <th className="px-4 py-4">Type de congé</th>
+                      <th className="px-4 py-4">Période</th>
+                      <th className="px-4 py-4">Durée</th>
+                      <th className="px-4 py-4">Statut</th>
+                      <th className="px-4 py-4">Workflow</th>
+                      <th className="px-4 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-table-border">
+                  <tbody className="divide-y divide-gray-100">
                     {paginatedLeaves.map((leave: any) => (
-                      <tr key={leave.id} className="hover:bg-table-hover transition-colors">
-                        <td className="p-3">
-                          <div className="font-medium text-text-primary">
+                      <tr key={leave.id} className="hover:bg-gray-50 transition-colors duration-150 border-b border-gray-100">
+                        <td className="px-4 py-4">
+                          <div className="font-semibold text-gray-900">
                             {leave.employee?.firstName} {leave.employee?.lastName}
                           </div>
-                          <div className="text-sm text-text-secondary">
+                          <div className="text-sm text-gray-500 mt-0.5">
                             {leave.employee?.matricule}
                           </div>
                         </td>
-                        <td className="p-3">
-                          <Badge variant="default">
+                        <td className="px-4 py-4">
+                          <Badge className="bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200">
                             {leave.leaveType?.name || 'Non spécifié'}
                           </Badge>
                         </td>
-                        <td className="p-3">
+                        <td className="px-4 py-4">
                           <div className="text-sm">
-                            <div className="font-medium text-text-primary">
+                            <div className="font-medium text-gray-900">
                               {format(new Date(leave.startDate), 'dd MMM yyyy', { locale: fr })}
                             </div>
-                            <div className="text-text-secondary">
+                            <div className="text-gray-500">
                               au {format(new Date(leave.endDate), 'dd MMM yyyy', { locale: fr })}
                             </div>
                           </div>
                         </td>
-                        <td className="p-3">
-                          <span className="font-medium text-text-primary">
+                        <td className="px-4 py-4">
+                          <span className="font-semibold text-gray-900">
                             {leave.totalDays} jour{leave.totalDays > 1 ? 's' : ''}
                           </span>
                         </td>
-                        <td className="p-3">
+                        <td className="px-4 py-4">
                           {getStatusBadge(leave.status)}
                         </td>
-                        <td className="p-3">
+                        <td className="px-4 py-4">
                           <div className="flex flex-col gap-1 text-xs">
                             {leave.managerApprovedBy && (
-                              <div className="flex items-center gap-1 text-success">
+                              <div className="flex items-center gap-1 text-green-600">
                                 <CheckCircle className="h-3 w-3" />
                                 <span>Manager: {format(new Date(leave.managerApprovedAt), 'dd/MM/yy')}</span>
                               </div>
                             )}
                             {leave.hrApprovedBy && (
-                              <div className="flex items-center gap-1 text-success">
+                              <div className="flex items-center gap-1 text-green-600">
                                 <CheckCircle className="h-3 w-3" />
                                 <span>RH: {format(new Date(leave.hrApprovedAt), 'dd/MM/yy')}</span>
                               </div>
                             )}
                             {leave.status === 'PENDING' && (
-                              <div className="text-warning">En attente validation manager</div>
+                              <div className="text-orange-600 font-medium">En attente validation manager</div>
                             )}
                             {leave.status === 'MANAGER_APPROVED' && (
-                              <div className="text-info">En attente validation RH</div>
+                              <div className="text-blue-600 font-medium">En attente validation RH</div>
                             )}
                           </div>
                         </td>
-                        <td className="p-3">
-                          <div className="flex gap-2 flex-wrap">
+                        <td className="px-4 py-4">
+                          <div className="flex gap-2 flex-wrap justify-end">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => handleViewDetails(leave)}
+                              className="h-8 border-gray-300 text-gray-700 hover:bg-gray-50"
                             >
                               <Eye className="h-3 w-3 mr-1" />
                               Détails
                             </Button>
-                            {(leave.status === 'PENDING' || leave.status === 'MANAGER_APPROVED') && (
-                              <>
-                                <Button
-                                  variant="success"
-                                  size="sm"
-                                  onClick={() => handleApprove(leave.id, leave.status)}
-                                  disabled={approveMutation.isPending}
-                                >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  {leave.status === 'PENDING' ? 'Manager' : 'RH'}
-                                </Button>
-                                <Button
-                                  variant="danger"
-                                  size="sm"
-                                  onClick={() => handleReject(leave.id)}
-                                  disabled={rejectMutation.isPending}
-                                >
-                                  <XCircle className="h-3 w-3 mr-1" />
-                                  Rejeter
-                                </Button>
-                              </>
-                            )}
+                            <PermissionGate permission="leave.approve">
+                              {(leave.status === 'PENDING' || leave.status === 'MANAGER_APPROVED') && (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleApprove(leave.id, leave.status)}
+                                    disabled={approveMutation.isPending}
+                                    className="h-8 bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                                  >
+                                    {approveMutation.isPending ? (
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                    )}
+                                    {leave.status === 'PENDING' ? 'Manager' : 'RH'}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleReject(leave.id)}
+                                    disabled={rejectMutation.isPending}
+                                    className="h-8 bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                                  >
+                                    {rejectMutation.isPending ? (
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <XCircle className="h-3 w-3 mr-1" />
+                                    )}
+                                    Rejeter
+                                  </Button>
+                                </>
+                              )}
+                            </PermissionGate>
                           </div>
                         </td>
                       </tr>
@@ -964,7 +1239,7 @@ export default function LeavesPage() {
                     <div>
                       <span className="text-text-secondary">Durée:</span>{' '}
                       <span className="text-text-primary font-medium">
-                        {selectedLeave.totalDays} jour{selectedLeave.totalDays > 1 ? 's' : ''}
+                        {selectedLeave.days} jour{selectedLeave.days > 1 ? 's' : ''}
                       </span>
                     </div>
                   </div>
@@ -1054,33 +1329,35 @@ export default function LeavesPage() {
                 >
                   Fermer
                 </Button>
-                {(selectedLeave.status === 'PENDING' || selectedLeave.status === 'MANAGER_APPROVED') && (
-                  <>
-                    <Button
-                      variant="success"
-                      onClick={async () => {
-                        await handleApprove(selectedLeave.id, selectedLeave.status);
-                        setShowDetailsModal(false);
-                        setSelectedLeave(null);
-                      }}
-                      disabled={approveMutation.isPending}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      {selectedLeave.status === 'PENDING' ? 'Approuver (Manager)' : 'Approuver (RH)'}
-                    </Button>
-                    <Button
-                      variant="danger"
-                      onClick={() => {
-                        setShowDetailsModal(false);
-                        setShowRejectModal(true);
-                      }}
-                      disabled={rejectMutation.isPending}
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Rejeter
-                    </Button>
-                  </>
-                )}
+                <PermissionGate permission="leave.approve">
+                  {(selectedLeave.status === 'PENDING' || selectedLeave.status === 'MANAGER_APPROVED') && (
+                    <>
+                      <Button
+                        variant="success"
+                        onClick={async () => {
+                          await handleApprove(selectedLeave.id, selectedLeave.status);
+                          setShowDetailsModal(false);
+                          setSelectedLeave(null);
+                        }}
+                        disabled={approveMutation.isPending}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        {selectedLeave.status === 'PENDING' ? 'Approuver (Manager)' : 'Approuver (RH)'}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        onClick={() => {
+                          setShowDetailsModal(false);
+                          setShowRejectModal(true);
+                        }}
+                        disabled={rejectMutation.isPending}
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Rejeter
+                      </Button>
+                    </>
+                  )}
+                </PermissionGate>
               </div>
             </div>
           </div>
@@ -1227,5 +1504,6 @@ export default function LeavesPage() {
         </div>
       )}
     </DashboardLayout>
+    </ProtectedRoute>
   );
 }

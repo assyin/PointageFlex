@@ -9,6 +9,13 @@ export declare class EmployeesController {
     private readonly employeesService;
     constructor(employeesService: EmployeesService);
     create(tenantId: string, createEmployeeDto: CreateEmployeeDto): Promise<{
+        user: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            role: import(".prisma/client").$Enums.LegacyRole;
+        };
         currentShift: {
             id: string;
             createdAt: Date;
@@ -38,9 +45,11 @@ export declare class EmployeesController {
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -59,23 +68,18 @@ export declare class EmployeesController {
             rotationEnabled: boolean;
             rotationCycleDays: number | null;
         };
-        user: {
-            id: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-            role: import(".prisma/client").$Enums.Role;
-        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        matricule: string;
+        email: string | null;
         firstName: string;
         lastName: string;
-        email: string | null;
         phone: string | null;
+        isActive: boolean;
+        userId: string | null;
+        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -101,10 +105,15 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
-        isActive: boolean;
-        userId: string | null;
     }>;
-    findAll(tenantId: string, siteId?: string, departmentId?: string, teamId?: string, isActive?: string, search?: string): Promise<({
+    findAll(user: any, tenantId: string, siteId?: string, departmentId?: string, teamId?: string, isActive?: string, search?: string): Promise<({
+        user: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            role: import(".prisma/client").$Enums.LegacyRole;
+        };
         currentShift: {
             id: string;
             createdAt: Date;
@@ -134,9 +143,11 @@ export declare class EmployeesController {
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -155,23 +166,18 @@ export declare class EmployeesController {
             rotationEnabled: boolean;
             rotationCycleDays: number | null;
         };
-        user: {
-            id: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-            role: import(".prisma/client").$Enums.Role;
-        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        matricule: string;
+        email: string | null;
         firstName: string;
         lastName: string;
-        email: string | null;
         phone: string | null;
+        isActive: boolean;
+        userId: string | null;
+        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -197,8 +203,6 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
-        isActive: boolean;
-        userId: string | null;
     })[]>;
     getStats(tenantId: string): Promise<{
         total: number;
@@ -216,6 +220,14 @@ export declare class EmployeesController {
     }>;
     exportExcel(tenantId: string, res: Response): Promise<void>;
     findOne(tenantId: string, id: string): Promise<{
+        user: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            isActive: boolean;
+            role: import(".prisma/client").$Enums.LegacyRole;
+        };
         attendance: {
             id: string;
             createdAt: Date;
@@ -225,9 +237,9 @@ export declare class EmployeesController {
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
             type: import(".prisma/client").$Enums.AttendanceType;
-            timestamp: Date;
             employeeId: string;
             deviceId: string | null;
+            timestamp: Date;
             method: import(".prisma/client").$Enums.DeviceType;
             hasAnomaly: boolean;
             anomalyType: string | null;
@@ -268,9 +280,11 @@ export declare class EmployeesController {
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -288,14 +302,6 @@ export declare class EmployeesController {
             managerId: string | null;
             rotationEnabled: boolean;
             rotationCycleDays: number | null;
-        };
-        user: {
-            id: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-            isActive: boolean;
-            role: import(".prisma/client").$Enums.Role;
         };
         leaves: ({
             leaveType: {
@@ -315,13 +321,13 @@ export declare class EmployeesController {
             updatedAt: Date;
             tenantId: string;
             employeeId: string;
+            status: import(".prisma/client").$Enums.LeaveStatus;
             leaveTypeId: string;
             startDate: Date;
             endDate: Date;
             days: import("@prisma/client/runtime/library").Decimal;
             reason: string | null;
             document: string | null;
-            status: import(".prisma/client").$Enums.LeaveStatus;
             managerApprovedBy: string | null;
             managerApprovedAt: Date | null;
             managerComment: string | null;
@@ -334,11 +340,13 @@ export declare class EmployeesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        matricule: string;
+        email: string | null;
         firstName: string;
         lastName: string;
-        email: string | null;
         phone: string | null;
+        isActive: boolean;
+        userId: string | null;
+        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -364,10 +372,15 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
-        isActive: boolean;
-        userId: string | null;
     }>;
     update(tenantId: string, id: string, updateEmployeeDto: UpdateEmployeeDto): Promise<{
+        user: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            role: import(".prisma/client").$Enums.LegacyRole;
+        };
         currentShift: {
             id: string;
             createdAt: Date;
@@ -397,9 +410,11 @@ export declare class EmployeesController {
             updatedAt: Date;
             tenantId: string;
             phone: string | null;
-            address: string | null;
             name: string;
             code: string | null;
+            address: string | null;
+            departmentId: string | null;
+            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -418,23 +433,18 @@ export declare class EmployeesController {
             rotationEnabled: boolean;
             rotationCycleDays: number | null;
         };
-        user: {
-            id: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-            role: import(".prisma/client").$Enums.Role;
-        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        matricule: string;
+        email: string | null;
         firstName: string;
         lastName: string;
-        email: string | null;
         phone: string | null;
+        isActive: boolean;
+        userId: string | null;
+        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -460,8 +470,6 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
-        isActive: boolean;
-        userId: string | null;
     }>;
     removeAll(tenantId: string): Promise<{
         statusCode: number;
@@ -475,11 +483,13 @@ export declare class EmployeesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        matricule: string;
+        email: string | null;
         firstName: string;
         lastName: string;
-        email: string | null;
         phone: string | null;
+        isActive: boolean;
+        userId: string | null;
+        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -505,8 +515,6 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
-        isActive: boolean;
-        userId: string | null;
     }>;
     importExcel(tenantId: string, file: Express.Multer.File): Promise<{
         statusCode: HttpStatus;
@@ -519,9 +527,9 @@ export declare class EmployeesController {
     }>;
     updateBiometric(tenantId: string, id: string, biometricData: BiometricDataDto): Promise<{
         id: string;
-        matricule: string;
         firstName: string;
         lastName: string;
+        matricule: string;
         fingerprintData: string;
         faceData: string;
         rfidBadge: string;

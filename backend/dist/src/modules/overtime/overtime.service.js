@@ -13,6 +13,7 @@ exports.OvertimeService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
 const client_1 = require("@prisma/client");
+const manager_level_util_1 = require("../../common/utils/manager-level.util");
 let OvertimeService = class OvertimeService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -55,10 +56,78 @@ let OvertimeService = class OvertimeService {
             },
         });
     }
-    async findAll(tenantId, page = 1, limit = 20, filters) {
+    async findAll(tenantId, page = 1, limit = 20, filters, userId, userPermissions) {
         const skip = (page - 1) * limit;
         const where = { tenantId };
-        if (filters?.employeeId) {
+        const hasViewAll = userPermissions?.includes('overtime.view_all');
+        const hasViewOwn = userPermissions?.includes('overtime.view_own');
+        const hasViewDepartment = userPermissions?.includes('overtime.view_department');
+        const hasViewSite = userPermissions?.includes('overtime.view_site');
+        if (!hasViewAll && hasViewOwn && userId) {
+            const employee = await this.prisma.employee.findFirst({
+                where: { userId, tenantId },
+                select: { id: true },
+            });
+            if (employee) {
+                where.employeeId = employee.id;
+            }
+            else {
+                return {
+                    data: [],
+                    meta: {
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0,
+                    },
+                };
+            }
+        }
+        else if (!hasViewAll && userId && (hasViewDepartment || hasViewSite)) {
+            const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+            if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+                const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                if (managedEmployeeIds.length === 0) {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
+                where.employeeId = { in: managedEmployeeIds };
+            }
+            else if (managerLevel.type === 'SITE' && hasViewSite) {
+                const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                if (managedEmployeeIds.length === 0) {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
+                where.employeeId = { in: managedEmployeeIds };
+            }
+            else if (managerLevel.type) {
+                return {
+                    data: [],
+                    meta: {
+                        total: 0,
+                        page,
+                        limit,
+                        totalPages: 0,
+                    },
+                };
+            }
+        }
+        else if (filters?.employeeId) {
             where.employeeId = filters.employeeId;
         }
         if (filters?.status) {

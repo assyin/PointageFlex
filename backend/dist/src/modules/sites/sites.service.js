@@ -16,6 +16,36 @@ let SitesService = class SitesService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    async validateManagerDepartmentConstraint(managerId, departmentId, currentSiteId) {
+        if (!managerId) {
+            return;
+        }
+        const where = {
+            managerId,
+            departmentId: { not: null },
+        };
+        if (currentSiteId) {
+            where.id = { not: currentSiteId };
+        }
+        const otherManagedSites = await this.prisma.site.findMany({
+            where,
+            include: {
+                department: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                    },
+                },
+            },
+        });
+        for (const site of otherManagedSites) {
+            if (site.department && site.departmentId !== departmentId) {
+                throw new common_1.ForbiddenException(`Ce manager gère déjà le site "${site.name}" dans le département "${site.department.name}". ` +
+                    `Un manager régional ne peut gérer qu'un seul département.`);
+            }
+        }
+    }
     async create(tenantId, dto) {
         if (dto.code) {
             try {
@@ -37,6 +67,18 @@ let SitesService = class SitesService {
                 }
             }
         }
+        if (dto.managerId) {
+            const manager = await this.prisma.employee.findFirst({
+                where: {
+                    id: dto.managerId,
+                    tenantId,
+                },
+            });
+            if (!manager) {
+                throw new common_1.NotFoundException(`Manager avec l'ID ${dto.managerId} non trouvé`);
+            }
+            await this.validateManagerDepartmentConstraint(dto.managerId, dto.departmentId);
+        }
         const data = {
             ...dto,
             tenantId,
@@ -46,6 +88,14 @@ let SitesService = class SitesService {
             return await this.prisma.site.create({
                 data,
                 include: {
+                    manager: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            matricule: true,
+                        },
+                    },
                     _count: {
                         select: {
                             employees: true,
@@ -61,6 +111,14 @@ let SitesService = class SitesService {
                 return await this.prisma.site.create({
                     data,
                     include: {
+                        manager: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                matricule: true,
+                            },
+                        },
                         _count: {
                             select: {
                                 employees: true,
@@ -78,6 +136,14 @@ let SitesService = class SitesService {
             const sites = await this.prisma.site.findMany({
                 where: { tenantId },
                 include: {
+                    manager: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            matricule: true,
+                        },
+                    },
                     _count: {
                         select: {
                             employees: true,
@@ -128,6 +194,14 @@ let SitesService = class SitesService {
                 tenantId,
             },
             include: {
+                manager: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        matricule: true,
+                    },
+                },
                 employees: {
                     select: {
                         id: true,
@@ -165,6 +239,22 @@ let SitesService = class SitesService {
         if (!site) {
             throw new common_1.NotFoundException('Site non trouvé');
         }
+        if (dto.managerId) {
+            const manager = await this.prisma.employee.findFirst({
+                where: {
+                    id: dto.managerId,
+                    tenantId,
+                },
+            });
+            if (!manager) {
+                throw new common_1.NotFoundException(`Manager avec l'ID ${dto.managerId} non trouvé`);
+            }
+        }
+        const finalManagerId = dto.managerId !== undefined ? dto.managerId : site.managerId;
+        const finalDepartmentId = dto.departmentId !== undefined ? dto.departmentId : site.departmentId;
+        if (finalManagerId && (dto.managerId !== undefined || dto.departmentId !== undefined)) {
+            await this.validateManagerDepartmentConstraint(finalManagerId, finalDepartmentId, id);
+        }
         if (dto.code && site.code && dto.code !== site.code) {
             try {
                 const existing = await this.prisma.site.findFirst({
@@ -194,6 +284,14 @@ let SitesService = class SitesService {
                 where: { id },
                 data,
                 include: {
+                    manager: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            matricule: true,
+                        },
+                    },
                     _count: {
                         select: {
                             employees: true,
@@ -210,6 +308,14 @@ let SitesService = class SitesService {
                     where: { id },
                     data,
                     include: {
+                        manager: {
+                            select: {
+                                id: true,
+                                firstName: true,
+                                lastName: true,
+                                matricule: true,
+                            },
+                        },
                         _count: {
                             select: {
                                 employees: true,

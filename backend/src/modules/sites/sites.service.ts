@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
@@ -6,6 +6,53 @@ import { UpdateSiteDto } from './dto/update-site.dto';
 @Injectable()
 export class SitesService {
   constructor(private prisma: PrismaService) {}
+
+  /**
+   * Valide qu'un manager ne gère pas déjà un site dans un autre département
+   * Contrainte: Un manager régional ne peut gérer qu'un seul département
+   */
+  private async validateManagerDepartmentConstraint(
+    managerId: string,
+    departmentId: string | null | undefined,
+    currentSiteId?: string,
+  ) {
+    if (!managerId) {
+      return; // Pas de manager, pas de validation
+    }
+
+    // Récupérer tous les sites managés par cet employé (sauf le site actuel)
+    const where: any = {
+      managerId,
+      departmentId: { not: null }, // Uniquement les sites avec un département
+    };
+
+    if (currentSiteId) {
+      where.id = { not: currentSiteId }; // Exclure le site actuel lors de la mise à jour
+    }
+
+    const otherManagedSites = await this.prisma.site.findMany({
+      where,
+      include: {
+        department: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
+      },
+    });
+
+    // Si le manager gère déjà un site dans un département différent, rejeter
+    for (const site of otherManagedSites) {
+      if (site.department && site.departmentId !== departmentId) {
+        throw new ForbiddenException(
+          `Ce manager gère déjà le site "${site.name}" dans le département "${site.department.name}". ` +
+          `Un manager régional ne peut gérer qu'un seul département.`,
+        );
+      }
+    }
+  }
 
   async create(tenantId: string, dto: CreateSiteDto) {
     // Vérifier que le code n'existe pas déjà pour ce tenant (si la colonne existe)
@@ -31,6 +78,26 @@ export class SitesService {
       }
     }
 
+    // Valider le manager si fourni
+    if (dto.managerId) {
+      const manager = await this.prisma.employee.findFirst({
+        where: {
+          id: dto.managerId,
+          tenantId,
+        },
+      });
+
+      if (!manager) {
+        throw new NotFoundException(`Manager avec l'ID ${dto.managerId} non trouvé`);
+      }
+
+      // Valider la contrainte: un manager régional ne peut gérer qu'un seul département
+      await this.validateManagerDepartmentConstraint(
+        dto.managerId,
+        (dto as any).departmentId, // departmentId peut être passé dans le DTO
+      );
+    }
+
     // Exclure code si la colonne n'existe pas
     const data: any = {
       ...dto,
@@ -43,6 +110,14 @@ export class SitesService {
       return await this.prisma.site.create({
         data,
         include: {
+          manager: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              matricule: true,
+            },
+          },
           _count: {
             select: {
               employees: true,
@@ -58,6 +133,14 @@ export class SitesService {
         return await this.prisma.site.create({
           data,
           include: {
+            manager: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                matricule: true,
+              },
+            },
             _count: {
               select: {
                 employees: true,
@@ -76,6 +159,14 @@ export class SitesService {
       const sites = await this.prisma.site.findMany({
         where: { tenantId },
         include: {
+          manager: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              matricule: true,
+            },
+          },
           _count: {
             select: {
               employees: true,
@@ -134,6 +225,14 @@ export class SitesService {
         tenantId,
       },
       include: {
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            matricule: true,
+          },
+        },
         employees: {
           select: {
             id: true,
@@ -177,6 +276,32 @@ export class SitesService {
       throw new NotFoundException('Site non trouvé');
     }
 
+    // Valider le manager si fourni
+    if (dto.managerId) {
+      const manager = await this.prisma.employee.findFirst({
+        where: {
+          id: dto.managerId,
+          tenantId,
+        },
+      });
+
+      if (!manager) {
+        throw new NotFoundException(`Manager avec l'ID ${dto.managerId} non trouvé`);
+      }
+    }
+
+    // Valider la contrainte si managerId ou departmentId change
+    const finalManagerId = dto.managerId !== undefined ? dto.managerId : site.managerId;
+    const finalDepartmentId = (dto as any).departmentId !== undefined ? (dto as any).departmentId : (site as any).departmentId;
+
+    if (finalManagerId && (dto.managerId !== undefined || (dto as any).departmentId !== undefined)) {
+      await this.validateManagerDepartmentConstraint(
+        finalManagerId,
+        finalDepartmentId,
+        id, // Pass current site ID to exclude it from the check
+      );
+    }
+
     // Si le code change, vérifier qu'il n'existe pas déjà (si la colonne existe)
     if (dto.code && (site as any).code && dto.code !== (site as any).code) {
       try {
@@ -211,6 +336,14 @@ export class SitesService {
         where: { id },
         data,
         include: {
+          manager: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              matricule: true,
+            },
+          },
           _count: {
             select: {
               employees: true,
@@ -227,6 +360,14 @@ export class SitesService {
           where: { id },
           data,
           include: {
+            manager: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                matricule: true,
+              },
+            },
             _count: {
               select: {
                 employees: true,

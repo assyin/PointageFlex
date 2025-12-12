@@ -17,6 +17,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { PermissionGate } from '@/components/auth/PermissionGate';
 
 export default function SettingsPage() {
   // Get tenant ID from localStorage
@@ -226,52 +229,51 @@ export default function SettingsPage() {
 
   if (settingsLoading || sitesLoading || holidaysLoading) {
     return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#0052CC]" />
-      </div>
+      <DashboardLayout
+        title="Paramètres"
+        subtitle="Chargement..."
+      >
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-600" />
+        </div>
+      </DashboardLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-[1800px] mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-[28px] font-bold text-[#212529]">Paramètres entreprise</h1>
-              <p className="text-[14px] text-[#6C757D] mt-1">
-                Configurer les informations, horaires, sites et jours fériés de votre entreprise
-              </p>
-            </div>
+    <ProtectedRoute permissions={['tenant.view_settings', 'tenant.update_settings']}>
+      <DashboardLayout
+        title="Paramètres entreprise"
+      subtitle="Configurer les informations, horaires, sites et jours fériés de votre entreprise"
+    >
+      <div className="space-y-6">
+        {/* Action Buttons */}
+        <div className="flex items-center justify-end gap-3">
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Recharger
+          </button>
 
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleRefresh}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 transition-colors text-[14px] font-medium"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Recharger
-              </button>
-
-              <button
-                onClick={handleSaveSettings}
-                disabled={updateSettings.isPending}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] transition-colors text-[14px] font-semibold disabled:opacity-50"
-              >
-                {updateSettings.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : null}
-                Enregistrer les modifications
-              </button>
-            </div>
-          </div>
+          <PermissionGate permission="tenant.update_settings">
+            <button
+              onClick={handleSaveSettings}
+              disabled={updateSettings.isPending}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-semibold disabled:opacity-50"
+            >
+              {updateSettings.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : null}
+              Enregistrer les modifications
+            </button>
+          </PermissionGate>
         </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="max-w-[1800px] mx-auto px-6 py-6">
-        <div className="grid grid-cols-12 gap-6">
+        {/* Main Content */}
+        <div className="max-w-[1800px]">
+          <div className="grid grid-cols-12 gap-6">
           {/* Left Column - Configuration */}
           <div className="col-span-7 space-y-6">
             {/* Company Information */}
@@ -595,17 +597,19 @@ export default function SettingsPage() {
                       Gérer les différents sites de l'entreprise
                     </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setEditingSite(null);
-                      setSiteForm({ code: '', name: '', address: '', city: '', phone: '' });
-                      setShowSiteModal(true);
-                    }}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] text-[13px] font-semibold"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Nouveau site
-                  </button>
+                  <PermissionGate permission="tenant.manage_sites">
+                    <button
+                      onClick={() => {
+                        setEditingSite(null);
+                        setSiteForm({ code: '', name: '', address: '', city: '', phone: '' });
+                        setShowSiteModal(true);
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] text-[13px] font-semibold"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Nouveau site
+                    </button>
+                  </PermissionGate>
                 </div>
               </div>
 
@@ -632,18 +636,20 @@ export default function SettingsPage() {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <button
-                          onClick={() => openEditSite(site)}
-                          className="p-2 text-[#6C757D] hover:text-[#0052CC]"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSite(site.id)}
-                          className="p-2 text-[#6C757D] hover:text-red-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <PermissionGate permission="tenant.manage_sites">
+                          <button
+                            onClick={() => openEditSite(site)}
+                            className="p-2 text-[#6C757D] hover:text-[#0052CC]"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSite(site.id)}
+                            className="p-2 text-[#6C757D] hover:text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </PermissionGate>
                       </div>
                     </div>
                   ))
@@ -662,27 +668,29 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <label className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 cursor-pointer text-[13px] font-medium">
-                      <Upload className="w-4 h-4" />
-                      Importer
-                      <input
-                        type="file"
-                        accept=".csv,.xlsx,.xls"
-                        onChange={handleImportHolidays}
-                        className="hidden"
-                      />
-                    </label>
-                    <button
-                      onClick={() => {
-                        setEditingHoliday(null);
-                        setHolidayForm({ name: '', date: '', type: HolidayType.NATIONAL, isRecurring: false });
-                        setShowHolidayModal(true);
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] text-[13px] font-semibold"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Ajouter
-                    </button>
+                    <PermissionGate permission="tenant.manage_holidays">
+                      <label className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 cursor-pointer text-[13px] font-medium">
+                        <Upload className="w-4 h-4" />
+                        Importer
+                        <input
+                          type="file"
+                          accept=".csv,.xlsx,.xls"
+                          onChange={handleImportHolidays}
+                          className="hidden"
+                        />
+                      </label>
+                      <button
+                        onClick={() => {
+                          setEditingHoliday(null);
+                          setHolidayForm({ name: '', date: '', type: HolidayType.NATIONAL, isRecurring: false });
+                          setShowHolidayModal(true);
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] text-[13px] font-semibold"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Ajouter
+                      </button>
+                    </PermissionGate>
                   </div>
                 </div>
               </div>
@@ -717,18 +725,20 @@ export default function SettingsPage() {
                         <span className="text-[13px] text-[#6C757D]">
                           {new Date(holiday.date).toLocaleDateString('fr-FR')}
                         </span>
-                        <button
-                          onClick={() => openEditHoliday(holiday)}
-                          className="text-[#6C757D] hover:text-[#0052CC]"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteHoliday(holiday.id)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <PermissionGate permission="tenant.manage_holidays">
+                          <button
+                            onClick={() => openEditHoliday(holiday)}
+                            className="text-[#6C757D] hover:text-[#0052CC]"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteHoliday(holiday.id)}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </PermissionGate>
                       </div>
                     </div>
                   ))
@@ -911,6 +921,8 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </DashboardLayout>
+    </ProtectedRoute>
   );
 }

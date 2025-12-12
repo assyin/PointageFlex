@@ -9,9 +9,9 @@ export declare class OvertimeService {
     create(tenantId: string, dto: CreateOvertimeDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -20,14 +20,14 @@ export declare class OvertimeService {
         tenantId: string;
         isNightShift: boolean;
         employeeId: string;
-        status: import(".prisma/client").$Enums.OvertimeStatus;
         date: Date;
-        approvedBy: string | null;
-        approvedAt: Date | null;
         hours: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string | null;
+        status: import(".prisma/client").$Enums.OvertimeStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
     }>;
     findAll(tenantId: string, page?: number, limit?: number, filters?: {
         employeeId?: string;
@@ -35,13 +35,13 @@ export declare class OvertimeService {
         startDate?: string;
         endDate?: string;
         isNightShift?: boolean;
-    }): Promise<{
+    }, userId?: string, userPermissions?: string[]): Promise<{
         data: ({
             employee: {
                 id: string;
-                matricule: string;
                 firstName: string;
                 lastName: string;
+                matricule: string;
             };
         } & {
             id: string;
@@ -50,14 +50,14 @@ export declare class OvertimeService {
             tenantId: string;
             isNightShift: boolean;
             employeeId: string;
-            status: import(".prisma/client").$Enums.OvertimeStatus;
             date: Date;
-            approvedBy: string | null;
-            approvedAt: Date | null;
             hours: import("@prisma/client/runtime/library").Decimal;
             rate: import("@prisma/client/runtime/library").Decimal;
             convertedToRecovery: boolean;
             recoveryId: string | null;
+            status: import(".prisma/client").$Enums.OvertimeStatus;
+            approvedBy: string | null;
+            approvedAt: Date | null;
         })[];
         meta: {
             total: number;
@@ -69,10 +69,10 @@ export declare class OvertimeService {
     findOne(tenantId: string, id: string): Promise<{
         employee: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
+            matricule: string;
             position: string;
         };
     } & {
@@ -82,21 +82,21 @@ export declare class OvertimeService {
         tenantId: string;
         isNightShift: boolean;
         employeeId: string;
-        status: import(".prisma/client").$Enums.OvertimeStatus;
         date: Date;
-        approvedBy: string | null;
-        approvedAt: Date | null;
         hours: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string | null;
+        status: import(".prisma/client").$Enums.OvertimeStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
     }>;
     update(tenantId: string, id: string, dto: UpdateOvertimeDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -105,21 +105,21 @@ export declare class OvertimeService {
         tenantId: string;
         isNightShift: boolean;
         employeeId: string;
-        status: import(".prisma/client").$Enums.OvertimeStatus;
         date: Date;
-        approvedBy: string | null;
-        approvedAt: Date | null;
         hours: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string | null;
+        status: import(".prisma/client").$Enums.OvertimeStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
     }>;
     approve(tenantId: string, id: string, userId: string, dto: ApproveOvertimeDto): Promise<{
         employee: {
             id: string;
-            matricule: string;
             firstName: string;
             lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -128,14 +128,14 @@ export declare class OvertimeService {
         tenantId: string;
         isNightShift: boolean;
         employeeId: string;
-        status: import(".prisma/client").$Enums.OvertimeStatus;
         date: Date;
-        approvedBy: string | null;
-        approvedAt: Date | null;
         hours: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string | null;
+        status: import(".prisma/client").$Enums.OvertimeStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
     }>;
     convertToRecovery(tenantId: string, id: string): Promise<{
         id: string;
@@ -156,13 +156,13 @@ export declare class OvertimeService {
         tenantId: string;
         isNightShift: boolean;
         employeeId: string;
-        status: import(".prisma/client").$Enums.OvertimeStatus;
         date: Date;
-        approvedBy: string | null;
-        approvedAt: Date | null;
         hours: import("@prisma/client/runtime/library").Decimal;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string | null;
+        status: import(".prisma/client").$Enums.OvertimeStatus;
+        approvedBy: string | null;
+        approvedAt: Date | null;
     }>;
 }

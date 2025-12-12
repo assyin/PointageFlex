@@ -9,9 +9,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { authApi } from '@/lib/api/auth';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -38,8 +40,13 @@ export default function LoginPage() {
       // Sauvegarder les tokens
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(response.user));
       localStorage.setItem('tenantId', response.user.tenantId);
+      
+      // Mettre à jour le contexte Auth avec l'utilisateur et ses permissions RBAC
+      setUser(response.user);
+      
+      // Rediriger vers le dashboard
+      router.push('/dashboard');
 
       // Réinitialiser les tentatives échouées
       setFailedAttempts(0);

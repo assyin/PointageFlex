@@ -18,10 +18,11 @@ export class CreateLeaveDto {
   @IsDateString()
   endDate: string;
 
-  @ApiProperty({ example: 5, description: 'Number of days' })
+  @ApiPropertyOptional({ example: 5, description: 'Number of days (calculated automatically if not provided)' })
+  @IsOptional()
   @IsNumber()
   @Min(0.5)
-  days: number;
+  days?: number;
 
   @ApiPropertyOptional({ example: 'Family reasons' })
   @IsOptional()

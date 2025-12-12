@@ -24,8 +24,10 @@ import { BulkAssignSiteDto } from './dto/bulk-assign-site.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RequirePermissions } from '../../common/decorators/permissions.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
-import { Role } from '@prisma/client';
+import { LegacyRole } from '@prisma/client';
 
 @ApiTags('Employees')
 @ApiBearerAuth()
@@ -35,7 +37,7 @@ export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
 
   @Post()
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @RequirePermissions('employee.create')
   @ApiOperation({ summary: 'Create a new employee' })
   @ApiResponse({ status: 201, description: 'Employee created successfully' })
   @ApiResponse({ status: 409, description: 'Employee with this matricule already exists' })
@@ -47,9 +49,11 @@ export class EmployeesController {
   }
 
   @Get()
+  @RequirePermissions('employee.view_all', 'employee.view_own')
   @ApiOperation({ summary: 'Get all employees with filters' })
   @ApiResponse({ status: 200, description: 'List of employees' })
   findAll(
+    @CurrentUser() user: any,
     @CurrentTenant() tenantId: string,
     @Query('siteId') siteId?: string,
     @Query('departmentId') departmentId?: string,
@@ -57,17 +61,22 @@ export class EmployeesController {
     @Query('isActive') isActive?: string,
     @Query('search') search?: string,
   ) {
-    return this.employeesService.findAll(tenantId, {
-      siteId,
-      departmentId,
-      teamId,
-      isActive: isActive ? isActive === 'true' : undefined,
-      search,
-    });
+    return this.employeesService.findAll(
+      tenantId,
+      {
+        siteId,
+        departmentId,
+        teamId,
+        isActive: isActive ? isActive === 'true' : undefined,
+        search,
+      },
+      user.userId,
+      user.permissions || [],
+    );
   }
 
   @Get('stats')
-  @Roles(Role.ADMIN_RH, Role.MANAGER, Role.SUPER_ADMIN)
+  @RequirePermissions('employee.view_all')
   @ApiOperation({ summary: 'Get employee statistics' })
   @ApiResponse({ status: 200, description: 'Employee statistics' })
   getStats(@CurrentTenant() tenantId: string) {
@@ -75,7 +84,7 @@ export class EmployeesController {
   }
 
   @Get('export/excel')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @RequirePermissions('employee.export', 'employee.view_all')
   @ApiOperation({ summary: 'Export all employees to Excel file' })
   @ApiResponse({ status: 200, description: 'Excel file generated' })
   async exportExcel(
@@ -107,7 +116,7 @@ export class EmployeesController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @RequirePermissions('employee.update')
   @ApiOperation({ summary: 'Update employee' })
   @ApiResponse({ status: 200, description: 'Employee updated successfully' })
   @ApiResponse({ status: 404, description: 'Employee not found' })
@@ -120,7 +129,7 @@ export class EmployeesController {
   }
 
   @Delete('all')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @RequirePermissions('employee.delete')
   @ApiOperation({ summary: 'Delete all employees for tenant' })
   @ApiResponse({ status: 200, description: 'All employees deleted successfully' })
   removeAll(@CurrentTenant() tenantId: string) {
@@ -128,7 +137,7 @@ export class EmployeesController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @RequirePermissions('employee.delete')
   @ApiOperation({ summary: 'Delete employee' })
   @ApiResponse({ status: 200, description: 'Employee deleted successfully' })
   @ApiResponse({ status: 404, description: 'Employee not found' })
@@ -140,7 +149,7 @@ export class EmployeesController {
   }
 
   @Post('import/excel')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @RequirePermissions('employee.create', 'employee.import')
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Import employees from Excel file' })
@@ -174,7 +183,7 @@ export class EmployeesController {
   }
 
   @Post(':id/biometric')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @RequirePermissions('employee.update')
   @ApiOperation({ summary: 'Update employee biometric data' })
   @ApiResponse({ status: 200, description: 'Biometric data updated successfully' })
   @ApiResponse({ status: 404, description: 'Employee not found' })
@@ -187,7 +196,7 @@ export class EmployeesController {
   }
 
   @Post('bulk-assign-site')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @RequirePermissions('employee.update')
   @ApiOperation({ summary: 'Assigner des employés à un site en masse' })
   @ApiResponse({ status: 200, description: 'Employés assignés avec succès' })
   @ApiResponse({ status: 404, description: 'Site non trouvé' })

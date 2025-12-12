@@ -159,8 +159,8 @@
   @apply bg-gray-400;
 }
 
-/* Transitions globales */
-* {
+/* Transitions ciblées pour de meilleures performances */
+button, a, input, select, textarea {
   @apply transition-colors duration-200;
 }
 

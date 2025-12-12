@@ -14,13 +14,13 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DataGeneratorShiftsController = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const swagger_1 = require("@nestjs/swagger");
 const data_generator_shifts_service_1 = require("./data-generator-shifts.service");
 const generate_shifts_dto_1 = require("./dto/generate-shifts.dto");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
-const client_1 = require("@prisma/client");
 let DataGeneratorShiftsController = class DataGeneratorShiftsController {
     constructor(shiftsService) {
         this.shiftsService = shiftsService;
@@ -37,7 +37,7 @@ let DataGeneratorShiftsController = class DataGeneratorShiftsController {
 exports.DataGeneratorShiftsController = DataGeneratorShiftsController;
 __decorate([
     (0, common_1.Post)('generate'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
     (0, swagger_1.ApiOperation)({
         summary: 'Générer des shifts et les assigner aux employés',
         description: 'Crée des shifts par défaut et les assigne aux employés selon une distribution',
@@ -58,7 +58,7 @@ __decorate([
 ], DataGeneratorShiftsController.prototype, "generateShifts", null);
 __decorate([
     (0, common_1.Get)('stats'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.SUPER_ADMIN, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({
         summary: 'Obtenir les statistiques des shifts',
         description: 'Retourne un résumé des shifts et de leur assignation',

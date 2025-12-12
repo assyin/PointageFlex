@@ -4,6 +4,7 @@ import { CreateOvertimeDto } from './dto/create-overtime.dto';
 import { UpdateOvertimeDto } from './dto/update-overtime.dto';
 import { ApproveOvertimeDto } from './dto/approve-overtime.dto';
 import { OvertimeStatus } from '@prisma/client';
+import { getManagerLevel, getManagedEmployeeIds } from '../../common/utils/manager-level.util';
 
 @Injectable()
 export class OvertimeService {
@@ -65,12 +66,87 @@ export class OvertimeService {
       endDate?: string;
       isNightShift?: boolean;
     },
+    userId?: string,
+    userPermissions?: string[],
   ) {
     const skip = (page - 1) * limit;
 
     const where: any = { tenantId };
 
-    if (filters?.employeeId) {
+    // Filtrer par employé si l'utilisateur n'a que la permission 'overtime.view_own'
+    const hasViewAll = userPermissions?.includes('overtime.view_all');
+    const hasViewOwn = userPermissions?.includes('overtime.view_own');
+    const hasViewDepartment = userPermissions?.includes('overtime.view_department');
+    const hasViewSite = userPermissions?.includes('overtime.view_site');
+
+    if (!hasViewAll && hasViewOwn && userId) {
+      // Récupérer l'employé lié à cet utilisateur
+      const employee = await this.prisma.employee.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      });
+
+      if (employee) {
+        where.employeeId = employee.id;
+      } else {
+        // Si pas d'employé lié, retourner vide
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          },
+        };
+      }
+    } else if (!hasViewAll && userId && (hasViewDepartment || hasViewSite)) {
+      // Détecter le niveau hiérarchique du manager
+      const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
+
+      if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+        // Manager de département : filtrer par les employés du département
+        const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
+        if (managedEmployeeIds.length === 0) {
+          return {
+            data: [],
+            meta: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            },
+          };
+        }
+        where.employeeId = { in: managedEmployeeIds };
+      } else if (managerLevel.type === 'SITE' && hasViewSite) {
+        // Manager de site : filtrer par les employés du site
+        const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
+        if (managedEmployeeIds.length === 0) {
+          return {
+            data: [],
+            meta: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            },
+          };
+        }
+        where.employeeId = { in: managedEmployeeIds };
+      } else if (managerLevel.type) {
+        // Manager détecté mais pas la permission correspondante
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          },
+        };
+      }
+    } else if (filters?.employeeId) {
       where.employeeId = filters.employeeId;
     }
 

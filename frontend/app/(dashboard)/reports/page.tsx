@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -110,8 +111,9 @@ export default function ReportsPage() {
   const { data: currentData, loading: currentLoading } = getCurrentReportData();
 
   return (
-    <DashboardLayout
-      title="Rapports & Exports"
+    <ProtectedRoute permissions={['reports.view_all', 'reports.view_attendance', 'reports.view_leaves', 'reports.view_overtime']}>
+      <DashboardLayout
+        title="Rapports & Exports"
       subtitle="Générer et exporter des rapports RH"
     >
       <div className="space-y-6">
@@ -324,5 +326,6 @@ export default function ReportsPage() {
         </Card>
       </div>
     </DashboardLayout>
+    </ProtectedRoute>
   );
 }

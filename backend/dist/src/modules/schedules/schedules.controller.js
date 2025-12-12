@@ -22,9 +22,8 @@ const create_schedule_dto_1 = require("./dto/create-schedule.dto");
 const update_schedule_dto_1 = require("./dto/update-schedule.dto");
 const create_replacement_dto_1 = require("./dto/create-replacement.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
-const roles_decorator_1 = require("../../common/decorators/roles.decorator");
+const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
-const client_1 = require("@prisma/client");
 let SchedulesController = class SchedulesController {
     constructor(schedulesService, alertsService) {
         this.schedulesService = schedulesService;
@@ -45,7 +44,7 @@ let SchedulesController = class SchedulesController {
             siteId,
             startDate,
             endDate,
-        });
+        }, user.userId, user.permissions || []);
     }
     getWeek(user, date, teamId, siteId) {
         return this.schedulesService.getWeekSchedule(user.tenantId, date, {
@@ -144,7 +143,7 @@ let SchedulesController = class SchedulesController {
 exports.SchedulesController = SchedulesController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.create'),
     (0, swagger_1.ApiOperation)({ summary: 'Create new schedule' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -154,7 +153,7 @@ __decorate([
 ], SchedulesController.prototype, "create", null);
 __decorate([
     (0, common_1.Post)('bulk'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.create'),
     (0, swagger_1.ApiOperation)({ summary: 'Create multiple schedules' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -164,6 +163,7 @@ __decorate([
 ], SchedulesController.prototype, "createBulk", null);
 __decorate([
     (0, common_1.Get)(),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.view_all', 'schedule.view_own', 'schedule.view_team'),
     (0, swagger_1.ApiOperation)({ summary: 'Get all schedules' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)('page')),
@@ -180,6 +180,7 @@ __decorate([
 ], SchedulesController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('week/:date'),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.view_all', 'schedule.view_own', 'schedule.view_team'),
     (0, swagger_1.ApiOperation)({ summary: 'Get week schedule' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('date')),
@@ -191,6 +192,7 @@ __decorate([
 ], SchedulesController.prototype, "getWeek", null);
 __decorate([
     (0, common_1.Get)('month/:date'),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.view_all', 'schedule.view_own', 'schedule.view_team'),
     (0, swagger_1.ApiOperation)({ summary: 'Get month schedule' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('date')),
@@ -202,6 +204,7 @@ __decorate([
 ], SchedulesController.prototype, "getMonth", null);
 __decorate([
     (0, common_1.Get)('alerts'),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.view_all'),
     (0, swagger_1.ApiOperation)({ summary: 'Get legal alerts for date range' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)('startDate')),
@@ -212,7 +215,7 @@ __decorate([
 ], SchedulesController.prototype, "getAlerts", null);
 __decorate([
     (0, common_1.Post)('replacements'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER, client_1.Role.EMPLOYEE),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.create', 'schedule.request_replacement'),
     (0, swagger_1.ApiOperation)({ summary: 'Create replacement request' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -222,6 +225,7 @@ __decorate([
 ], SchedulesController.prototype, "createReplacement", null);
 __decorate([
     (0, common_1.Get)('replacements'),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.view_all', 'schedule.view_own'),
     (0, swagger_1.ApiOperation)({ summary: 'Get all replacements' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Query)('status')),
@@ -233,7 +237,7 @@ __decorate([
 ], SchedulesController.prototype, "findAllReplacements", null);
 __decorate([
     (0, common_1.Patch)('replacements/:id/approve'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.approve'),
     (0, swagger_1.ApiOperation)({ summary: 'Approve replacement' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -243,7 +247,7 @@ __decorate([
 ], SchedulesController.prototype, "approveReplacement", null);
 __decorate([
     (0, common_1.Patch)('replacements/:id/reject'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.approve'),
     (0, swagger_1.ApiOperation)({ summary: 'Reject replacement' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -262,7 +266,7 @@ __decorate([
 ], SchedulesController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.update'),
     (0, swagger_1.ApiOperation)({ summary: 'Update schedule' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -273,7 +277,7 @@ __decorate([
 ], SchedulesController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.delete'),
     (0, swagger_1.ApiOperation)({ summary: 'Delete schedule' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -283,7 +287,7 @@ __decorate([
 ], SchedulesController.prototype, "remove", null);
 __decorate([
     (0, common_1.Delete)('bulk'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.delete'),
     (0, swagger_1.ApiOperation)({ summary: 'Delete multiple schedules' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -293,7 +297,7 @@ __decorate([
 ], SchedulesController.prototype, "removeBulk", null);
 __decorate([
     (0, common_1.Post)('import/excel'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.create', 'schedule.import'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiOperation)({ summary: 'Import schedules from Excel file' }),
@@ -305,7 +309,7 @@ __decorate([
 ], SchedulesController.prototype, "importExcel", null);
 __decorate([
     (0, common_1.Get)('import/template'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, permissions_decorator_1.RequirePermissions)('schedule.create'),
     (0, swagger_1.ApiOperation)({ summary: 'Download Excel template for schedule import' }),
     __param(0, (0, common_1.Res)()),
     __metadata("design:type", Function),

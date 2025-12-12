@@ -48,7 +48,7 @@ let ShiftsController = class ShiftsController {
 exports.ShiftsController = ShiftsController;
 __decorate([
     (0, common_1.Post)(),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Create new shift' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
@@ -79,7 +79,7 @@ __decorate([
 ], ShiftsController.prototype, "findOne", null);
 __decorate([
     (0, common_1.Patch)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH, client_1.Role.MANAGER),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.MANAGER),
     (0, swagger_1.ApiOperation)({ summary: 'Update shift' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),
@@ -90,7 +90,7 @@ __decorate([
 ], ShiftsController.prototype, "update", null);
 __decorate([
     (0, common_1.Delete)(':id'),
-    (0, roles_decorator_1.Roles)(client_1.Role.ADMIN_RH),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH),
     (0, swagger_1.ApiOperation)({ summary: 'Delete shift' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('id')),

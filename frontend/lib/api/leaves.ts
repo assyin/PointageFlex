@@ -6,10 +6,10 @@ export interface Leave {
   leaveTypeId: string;
   startDate: string;
   endDate: string;
-  totalDays: number;
+  days: number;
   reason?: string;
   attachment?: string;
-  status: 'PENDING' | 'MANAGER_APPROVED' | 'HR_APPROVED' | 'REJECTED' | 'CANCELLED';
+  status: 'PENDING' | 'MANAGER_APPROVED' | 'HR_APPROVED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   managerApprovedBy?: string;
   managerApprovedAt?: string;
   hrApprovedBy?: string;
@@ -77,7 +77,7 @@ export const leavesApi = {
   },
 
   approve: async (id: string, level: 'manager' | 'hr') => {
-    const status = level === 'manager' ? 'MANAGER_APPROVED' : 'HR_APPROVED';
+    const status = level === 'manager' ? 'MANAGER_APPROVED' : 'APPROVED';
     const response = await apiClient.post(`/leaves/${id}/approve`, { status });
     return response.data;
   },

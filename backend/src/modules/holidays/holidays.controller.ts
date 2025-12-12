@@ -21,7 +21,7 @@ import { UpdateHolidayDto } from './dto/update-holiday.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import { Role } from '@prisma/client';
+import { LegacyRole } from '@prisma/client';
 
 @ApiTags('Holidays')
 @Controller('holidays')
@@ -31,7 +31,7 @@ export class HolidaysController {
   constructor(private readonly holidaysService: HolidaysService) {}
 
   @Post()
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Créer un nouveau jour férié' })
   create(@CurrentUser() user: any, @Body() dto: CreateHolidayDto) {
     return this.holidaysService.create(user.tenantId, dto);
@@ -54,7 +54,7 @@ export class HolidaysController {
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Mettre à jour un jour férié' })
   update(
     @CurrentUser() user: any,
@@ -65,14 +65,14 @@ export class HolidaysController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({ summary: 'Supprimer un jour férié' })
   remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.holidaysService.remove(user.tenantId, id);
   }
 
   @Post('import-csv')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Importer des jours fériés depuis un fichier CSV' })

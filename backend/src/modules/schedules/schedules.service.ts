@@ -3,6 +3,7 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { ImportScheduleResultDto } from './dto/import-schedule.dto';
+import { getManagerLevel, getManagedEmployeeIds } from '../../common/utils/manager-level.util';
 import * as XLSX from 'xlsx';
 
 @Injectable()
@@ -171,10 +172,110 @@ export class SchedulesService {
       startDate?: string;
       endDate?: string;
     },
+    userId?: string,
+    userPermissions?: string[],
   ) {
     const skip = (page - 1) * limit;
 
     const where: any = { tenantId };
+
+    // Filtrer par employé si l'utilisateur n'a que la permission 'schedule.view_own'
+    const hasViewAll = userPermissions?.includes('schedule.view_all');
+    const hasViewOwn = userPermissions?.includes('schedule.view_own');
+    const hasViewTeam = userPermissions?.includes('schedule.view_team');
+    const hasViewDepartment = userPermissions?.includes('schedule.view_department');
+    const hasViewSite = userPermissions?.includes('schedule.view_site');
+
+    if (!hasViewAll && hasViewOwn && userId) {
+      // Récupérer l'employé lié à cet utilisateur
+      const employee = await this.prisma.employee.findFirst({
+        where: { userId, tenantId },
+        select: { id: true },
+      });
+
+      if (employee) {
+        where.employeeId = employee.id;
+      } else {
+        // Si pas d'employé lié, retourner vide
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          },
+        };
+      }
+    } else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
+      // Détecter le niveau hiérarchique du manager
+      const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
+
+      if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+        // Manager de département : filtrer par les employés du département
+        const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
+        if (managedEmployeeIds.length === 0) {
+          return {
+            data: [],
+            meta: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            },
+          };
+        }
+        where.employeeId = { in: managedEmployeeIds };
+      } else if (managerLevel.type === 'SITE' && hasViewSite) {
+        // Manager de site : filtrer par les employés du site
+        const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
+        if (managedEmployeeIds.length === 0) {
+          return {
+            data: [],
+            meta: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            },
+          };
+        }
+        where.employeeId = { in: managedEmployeeIds };
+      } else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+        // Manager d'équipe : filtrer par l'équipe de l'utilisateur
+        const employee = await this.prisma.employee.findFirst({
+          where: { userId, tenantId },
+          select: { teamId: true },
+        });
+
+        if (employee?.teamId) {
+          // Filtrer les plannings de cette équipe
+          where.teamId = employee.teamId;
+        } else {
+          // Si pas d'équipe, retourner vide
+          return {
+            data: [],
+            meta: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            },
+          };
+        }
+      } else if (managerLevel.type) {
+        // Manager détecté mais pas la permission correspondante
+        return {
+          data: [],
+          meta: {
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          },
+        };
+      }
+    }
 
     if (filters?.employeeId) {
       where.employeeId = filters.employeeId;

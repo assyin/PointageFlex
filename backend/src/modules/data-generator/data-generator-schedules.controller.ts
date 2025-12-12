@@ -1,11 +1,12 @@
 import { Controller, Post, Get, Delete, Body, UseGuards, Req, Query } from '@nestjs/common';
+import { LegacyRole } from '@prisma/client';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { DataGeneratorSchedulesService } from './data-generator-schedules.service';
 import { GenerateSchedulesDto } from './dto/generate-schedules.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+
 
 @ApiTags('Data Generator - Schedules')
 @Controller('data-generator/schedules')
@@ -15,7 +16,7 @@ export class DataGeneratorSchedulesController {
   constructor(private readonly schedulesService: DataGeneratorSchedulesService) {}
 
   @Post('generate')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({
     summary: 'Générer des plannings',
     description: 'Génère automatiquement des plannings pour une période donnée en assignant des shifts aux employés',
@@ -34,7 +35,7 @@ export class DataGeneratorSchedulesController {
   }
 
   @Get('stats')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN, Role.MANAGER)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN, LegacyRole.MANAGER)
   @ApiOperation({
     summary: 'Obtenir les statistiques des plannings',
     description: 'Retourne un résumé des plannings générés',
@@ -49,7 +50,7 @@ export class DataGeneratorSchedulesController {
   }
 
   @Delete('clean')
-  @Roles(Role.ADMIN_RH, Role.SUPER_ADMIN)
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @ApiOperation({
     summary: 'Supprimer les plannings générés',
     description: 'Supprime tous les plannings ou ceux d\'une période donnée',
@@ -67,4 +68,3 @@ export class DataGeneratorSchedulesController {
     return this.schedulesService.cleanSchedules(tenantId, startDate, endDate);
   }
 }
-
