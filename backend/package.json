@@ -22,7 +22,11 @@
     "purge:db": "ts-node scripts/purge-database.ts --confirm",
     "purge:db:keep-tenant": "ts-node scripts/purge-database.ts --confirm --keep-tenant",
     "init:rbac": "ts-node scripts/init-rbac.ts",
-    "reassign:roles": "ts-node scripts/reassign-roles-after-purge.ts"
+    "reassign:roles": "ts-node scripts/reassign-roles-after-purge.ts",
+    "restart": "bash restart-server.sh",
+    "restart:win": "powershell -ExecutionPolicy Bypass -File restart-server.ps1",
+    "restart:now": "bash restart-now.sh",
+    "test:server": "bash test-connection.sh"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

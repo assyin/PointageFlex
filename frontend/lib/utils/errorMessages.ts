@@ -161,6 +161,17 @@ function translateText(text: string | undefined | null): string {
     'invalid employee': 'Employé invalide.',
     'invalid team': 'Équipe invalide.',
     
+    // Erreurs spécifiques aux plannings
+    'employee not found': 'L\'employé sélectionné n\'existe pas ou n\'appartient pas à votre entreprise.',
+    'shift not found': 'Le shift sélectionné n\'existe pas ou n\'appartient pas à votre entreprise.',
+    'team not found': 'L\'équipe sélectionnée n\'existe pas ou n\'appartient pas à votre entreprise.',
+    'tous les plannings pour cette période existent déjà': 'Tous les jours de cette période sont déjà planifiés. Veuillez choisir une autre période ou modifier les plannings existants.',
+    'l\'intervalle ne peut pas dépasser': 'L\'intervalle sélectionné dépasse la limite autorisée.',
+    'la date de fin doit être supérieure ou égale à la date de début': 'La date de fin doit être supérieure ou égale à la date de début.',
+    'l\'heure de fin doit être supérieure à l\'heure de début': 'L\'heure de fin doit être supérieure à l\'heure de début.',
+    'n\'est pas actif': 'Cet élément n\'est pas actif. Impossible de créer un planning.',
+    'n\'appartient pas à cette équipe': 'L\'employé n\'appartient pas à l\'équipe sélectionnée.',
+    
     // Messages génériques
     'error': 'Erreur',
     'failed': 'Échec',

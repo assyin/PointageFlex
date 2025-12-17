@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
@@ -6,13 +6,24 @@ import { BiometricDataDto } from './dto/biometric-data.dto';
 import { ImportEmployeeDto, ImportResultDto } from './dto/import-excel.dto';
 import { BulkAssignSiteDto } from './dto/bulk-assign-site.dto';
 import { getManagerLevel, getManagedEmployeeIds } from '../../common/utils/manager-level.util';
+import { UserTenantRolesService } from '../users/user-tenant-roles.service';
+import { RolesService } from '../roles/roles.service';
+import { generateSecurePassword } from '../../common/utils/password-generator.util';
+import { generateUniqueEmail } from '../../common/utils/email-generator.util';
+import * as bcrypt from 'bcrypt';
 import * as XLSX from 'xlsx';
 
 @Injectable()
 export class EmployeesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(EmployeesService.name);
 
-  async create(tenantId: string, createEmployeeDto: CreateEmployeeDto) {
+  constructor(
+    private prisma: PrismaService,
+    private userTenantRolesService: UserTenantRolesService,
+    private rolesService: RolesService,
+  ) {}
+
+  async create(tenantId: string, createEmployeeDto: CreateEmployeeDto, createdByUserId?: string) {
     // Vérifier si le matricule existe déjà
     const existing = await this.prisma.employee.findUnique({
       where: {
@@ -27,28 +38,421 @@ export class EmployeesService {
       throw new ConflictException(`Employee with matricule ${createEmployeeDto.matricule} already exists`);
     }
 
-    return this.prisma.employee.create({
-      data: {
-        ...createEmployeeDto,
-        tenantId,
-        hireDate: new Date(createEmployeeDto.hireDate),
-        dateOfBirth: createEmployeeDto.dateOfBirth ? new Date(createEmployeeDto.dateOfBirth) : undefined,
-      },
+    // Récupérer le tenant pour le slug
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true, companyName: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    // Créer Employee et User en transaction si demandé
+    return this.prisma.$transaction(async (tx) => {
+      let userId: string | undefined = createEmployeeDto.userId;
+      let generatedPassword: string | undefined;
+      let userEmail: string | undefined;
+
+      // Créer User si demandé
+      if (createEmployeeDto.createUserAccount) {
+        // Générer email unique
+        if (createEmployeeDto.userEmail) {
+          // Vérifier que l'email n'existe pas déjà
+          const existingUser = await tx.user.findFirst({
+            where: { email: createEmployeeDto.userEmail },
+          });
+          if (existingUser) {
+            throw new ConflictException(`Email ${createEmployeeDto.userEmail} already exists`);
+          }
+          userEmail = createEmployeeDto.userEmail;
+        } else {
+          // Générer email automatique
+          userEmail = await generateUniqueEmail(
+            createEmployeeDto.matricule,
+            tenant.slug,
+            tx,
+          );
+        }
+
+        // Générer mot de passe sécurisé
+        generatedPassword = generateSecurePassword(12);
+        const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+
+        // Créer User
+        const user = await tx.user.create({
+          data: {
+            email: userEmail,
+            password: hashedPassword,
+            firstName: createEmployeeDto.firstName,
+            lastName: createEmployeeDto.lastName,
+            phone: createEmployeeDto.phone,
+            tenantId: tenantId, // Legacy pour compatibilité
+            role: 'EMPLOYEE' as any, // Legacy pour compatibilité
+            forcePasswordChange: true, // Forcer changement à la première connexion
+            isActive: true,
+          },
+        });
+
+        userId = user.id;
+
+        // Assigner le rôle EMPLOYEE via UserTenantRole
+        try {
+          const employeeRole = await tx.role.findFirst({
+            where: {
+              tenantId: tenantId,
+              code: 'EMPLOYEE',
+              isActive: true,
+            },
+          });
+
+          if (employeeRole) {
+            await this.userTenantRolesService.assignRoles(
+              user.id,
+              tenantId,
+              [employeeRole.id],
+              createdByUserId || user.id, // Utiliser l'ID du créateur ou du user lui-même
+            );
+          } else {
+            this.logger.warn(`Role EMPLOYEE not found for tenant ${tenantId}. User created but no role assigned.`);
+          }
+        } catch (error) {
+          this.logger.error(`Error assigning EMPLOYEE role: ${error.message}`);
+          // Ne pas faire échouer la création si l'assignation de rôle échoue
+          // Le rôle pourra être assigné manuellement plus tard
+        }
+
+        // Stocker les credentials temporairement (expiration 7 jours)
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
+
+        await tx.userCredentials.upsert({
+          where: { userId: userId },
+          create: {
+            userId: userId,
+            employeeId: undefined, // Sera mis à jour après création de l'employé
+            email: userEmail,
+            password: generatedPassword,
+            expiresAt: expiresAt,
+            viewCount: 0,
+          },
+          update: {
+            email: userEmail,
+            password: generatedPassword,
+            expiresAt: expiresAt,
+            viewCount: 0,
+            viewedAt: null,
+          },
+        });
+
+        // Logger les credentials (à remplacer par envoi email plus tard)
+        this.logger.log(`User account created for employee ${createEmployeeDto.matricule}`);
+        this.logger.log(`Email: ${userEmail}`);
+        this.logger.log(`Password: ${generatedPassword}`);
+        this.logger.warn('⚠️  Credentials logged above. Implement email sending service.');
+      }
+
+      // Créer Employee
+      const employee = await tx.employee.create({
+        data: {
+          ...createEmployeeDto,
+          tenantId,
+          hireDate: new Date(createEmployeeDto.hireDate),
+          dateOfBirth: createEmployeeDto.dateOfBirth ? new Date(createEmployeeDto.dateOfBirth) : undefined,
+          userId: userId,
+        },
+        include: {
+          site: true,
+          department: true,
+          team: true,
+          currentShift: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              forcePasswordChange: true,
+            },
+          },
+        },
+      });
+
+      // Mettre à jour l'employeeId dans UserCredentials si le compte a été créé
+      if (createEmployeeDto.createUserAccount && userId) {
+        await tx.userCredentials.updateMany({
+          where: { userId: userId, employeeId: null },
+          data: { employeeId: employee.id },
+        });
+      }
+
+      // Ajouter les credentials générés dans la réponse (uniquement pour le créateur)
+      if (createEmployeeDto.createUserAccount && generatedPassword) {
+        (employee as any).generatedCredentials = {
+          email: userEmail,
+          password: generatedPassword,
+        };
+      }
+
+      return employee;
+    });
+  }
+
+  /**
+   * Créer un compte d'accès pour un employé existant
+   */
+  async createUserAccount(
+    tenantId: string,
+    employeeId: string,
+    createUserAccountDto: { userEmail?: string },
+    createdByUserId?: string,
+  ) {
+    // Vérifier que l'employé existe et récupérer ses relations de gestion
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, tenantId },
       include: {
-        site: true,
-        department: true,
-        team: true,
-        currentShift: true,
         user: {
           select: {
             id: true,
             email: true,
-            firstName: true,
-            lastName: true,
-            role: true,
           },
         },
+        managedDepartments: {
+          select: { id: true },
+        },
+        managedSites: {
+          select: { id: true },
+        },
+        managedTeams: {
+          select: { id: true },
+        },
+        siteManagements: {
+          select: { id: true },
+        },
       },
+    });
+
+    if (!employee) {
+      throw new NotFoundException(`Employee with ID ${employeeId} not found`);
+    }
+
+    // Vérifier qu'il n'a pas déjà un compte
+    if (employee.userId) {
+      throw new ConflictException('Cet employé a déjà un compte d\'accès');
+    }
+
+    // Déterminer le rôle approprié basé sur les responsabilités de l'employé
+    let targetRoleCode = 'EMPLOYEE'; // Rôle par défaut
+    
+    // Si l'employé est manager (département, site ou équipe), utiliser le rôle MANAGER
+    if (
+      employee.managedDepartments?.length > 0 ||
+      employee.managedSites?.length > 0 ||
+      employee.managedTeams?.length > 0 ||
+      employee.siteManagements?.length > 0
+    ) {
+      targetRoleCode = 'MANAGER';
+      this.logger.log(`Employee ${employee.matricule} is a manager, will assign MANAGER role`);
+    }
+
+    // Récupérer le tenant pour le slug
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true, companyName: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    // Créer User en transaction
+    return this.prisma.$transaction(async (tx) => {
+      let generatedPassword: string | undefined;
+      let userEmail: string | undefined;
+
+      try {
+        // Générer email unique
+        if (createUserAccountDto.userEmail) {
+          // Vérifier que l'email n'existe pas déjà
+          const existingUser = await tx.user.findFirst({
+            where: { email: createUserAccountDto.userEmail },
+          });
+          if (existingUser) {
+            throw new ConflictException(`Email ${createUserAccountDto.userEmail} already exists`);
+          }
+          userEmail = createUserAccountDto.userEmail;
+        } else {
+          // Générer email automatique
+          userEmail = await generateUniqueEmail(
+            employee.matricule,
+            tenant.slug,
+            tx,
+          );
+        }
+
+        // Générer mot de passe sécurisé
+        generatedPassword = generateSecurePassword(12);
+        const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+
+        // Créer User - gérer le cas où forcePasswordChange n'existe pas encore
+        const userData: any = {
+          email: userEmail,
+          password: hashedPassword,
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          phone: employee.phone || null,
+          tenantId: tenantId, // Legacy pour compatibilité
+          role: targetRoleCode as any, // Utiliser le rôle déterminé (EMPLOYEE ou MANAGER)
+          isActive: true,
+        };
+
+        // Ajouter forcePasswordChange seulement si le champ existe dans le schéma
+        // (pour éviter les erreurs si la migration n'est pas encore appliquée)
+        try {
+          userData.forcePasswordChange = true;
+        } catch (e) {
+          // Ignorer si le champ n'existe pas
+        }
+
+        const user = await tx.user.create({
+          data: userData,
+        });
+
+        // Lier l'employé au User
+        await tx.employee.update({
+          where: { id: employeeId },
+          data: { userId: user.id },
+        });
+
+        // Assigner le rôle approprié via UserTenantRole (directement dans la transaction)
+        try {
+          const targetRole = await tx.role.findFirst({
+            where: {
+              tenantId: tenantId,
+              code: targetRoleCode,
+              isActive: true,
+            },
+          });
+
+          if (targetRole) {
+            // Vérifier si le rôle n'est pas déjà assigné
+            const existingRole = await tx.userTenantRole.findUnique({
+              where: {
+                userId_tenantId_roleId: {
+                  userId: user.id,
+                  tenantId: tenantId,
+                  roleId: targetRole.id,
+                },
+              },
+            });
+
+            if (!existingRole) {
+              // Créer le UserTenantRole dans la transaction
+              await tx.userTenantRole.create({
+                data: {
+                  userId: user.id,
+                  tenantId: tenantId,
+                  roleId: targetRole.id,
+                  assignedBy: createdByUserId || user.id,
+                },
+              });
+              this.logger.log(`Role ${targetRoleCode} assigned to user ${user.id} in tenant ${tenantId}`);
+            } else if (!existingRole.isActive) {
+              // Réactiver si désactivé
+              await tx.userTenantRole.update({
+                where: { id: existingRole.id },
+                data: {
+                  isActive: true,
+                  assignedBy: createdByUserId || user.id,
+                  assignedAt: new Date(),
+                },
+              });
+              this.logger.log(`Role ${targetRoleCode} reactivated for user ${user.id} in tenant ${tenantId}`);
+            }
+          } else {
+            this.logger.warn(`Role ${targetRoleCode} not found for tenant ${tenantId}. User created but no role assigned.`);
+          }
+        } catch (error) {
+          this.logger.error(`Error assigning ${targetRoleCode} role: ${error.message}`);
+          // Ne pas faire échouer la création si l'assignation de rôle échoue
+          // Le rôle pourra être assigné manuellement plus tard
+        }
+
+        // Stocker les credentials temporairement (expiration 7 jours)
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
+
+        await tx.userCredentials.upsert({
+          where: { userId: user.id },
+          create: {
+            userId: user.id,
+            employeeId: employeeId,
+            email: userEmail,
+            password: generatedPassword,
+            expiresAt: expiresAt,
+            viewCount: 0,
+          },
+          update: {
+            email: userEmail,
+            password: generatedPassword,
+            expiresAt: expiresAt,
+            viewCount: 0,
+            viewedAt: null,
+          },
+        });
+
+        // Logger les credentials (à remplacer par envoi email plus tard)
+        this.logger.log(`User account created for existing employee ${employee.matricule}`);
+        this.logger.log(`Email: ${userEmail}`);
+        this.logger.log(`Password: ${generatedPassword}`);
+        this.logger.warn('⚠️  Credentials logged above. Implement email sending service.');
+
+        // Retourner l'employé mis à jour avec les credentials générés
+        const userSelect: any = {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+        };
+
+        // Ajouter forcePasswordChange seulement si disponible
+        try {
+          userSelect.forcePasswordChange = true;
+        } catch (e) {
+          // Ignorer si le champ n'existe pas
+        }
+
+        const updatedEmployee = await tx.employee.findUnique({
+          where: { id: employeeId },
+          include: {
+            site: true,
+            department: true,
+            team: true,
+            currentShift: true,
+            user: {
+              select: userSelect,
+            },
+          },
+        });
+
+        if (!updatedEmployee) {
+          throw new NotFoundException(`Employee with ID ${employeeId} not found after update`);
+        }
+
+        // Ajouter les credentials générés dans la réponse (uniquement pour le créateur)
+        (updatedEmployee as any).generatedCredentials = {
+          email: userEmail,
+          password: generatedPassword,
+        };
+
+        return updatedEmployee;
+      } catch (error) {
+        this.logger.error(`Error creating user account: ${error.message}`);
+        this.logger.error(error.stack);
+        throw error;
+      }
     });
   }
 
@@ -73,35 +477,44 @@ export class EmployeesService {
     const hasViewDepartment = userPermissions?.includes('employee.view_department');
     const hasViewSite = userPermissions?.includes('employee.view_site');
 
-    if (!hasViewAll && hasViewOwn && userId) {
-      // Récupérer l'employé lié à cet utilisateur
-      const employee = await this.prisma.employee.findFirst({
-        where: { userId, tenantId },
-        select: { id: true },
-      });
-
-      if (employee) {
-        where.id = employee.id;
-      } else {
-        // Si pas d'employé lié, retourner tableau vide
-        return [];
-      }
-    } else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
-      // Détecter le niveau hiérarchique du manager
+    // CORRECTION: Si l'utilisateur a 'employee.view_all', NE PAS appliquer le filtrage de manager
+    // Les admins doivent voir tous les employés, indépendamment de leur statut de manager
+    // Seuls les managers sans 'view_all' doivent être filtrés selon leur niveau hiérarchique
+    if (userId && !hasViewAll) {
       const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
 
-      if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
-        // Manager de département : filtrer par département
+      // Si l'utilisateur est un manager, appliquer le filtrage selon son niveau hiérarchique
+      // PRIORITÉ: Le statut de manager prime sur les permissions (sauf pour 'view_all')
+      if (managerLevel.type === 'DEPARTMENT') {
+        // Manager de département : filtrer par département (tous les sites)
         where.departmentId = managerLevel.departmentId;
-      } else if (managerLevel.type === 'SITE' && hasViewSite) {
-        // Manager de site : filtrer par site
-        where.siteId = managerLevel.siteId;
-      } else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+      } else if (managerLevel.type === 'SITE') {
+        // Manager régional : filtrer par site(s) ET département
+        // Un manager régional gère un département dans un ou plusieurs sites
+        if (managerLevel.siteIds && managerLevel.siteIds.length > 0) {
+          where.siteId = { in: managerLevel.siteIds };
+        }
+        // IMPORTANT: Filtrer aussi par département pour respecter les règles métier
+        // Un manager régional ne voit que les employés de son département dans son site
+        if (managerLevel.departmentId) {
+          where.departmentId = managerLevel.departmentId;
+        }
+      } else if (managerLevel.type === 'TEAM') {
         // Manager d'équipe : filtrer par équipe
         where.teamId = managerLevel.teamId;
-      } else if (managerLevel.type) {
-        // Manager détecté mais pas la permission correspondante
-        return [];
+      } else if (hasViewOwn) {
+        // Si pas manager et a seulement 'view_own', filtrer par son propre ID
+        const employee = await this.prisma.employee.findFirst({
+          where: { userId, tenantId },
+          select: { id: true },
+        });
+
+        if (employee) {
+          where.id = employee.id;
+        } else {
+          // Si pas d'employé lié, retourner tableau vide
+          return [];
+        }
       }
     }
 
@@ -177,6 +590,125 @@ export class EmployeesService {
     }
 
     return employee;
+  }
+
+  /**
+   * Récupérer les credentials d'accès d'un employé (si disponibles et non expirés)
+   */
+  async getCredentials(tenantId: string, employeeId: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: employeeId, tenantId },
+      select: { id: true, userId: true },
+    });
+
+    if (!employee) {
+      throw new NotFoundException(`Employee with ID ${employeeId} not found`);
+    }
+
+    if (!employee.userId) {
+      throw new NotFoundException('Cet employé n\'a pas de compte d\'accès');
+    }
+
+    const credentials = await this.prisma.userCredentials.findUnique({
+      where: { userId: employee.userId },
+    });
+
+    if (!credentials) {
+      throw new NotFoundException('Aucun identifiant trouvé pour ce compte');
+    }
+
+    // Vérifier l'expiration
+    if (new Date() > credentials.expiresAt) {
+      throw new NotFoundException('Les identifiants ont expiré');
+    }
+
+    // Mettre à jour le compteur de consultation
+    await this.prisma.userCredentials.update({
+      where: { id: credentials.id },
+      data: {
+        viewCount: credentials.viewCount + 1,
+        viewedAt: new Date(),
+      },
+    });
+
+    return {
+      email: credentials.email,
+      password: credentials.password,
+      createdAt: credentials.createdAt,
+      expiresAt: credentials.expiresAt,
+      viewCount: credentials.viewCount + 1,
+    };
+  }
+
+  /**
+   * Supprimer le compte d'authentification d'un employé (sans supprimer l'employé)
+   */
+  async deleteUserAccount(tenantId: string, employeeId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const employee = await tx.employee.findFirst({
+        where: { id: employeeId, tenantId },
+        select: { id: true, userId: true, firstName: true, lastName: true, matricule: true },
+      });
+
+      if (!employee) {
+        throw new NotFoundException(`Employee with ID ${employeeId} not found`);
+      }
+
+      if (!employee.userId) {
+        throw new NotFoundException('Cet employé n\'a pas de compte d\'accès');
+      }
+
+      const userId = employee.userId;
+
+      try {
+        // Supprimer les UserCredentials (si existent) - utiliser deleteMany pour éviter les erreurs si n'existe pas
+        await tx.userCredentials.deleteMany({
+          where: { userId },
+        });
+      } catch (error) {
+        this.logger.warn(`Error deleting UserCredentials for user ${userId}: ${error.message}`);
+        // Continuer même si UserCredentials n'existe pas
+      }
+
+      try {
+        // Supprimer les UserTenantRole (si existent) - utiliser deleteMany pour éviter les erreurs si n'existe pas
+        await tx.userTenantRole.deleteMany({
+          where: { userId },
+        });
+      } catch (error) {
+        this.logger.warn(`Error deleting UserTenantRole for user ${userId}: ${error.message}`);
+        // Continuer même si UserTenantRole n'existe pas
+      }
+
+      try {
+        // Supprimer le User
+        await tx.user.delete({
+          where: { id: userId },
+        });
+      } catch (error) {
+        this.logger.error(`Error deleting User ${userId}: ${error.message}`);
+        throw new Error(`Erreur lors de la suppression du compte utilisateur: ${error.message}`);
+      }
+
+      // Mettre à jour l'Employee pour retirer le userId
+      const updatedEmployee = await tx.employee.update({
+        where: { id: employeeId },
+        data: { userId: null },
+        include: {
+          site: true,
+          department: true,
+          team: true,
+          currentShift: true,
+        },
+      });
+
+      this.logger.log(`User account deleted for employee ${employee.matricule || employeeId} (${employee.firstName} ${employee.lastName})`);
+
+      return {
+        message: 'Compte d\'accès supprimé avec succès',
+        employee: updatedEmployee,
+      };
+    });
   }
 
   async update(tenantId: string, id: string, updateEmployeeDto: UpdateEmployeeDto) {

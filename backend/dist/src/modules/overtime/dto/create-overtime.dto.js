@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateOvertimeDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
+const client_1 = require("@prisma/client");
 class CreateOvertimeDto {
 }
 exports.CreateOvertimeDto = CreateOvertimeDto;
@@ -32,7 +33,17 @@ __decorate([
     __metadata("design:type", Number)
 ], CreateOvertimeDto.prototype, "hours", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ example: false, default: false }),
+    (0, swagger_1.ApiPropertyOptional)({
+        enum: client_1.OvertimeType,
+        default: client_1.OvertimeType.STANDARD,
+        description: 'Type of overtime'
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEnum)(client_1.OvertimeType),
+    __metadata("design:type", String)
+], CreateOvertimeDto.prototype, "type", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: false, default: false, description: 'DEPRECATED: Use type instead' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
@@ -44,4 +55,15 @@ __decorate([
     (0, class_validator_1.Min)(1),
     __metadata("design:type", Number)
 ], CreateOvertimeDto.prototype, "rate", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 'Travail supplémentaire pour terminer le projet urgent',
+        description: 'Notes or justification for the overtime request',
+        maxLength: 500
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], CreateOvertimeDto.prototype, "notes", void 0);
 //# sourceMappingURL=create-overtime.dto.js.map

@@ -57,6 +57,11 @@ export declare class LeavesService {
                 firstName: string;
                 lastName: string;
                 matricule: string;
+                site: {
+                    id: string;
+                    name: string;
+                    code: string;
+                };
             };
             leaveType: {
                 id: string;

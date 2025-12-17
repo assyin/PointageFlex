@@ -723,6 +723,8 @@ export class ReportsService {
 
   /**
    * Dashboard site (Manager Régional)
+   * Si le manager gère plusieurs sites, il peut spécifier le siteId en query
+   * Sinon, les stats du premier site géré seront retournées
    */
   async getSiteDashboardStats(userId: string, tenantId: string, query: DashboardStatsQueryDto) {
     const startDate = query.startDate ? new Date(query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -730,20 +732,38 @@ export class ReportsService {
 
     // Récupérer le niveau hiérarchique du manager
     const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
-    
-    if (managerLevel.type !== 'SITE' || !managerLevel.siteId) {
+
+    if (managerLevel.type !== 'SITE' || !managerLevel.siteIds || managerLevel.siteIds.length === 0) {
       throw new ForbiddenException('User is not a site manager');
     }
+
+    // Déterminer quel site afficher
+    // Si un siteId spécifique est demandé en query et que le manager y a accès, l'utiliser
+    // Sinon, utiliser le premier site géré
+    let targetSiteId: string;
+    if (query.siteId && managerLevel.siteIds.includes(query.siteId)) {
+      targetSiteId = query.siteId;
+    } else {
+      targetSiteId = managerLevel.siteIds[0]; // Premier site par défaut
+    }
+
+    // IMPORTANT: Pour un manager régional, filtrer uniquement les employés de son département dans le site
+    // Utiliser getManagedEmployeeIds pour obtenir la liste correcte des employés
+    const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
 
     // Récupérer le site
     const site = await this.prisma.site.findFirst({
       where: {
-        id: managerLevel.siteId,
+        id: targetSiteId,
         tenantId,
       },
       include: {
         employees: {
-          where: { isActive: true },
+          where: { 
+            isActive: true,
+            // IMPORTANT: Filtrer uniquement les employés gérés par ce manager régional
+            id: managedEmployeeIds.length > 0 ? { in: managedEmployeeIds } : undefined,
+          },
           include: {
             department: {
               select: {
@@ -764,25 +784,48 @@ export class ReportsService {
     const siteEmployeeIds = site.employees.map(e => e.id);
     const totalSiteEmployees = site.employees.length;
 
-    // Récupérer les départements présents sur le site
-    const departments = await this.prisma.department.findMany({
-      where: {
-        tenantId,
-        employees: {
-          some: {
-            siteId: managerLevel.siteId,
-            isActive: true,
+    // IMPORTANT: Pour un manager régional, n'afficher que son département
+    // Récupérer les départements présents sur le site (filtrés par les employés gérés)
+    const departments = managerLevel.departmentId
+      ? await this.prisma.department.findMany({
+          where: {
+            id: managerLevel.departmentId,
+            tenantId,
+            employees: {
+              some: {
+                siteId: targetSiteId,
+                isActive: true,
+                id: managedEmployeeIds.length > 0 ? { in: managedEmployeeIds } : undefined,
+              },
+            },
           },
-        },
-      },
-      include: {
-        _count: {
-          select: {
-            employees: true,
+          include: {
+            _count: {
+              select: {
+                employees: true,
+              },
+            },
           },
-        },
-      },
-    });
+        })
+      : await this.prisma.department.findMany({
+          where: {
+            tenantId,
+            employees: {
+              some: {
+                siteId: targetSiteId,
+                isActive: true,
+                id: managedEmployeeIds.length > 0 ? { in: managedEmployeeIds } : undefined,
+              },
+            },
+          },
+          include: {
+            _count: {
+              select: {
+                employees: true,
+              },
+            },
+          },
+        });
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);

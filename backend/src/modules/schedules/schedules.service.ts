@@ -11,20 +11,40 @@ export class SchedulesService {
   constructor(private prisma: PrismaService) {}
 
   /**
+   * Parse date string (YYYY-MM-DD) to Date object in UTC to avoid timezone issues
+   */
+  private parseDateString(dateStr: string): Date {
+    // Parse YYYY-MM-DD format and create date in UTC
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  }
+
+  /**
+   * Format date to YYYY-MM-DD string in UTC
+   */
+  private formatDateToISO(date: Date): string {
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  /**
    * Generate all dates between start and end date (inclusive)
+   * Uses UTC to avoid timezone issues
    */
   private generateDateRange(startDate: Date, endDate: Date): Date[] {
     const dates: Date[] = [];
     const currentDate = new Date(startDate);
     
-    // Reset time to midnight for comparison
-    currentDate.setHours(0, 0, 0, 0);
+    // Reset time to midnight UTC for comparison
+    currentDate.setUTCHours(0, 0, 0, 0);
     const end = new Date(endDate);
-    end.setHours(0, 0, 0, 0);
+    end.setUTCHours(0, 0, 0, 0);
     
     while (currentDate <= end) {
       dates.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
     
     return dates;
@@ -37,20 +57,35 @@ export class SchedulesService {
       dto: JSON.stringify(dto, null, 2),
     });
 
-    // Verify employee belongs to tenant
+    // 1. Verify employee belongs to tenant and is active
     const employee = await this.prisma.employee.findFirst({
       where: {
         id: dto.employeeId,
         tenantId,
       },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        matricule: true,
+        isActive: true,
+        teamId: true,
+      },
     });
 
     if (!employee) {
-      console.log('Employee not found:', dto.employeeId);
-      throw new NotFoundException('Employee not found');
+      throw new NotFoundException(
+        `L'employé avec l'ID ${dto.employeeId} n'existe pas ou n'appartient pas à votre entreprise`
+      );
     }
 
-    // Verify shift belongs to tenant
+    if (!employee.isActive) {
+      throw new BadRequestException(
+        `L'employé ${employee.firstName} ${employee.lastName} (${employee.matricule}) n'est pas actif. Impossible de créer un planning pour un employé inactif.`
+      );
+    }
+
+    // 2. Verify shift belongs to tenant
     const shift = await this.prisma.shift.findFirst({
       where: {
         id: dto.shiftId,
@@ -59,10 +94,12 @@ export class SchedulesService {
     });
 
     if (!shift) {
-      throw new NotFoundException('Shift not found');
+      throw new NotFoundException(
+        `Le shift avec l'ID ${dto.shiftId} n'existe pas ou n'appartient pas à votre entreprise`
+      );
     }
 
-    // Verify team belongs to tenant (if provided)
+    // 3. Verify team belongs to tenant and check employee-team consistency (if provided)
     if (dto.teamId) {
       const team = await this.prisma.team.findFirst({
         where: {
@@ -72,19 +109,26 @@ export class SchedulesService {
       });
 
       if (!team) {
-        throw new NotFoundException('Team not found');
+        throw new NotFoundException(
+          `L'équipe avec l'ID ${dto.teamId} n'existe pas ou n'appartient pas à votre entreprise`
+        );
+      }
+
+      // Vérifier cohérence employé/équipe
+      if (employee.teamId && employee.teamId !== dto.teamId) {
+        throw new BadRequestException(
+          `L'employé ${employee.firstName} ${employee.lastName} (${employee.matricule}) n'appartient pas à l'équipe sélectionnée. Veuillez sélectionner l'équipe correcte ou laisser ce champ vide.`
+        );
       }
     }
 
-    // Parse dates
-    const startDate = new Date(dto.dateDebut);
-    startDate.setHours(0, 0, 0, 0);
+    // 4. Parse and validate dates (use UTC to avoid timezone issues)
+    const startDate = this.parseDateString(dto.dateDebut);
     
     // Determine end date: if dateFin is provided, use it; otherwise, use dateDebut (single day)
     const endDate = dto.dateFin 
-      ? new Date(dto.dateFin)
-      : new Date(dto.dateDebut);
-    endDate.setHours(0, 0, 0, 0);
+      ? this.parseDateString(dto.dateFin)
+      : this.parseDateString(dto.dateDebut);
 
     // Validate date range
     if (endDate < startDate) {
@@ -95,69 +139,182 @@ export class SchedulesService {
     const maxRange = 365; // days
     const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     if (daysDiff > maxRange) {
-      throw new BadRequestException(`L'intervalle ne peut pas dépasser ${maxRange} jours`);
+      throw new BadRequestException(
+        `L'intervalle ne peut pas dépasser ${maxRange} jours. Vous avez sélectionné ${daysDiff} jour(s).`
+      );
     }
 
-    // Generate all dates in the range
+    // 5. Validate custom hours if provided
+    if (dto.customStartTime && dto.customEndTime) {
+      const [startH, startM] = dto.customStartTime.split(':').map(Number);
+      const [endH, endM] = dto.customEndTime.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      
+      if (endMinutes <= startMinutes) {
+        throw new BadRequestException(
+          `L'heure de fin (${dto.customEndTime}) doit être supérieure à l'heure de début (${dto.customStartTime})`
+        );
+      }
+    }
+
+    // 6. Generate all dates in the range
     const dates = this.generateDateRange(startDate, endDate);
 
-    // Check for existing schedules
+    // 7. Check for existing schedules (optimized query)
+    // IMPORTANT: Check for same employee and same date, REGARDLESS of shift
+    // Business rule: An employee can only have ONE schedule per day, regardless of the shift
+    // This is consistent with the database constraint: @@unique([employeeId, date])
+    // Use UTC dates for query to avoid timezone issues
+    const queryStartDate = new Date(startDate);
+    queryStartDate.setUTCHours(0, 0, 0, 0);
+    const queryEndDate = new Date(endDate);
+    queryEndDate.setUTCHours(23, 59, 59, 999); // Include the entire end date
+    
     const existingSchedules = await this.prisma.schedule.findMany({
       where: {
         tenantId,
         employeeId: dto.employeeId,
+        // NOTE: We do NOT filter by shiftId - an employee can only have ONE schedule per day
         date: {
-          gte: startDate,
-          lte: endDate,
+          gte: queryStartDate,
+          lte: queryEndDate,
         },
       },
       select: {
         date: true,
+        shiftId: true,
+        shift: {
+          select: {
+            name: true,
+            code: true,
+          },
+        },
       },
     });
 
-    const existingDates = new Set(
-      existingSchedules.map((s) => s.date.toISOString().split('T')[0])
-    );
+    // Normalize existing dates to YYYY-MM-DD format in UTC for comparison
+    const existingDatesMap = new Map<string, { shiftId: string; shiftName: string; shiftCode: string }>();
+    existingSchedules.forEach((s) => {
+      const dateStr = this.formatDateToISO(s.date);
+      existingDatesMap.set(dateStr, {
+        shiftId: s.shiftId,
+        shiftName: s.shift.name,
+        shiftCode: s.shift.code,
+      });
+    });
 
-    // Filter out dates that already have schedules
+    // Filter out dates that already have schedules (regardless of shift)
     const datesToCreate = dates.filter((date) => {
-      const dateStr = date.toISOString().split('T')[0];
-      return !existingDates.has(dateStr);
+      const dateStr = this.formatDateToISO(date);
+      return !existingDatesMap.has(dateStr);
     });
 
     if (datesToCreate.length === 0) {
-      throw new ConflictException('Tous les plannings pour cette période existent déjà');
+      const startDateStr = this.formatDateToISO(startDate);
+      const endDateStr = this.formatDateToISO(endDate);
+      const dateRangeStr = startDateStr === endDateStr 
+        ? `le ${this.formatDate(startDateStr)}`
+        : `la période du ${this.formatDate(startDateStr)} au ${this.formatDate(endDateStr)}`;
+      
+      // Get information about existing schedules for better error message
+      const conflictingDates = dates
+        .filter((date) => existingDatesMap.has(this.formatDateToISO(date)))
+        .map((date) => {
+          const dateStr = this.formatDateToISO(date);
+          const existing = existingDatesMap.get(dateStr);
+          return {
+            date: this.formatDate(dateStr),
+            shift: existing?.shiftName || existing?.shiftCode || 'shift inconnu',
+          };
+        });
+
+      let errorMessage = `Un planning existe déjà pour ${dateRangeStr} pour l'employé ${employee.firstName} ${employee.lastName}. `;
+      errorMessage += `Un employé ne peut avoir qu'un seul planning par jour. `;
+      
+      if (conflictingDates.length === 1) {
+        errorMessage += `Le planning existant est pour le shift "${conflictingDates[0].shift}" le ${conflictingDates[0].date}. `;
+      } else if (conflictingDates.length > 1) {
+        errorMessage += `Plannings existants : `;
+        errorMessage += conflictingDates.map(c => `${c.shift} le ${c.date}`).join(', ') + '. ';
+      }
+      
+      errorMessage += `Veuillez modifier le planning existant ou choisir une autre date.`;
+      
+      throw new ConflictException(errorMessage);
     }
 
-    // Create all schedules
-    const schedulesToCreate = datesToCreate.map((date) => ({
-      tenantId,
-      employeeId: dto.employeeId,
-      shiftId: dto.shiftId,
-      teamId: dto.teamId,
-      date,
-      customStartTime: dto.customStartTime,
-      customEndTime: dto.customEndTime,
-      notes: dto.notes,
-    }));
+    // 8. Create all schedules
+    // IMPORTANT: Ensure dates are stored correctly by using UTC dates
+    // Since Prisma stores dates as Date type, we need to ensure they're normalized
+    const schedulesToCreate = datesToCreate.map((date) => {
+      // Ensure the date is normalized to UTC midnight for storage
+      const normalizedDate = new Date(date);
+      normalizedDate.setUTCHours(0, 0, 0, 0);
+      
+      return {
+        tenantId,
+        employeeId: dto.employeeId,
+        shiftId: dto.shiftId,
+        teamId: dto.teamId,
+        date: normalizedDate,
+        customStartTime: dto.customStartTime,
+        customEndTime: dto.customEndTime,
+        notes: dto.notes,
+      };
+    });
 
     const result = await this.prisma.schedule.createMany({
       data: schedulesToCreate,
       skipDuplicates: true,
     });
 
-    // Return summary
+    // 9. Verify that schedules were actually created
+    // This is a safety check in case the database constraint prevents creation
+    if (result.count === 0 && schedulesToCreate.length > 0) {
+      // This should not happen if our conflict check is correct, but it's a safety net
+      const startDateStr = this.formatDateToISO(startDate);
+      const endDateStr = this.formatDateToISO(endDate);
+      const dateRangeStr = startDateStr === endDateStr 
+        ? `le ${this.formatDate(startDateStr)}`
+        : `la période du ${this.formatDate(startDateStr)} au ${this.formatDate(endDateStr)}`;
+      throw new ConflictException(
+        `Impossible de créer le planning pour ${dateRangeStr} pour l'employé ${employee.firstName} ${employee.lastName}. Un planning existe déjà pour cette période. Veuillez modifier le planning existant ou choisir une autre date.`
+      );
+    }
+
+    // 10. Prepare conflicting dates for response
+    const conflictingDates = dates
+      .filter((date) => existingDatesMap.has(this.formatDateToISO(date)))
+      .map((date) => {
+        const dateStr = this.formatDateToISO(date);
+        const existing = existingDatesMap.get(dateStr);
+        return {
+          date: dateStr,
+          shift: existing?.shiftName || existing?.shiftCode || 'shift inconnu',
+        };
+      });
+
+    // Return detailed summary
     return {
       count: result.count,
       created: result.count,
       skipped: dates.length - datesToCreate.length,
+      conflictingDates: conflictingDates.length > 0 ? conflictingDates : undefined,
       dateRange: {
         start: dto.dateDebut,
         end: dto.dateFin || dto.dateDebut,
       },
       message: `${result.count} planning(s) créé(s)${dates.length - datesToCreate.length > 0 ? `, ${dates.length - datesToCreate.length} ignoré(s) (déjà existants)` : ''}`,
     };
+  }
+
+  /**
+   * Format date from YYYY-MM-DD to DD/MM/YYYY
+   */
+  private formatDate(dateStr: string): string {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
   }
 
   async findAll(
@@ -186,32 +343,14 @@ export class SchedulesService {
     const hasViewDepartment = userPermissions?.includes('schedule.view_department');
     const hasViewSite = userPermissions?.includes('schedule.view_site');
 
-    if (!hasViewAll && hasViewOwn && userId) {
-      // Récupérer l'employé lié à cet utilisateur
-      const employee = await this.prisma.employee.findFirst({
-        where: { userId, tenantId },
-        select: { id: true },
-      });
-
-      if (employee) {
-        where.employeeId = employee.id;
-      } else {
-        // Si pas d'employé lié, retourner vide
-        return {
-          data: [],
-          meta: {
-            total: 0,
-            page,
-            limit,
-            totalPages: 0,
-          },
-        };
-      }
-    } else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
-      // Détecter le niveau hiérarchique du manager
+    // IMPORTANT: Détecter TOUJOURS si l'utilisateur est un manager, indépendamment des permissions
+    // Cela permet aux managers régionaux de voir leurs employés même s'ils n'ont que 'schedule.view_team'
+    // PRIORITÉ: Le statut de manager prime sur les permissions
+    if (userId) {
       const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
 
-      if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+      // Si l'utilisateur est un manager, appliquer le filtrage selon son niveau hiérarchique
+      if (managerLevel.type === 'DEPARTMENT') {
         // Manager de département : filtrer par les employés du département
         const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
         if (managedEmployeeIds.length === 0) {
@@ -226,8 +365,8 @@ export class SchedulesService {
           };
         }
         where.employeeId = { in: managedEmployeeIds };
-      } else if (managerLevel.type === 'SITE' && hasViewSite) {
-        // Manager de site : filtrer par les employés du site
+      } else if (managerLevel.type === 'SITE') {
+        // Manager régional : filtrer par les employés du site ET département
         const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
         if (managedEmployeeIds.length === 0) {
           return {
@@ -241,7 +380,7 @@ export class SchedulesService {
           };
         }
         where.employeeId = { in: managedEmployeeIds };
-      } else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+      } else if (managerLevel.type === 'TEAM') {
         // Manager d'équipe : filtrer par l'équipe de l'utilisateur
         const employee = await this.prisma.employee.findFirst({
           where: { userId, tenantId },
@@ -263,17 +402,27 @@ export class SchedulesService {
             },
           };
         }
-      } else if (managerLevel.type) {
-        // Manager détecté mais pas la permission correspondante
-        return {
-          data: [],
-          meta: {
-            total: 0,
-            page,
-            limit,
-            totalPages: 0,
-          },
-        };
+      } else if (!hasViewAll && hasViewOwn) {
+        // Si pas manager et a seulement 'view_own', filtrer par son propre ID
+        const employee = await this.prisma.employee.findFirst({
+          where: { userId, tenantId },
+          select: { id: true },
+        });
+
+        if (employee) {
+          where.employeeId = employee.id;
+        } else {
+          // Si pas d'employé lié, retourner vide
+          return {
+            data: [],
+            meta: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            },
+          };
+        }
       }
     }
 

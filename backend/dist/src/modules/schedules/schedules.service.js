@@ -18,15 +18,25 @@ let SchedulesService = class SchedulesService {
     constructor(prisma) {
         this.prisma = prisma;
     }
+    parseDateString(dateStr) {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        return new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    }
+    formatDateToISO(date) {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
     generateDateRange(startDate, endDate) {
         const dates = [];
         const currentDate = new Date(startDate);
-        currentDate.setHours(0, 0, 0, 0);
+        currentDate.setUTCHours(0, 0, 0, 0);
         const end = new Date(endDate);
-        end.setHours(0, 0, 0, 0);
+        end.setUTCHours(0, 0, 0, 0);
         while (currentDate <= end) {
             dates.push(new Date(currentDate));
-            currentDate.setDate(currentDate.getDate() + 1);
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
         return dates;
     }
@@ -40,10 +50,20 @@ let SchedulesService = class SchedulesService {
                 id: dto.employeeId,
                 tenantId,
             },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                matricule: true,
+                isActive: true,
+                teamId: true,
+            },
         });
         if (!employee) {
-            console.log('Employee not found:', dto.employeeId);
-            throw new common_1.NotFoundException('Employee not found');
+            throw new common_1.NotFoundException(`L'employé avec l'ID ${dto.employeeId} n'existe pas ou n'appartient pas à votre entreprise`);
+        }
+        if (!employee.isActive) {
+            throw new common_1.BadRequestException(`L'employé ${employee.firstName} ${employee.lastName} (${employee.matricule}) n'est pas actif. Impossible de créer un planning pour un employé inactif.`);
         }
         const shift = await this.prisma.shift.findFirst({
             where: {
@@ -52,7 +72,7 @@ let SchedulesService = class SchedulesService {
             },
         });
         if (!shift) {
-            throw new common_1.NotFoundException('Shift not found');
+            throw new common_1.NotFoundException(`Le shift avec l'ID ${dto.shiftId} n'existe pas ou n'appartient pas à votre entreprise`);
         }
         if (dto.teamId) {
             const team = await this.prisma.team.findFirst({
@@ -62,69 +82,150 @@ let SchedulesService = class SchedulesService {
                 },
             });
             if (!team) {
-                throw new common_1.NotFoundException('Team not found');
+                throw new common_1.NotFoundException(`L'équipe avec l'ID ${dto.teamId} n'existe pas ou n'appartient pas à votre entreprise`);
+            }
+            if (employee.teamId && employee.teamId !== dto.teamId) {
+                throw new common_1.BadRequestException(`L'employé ${employee.firstName} ${employee.lastName} (${employee.matricule}) n'appartient pas à l'équipe sélectionnée. Veuillez sélectionner l'équipe correcte ou laisser ce champ vide.`);
             }
         }
-        const startDate = new Date(dto.dateDebut);
-        startDate.setHours(0, 0, 0, 0);
+        const startDate = this.parseDateString(dto.dateDebut);
         const endDate = dto.dateFin
-            ? new Date(dto.dateFin)
-            : new Date(dto.dateDebut);
-        endDate.setHours(0, 0, 0, 0);
+            ? this.parseDateString(dto.dateFin)
+            : this.parseDateString(dto.dateDebut);
         if (endDate < startDate) {
             throw new common_1.BadRequestException('La date de fin doit être supérieure ou égale à la date de début');
         }
         const maxRange = 365;
         const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
         if (daysDiff > maxRange) {
-            throw new common_1.BadRequestException(`L'intervalle ne peut pas dépasser ${maxRange} jours`);
+            throw new common_1.BadRequestException(`L'intervalle ne peut pas dépasser ${maxRange} jours. Vous avez sélectionné ${daysDiff} jour(s).`);
+        }
+        if (dto.customStartTime && dto.customEndTime) {
+            const [startH, startM] = dto.customStartTime.split(':').map(Number);
+            const [endH, endM] = dto.customEndTime.split(':').map(Number);
+            const startMinutes = startH * 60 + startM;
+            const endMinutes = endH * 60 + endM;
+            if (endMinutes <= startMinutes) {
+                throw new common_1.BadRequestException(`L'heure de fin (${dto.customEndTime}) doit être supérieure à l'heure de début (${dto.customStartTime})`);
+            }
         }
         const dates = this.generateDateRange(startDate, endDate);
+        const queryStartDate = new Date(startDate);
+        queryStartDate.setUTCHours(0, 0, 0, 0);
+        const queryEndDate = new Date(endDate);
+        queryEndDate.setUTCHours(23, 59, 59, 999);
         const existingSchedules = await this.prisma.schedule.findMany({
             where: {
                 tenantId,
                 employeeId: dto.employeeId,
                 date: {
-                    gte: startDate,
-                    lte: endDate,
+                    gte: queryStartDate,
+                    lte: queryEndDate,
                 },
             },
             select: {
                 date: true,
+                shiftId: true,
+                shift: {
+                    select: {
+                        name: true,
+                        code: true,
+                    },
+                },
             },
         });
-        const existingDates = new Set(existingSchedules.map((s) => s.date.toISOString().split('T')[0]));
+        const existingDatesMap = new Map();
+        existingSchedules.forEach((s) => {
+            const dateStr = this.formatDateToISO(s.date);
+            existingDatesMap.set(dateStr, {
+                shiftId: s.shiftId,
+                shiftName: s.shift.name,
+                shiftCode: s.shift.code,
+            });
+        });
         const datesToCreate = dates.filter((date) => {
-            const dateStr = date.toISOString().split('T')[0];
-            return !existingDates.has(dateStr);
+            const dateStr = this.formatDateToISO(date);
+            return !existingDatesMap.has(dateStr);
         });
         if (datesToCreate.length === 0) {
-            throw new common_1.ConflictException('Tous les plannings pour cette période existent déjà');
+            const startDateStr = this.formatDateToISO(startDate);
+            const endDateStr = this.formatDateToISO(endDate);
+            const dateRangeStr = startDateStr === endDateStr
+                ? `le ${this.formatDate(startDateStr)}`
+                : `la période du ${this.formatDate(startDateStr)} au ${this.formatDate(endDateStr)}`;
+            const conflictingDates = dates
+                .filter((date) => existingDatesMap.has(this.formatDateToISO(date)))
+                .map((date) => {
+                const dateStr = this.formatDateToISO(date);
+                const existing = existingDatesMap.get(dateStr);
+                return {
+                    date: this.formatDate(dateStr),
+                    shift: existing?.shiftName || existing?.shiftCode || 'shift inconnu',
+                };
+            });
+            let errorMessage = `Un planning existe déjà pour ${dateRangeStr} pour l'employé ${employee.firstName} ${employee.lastName}. `;
+            errorMessage += `Un employé ne peut avoir qu'un seul planning par jour. `;
+            if (conflictingDates.length === 1) {
+                errorMessage += `Le planning existant est pour le shift "${conflictingDates[0].shift}" le ${conflictingDates[0].date}. `;
+            }
+            else if (conflictingDates.length > 1) {
+                errorMessage += `Plannings existants : `;
+                errorMessage += conflictingDates.map(c => `${c.shift} le ${c.date}`).join(', ') + '. ';
+            }
+            errorMessage += `Veuillez modifier le planning existant ou choisir une autre date.`;
+            throw new common_1.ConflictException(errorMessage);
         }
-        const schedulesToCreate = datesToCreate.map((date) => ({
-            tenantId,
-            employeeId: dto.employeeId,
-            shiftId: dto.shiftId,
-            teamId: dto.teamId,
-            date,
-            customStartTime: dto.customStartTime,
-            customEndTime: dto.customEndTime,
-            notes: dto.notes,
-        }));
+        const schedulesToCreate = datesToCreate.map((date) => {
+            const normalizedDate = new Date(date);
+            normalizedDate.setUTCHours(0, 0, 0, 0);
+            return {
+                tenantId,
+                employeeId: dto.employeeId,
+                shiftId: dto.shiftId,
+                teamId: dto.teamId,
+                date: normalizedDate,
+                customStartTime: dto.customStartTime,
+                customEndTime: dto.customEndTime,
+                notes: dto.notes,
+            };
+        });
         const result = await this.prisma.schedule.createMany({
             data: schedulesToCreate,
             skipDuplicates: true,
+        });
+        if (result.count === 0 && schedulesToCreate.length > 0) {
+            const startDateStr = this.formatDateToISO(startDate);
+            const endDateStr = this.formatDateToISO(endDate);
+            const dateRangeStr = startDateStr === endDateStr
+                ? `le ${this.formatDate(startDateStr)}`
+                : `la période du ${this.formatDate(startDateStr)} au ${this.formatDate(endDateStr)}`;
+            throw new common_1.ConflictException(`Impossible de créer le planning pour ${dateRangeStr} pour l'employé ${employee.firstName} ${employee.lastName}. Un planning existe déjà pour cette période. Veuillez modifier le planning existant ou choisir une autre date.`);
+        }
+        const conflictingDates = dates
+            .filter((date) => existingDatesMap.has(this.formatDateToISO(date)))
+            .map((date) => {
+            const dateStr = this.formatDateToISO(date);
+            const existing = existingDatesMap.get(dateStr);
+            return {
+                date: dateStr,
+                shift: existing?.shiftName || existing?.shiftCode || 'shift inconnu',
+            };
         });
         return {
             count: result.count,
             created: result.count,
             skipped: dates.length - datesToCreate.length,
+            conflictingDates: conflictingDates.length > 0 ? conflictingDates : undefined,
             dateRange: {
                 start: dto.dateDebut,
                 end: dto.dateFin || dto.dateDebut,
             },
             message: `${result.count} planning(s) créé(s)${dates.length - datesToCreate.length > 0 ? `, ${dates.length - datesToCreate.length} ignoré(s) (déjà existants)` : ''}`,
         };
+    }
+    formatDate(dateStr) {
+        const [year, month, day] = dateStr.split('-');
+        return `${day}/${month}/${year}`;
     }
     async findAll(tenantId, page = 1, limit = 20, filters, userId, userPermissions) {
         const skip = (page - 1) * limit;
@@ -134,29 +235,9 @@ let SchedulesService = class SchedulesService {
         const hasViewTeam = userPermissions?.includes('schedule.view_team');
         const hasViewDepartment = userPermissions?.includes('schedule.view_department');
         const hasViewSite = userPermissions?.includes('schedule.view_site');
-        if (!hasViewAll && hasViewOwn && userId) {
-            const employee = await this.prisma.employee.findFirst({
-                where: { userId, tenantId },
-                select: { id: true },
-            });
-            if (employee) {
-                where.employeeId = employee.id;
-            }
-            else {
-                return {
-                    data: [],
-                    meta: {
-                        total: 0,
-                        page,
-                        limit,
-                        totalPages: 0,
-                    },
-                };
-            }
-        }
-        else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
+        if (userId) {
             const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
-            if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+            if (managerLevel.type === 'DEPARTMENT') {
                 const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
                 if (managedEmployeeIds.length === 0) {
                     return {
@@ -171,7 +252,7 @@ let SchedulesService = class SchedulesService {
                 }
                 where.employeeId = { in: managedEmployeeIds };
             }
-            else if (managerLevel.type === 'SITE' && hasViewSite) {
+            else if (managerLevel.type === 'SITE') {
                 const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
                 if (managedEmployeeIds.length === 0) {
                     return {
@@ -186,7 +267,7 @@ let SchedulesService = class SchedulesService {
                 }
                 where.employeeId = { in: managedEmployeeIds };
             }
-            else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+            else if (managerLevel.type === 'TEAM') {
                 const employee = await this.prisma.employee.findFirst({
                     where: { userId, tenantId },
                     select: { teamId: true },
@@ -206,16 +287,25 @@ let SchedulesService = class SchedulesService {
                     };
                 }
             }
-            else if (managerLevel.type) {
-                return {
-                    data: [],
-                    meta: {
-                        total: 0,
-                        page,
-                        limit,
-                        totalPages: 0,
-                    },
-                };
+            else if (!hasViewAll && hasViewOwn) {
+                const employee = await this.prisma.employee.findFirst({
+                    where: { userId, tenantId },
+                    select: { id: true },
+                });
+                if (employee) {
+                    where.employeeId = employee.id;
+                }
+                else {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
             }
         }
         if (filters?.employeeId) {

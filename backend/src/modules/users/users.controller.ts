@@ -119,7 +119,12 @@ export class UsersController {
   @Post('me/change-password')
   @ApiOperation({ summary: 'Change current user password' })
   changePassword(@CurrentUser() user: any, @Body() dto: ChangePasswordDto) {
-    return this.usersService.changePassword(user.userId, dto.currentPassword, dto.newPassword);
+    return this.usersService.changePassword(
+      user.userId, 
+      dto.currentPassword || '', 
+      dto.newPassword,
+      dto.forceChange || false
+    );
   }
 
   @Get('me/preferences')

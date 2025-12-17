@@ -50,6 +50,7 @@ import { useEmployees } from '@/lib/hooks/useEmployees';
 import { useDepartments } from '@/lib/hooks/useDepartments';
 import { useSites } from '@/lib/hooks/useSites';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Create/Edit Leave Type Form Component
 function LeaveTypeForm({
@@ -343,6 +344,7 @@ function CreateLeaveForm({
 }
 
 export default function LeavesPage() {
+  const { user, hasRole } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -355,6 +357,10 @@ export default function LeavesPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Check if user is HR admin
+  const isHRAdmin = hasRole('ADMIN_RH') || user?.role === 'ADMIN_RH';
+  const isManager = hasRole('MANAGER') || user?.role === 'MANAGER';
   
   // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -861,6 +867,7 @@ export default function LeavesPage() {
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200 text-left text-sm font-semibold text-gray-700">
                       <th className="px-4 py-4">Employé</th>
+                      <th className="px-4 py-4">Site</th>
                       <th className="px-4 py-4">Type de congé</th>
                       <th className="px-4 py-4">Période</th>
                       <th className="px-4 py-4">Durée</th>
@@ -879,6 +886,9 @@ export default function LeavesPage() {
                           <div className="text-sm text-gray-500 mt-0.5">
                             {leave.employee?.matricule}
                           </div>
+                        </td>
+                        <td className="px-4 py-4 text-sm text-gray-600">
+                          {leave.employee?.site?.name || leave.employee?.site?.code || '-'}
                         </td>
                         <td className="px-4 py-4">
                           <Badge className="bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200">
@@ -937,38 +947,50 @@ export default function LeavesPage() {
                               Détails
                             </Button>
                             <PermissionGate permission="leave.approve">
-                              {(leave.status === 'PENDING' || leave.status === 'MANAGER_APPROVED') && (
-                                <>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleApprove(leave.id, leave.status)}
-                                    disabled={approveMutation.isPending}
-                                    className="h-8 bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                                  >
-                                    {approveMutation.isPending ? (
-                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                    ) : (
-                                      <CheckCircle className="h-3 w-3 mr-1" />
-                                    )}
-                                    {leave.status === 'PENDING' ? 'Manager' : 'RH'}
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleReject(leave.id)}
-                                    disabled={rejectMutation.isPending}
-                                    className="h-8 bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
-                                  >
-                                    {rejectMutation.isPending ? (
-                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                    ) : (
-                                      <XCircle className="h-3 w-3 mr-1" />
-                                    )}
-                                    Rejeter
-                                  </Button>
-                                </>
-                              )}
+                              {(() => {
+                                // HR can only act on MANAGER_APPROVED leaves
+                                // Manager can act on PENDING leaves
+                                // SUPER_ADMIN can act on both
+                                const canApprove = 
+                                  (isHRAdmin && leave.status === 'MANAGER_APPROVED') ||
+                                  (isManager && leave.status === 'PENDING') ||
+                                  (!isHRAdmin && !isManager && (leave.status === 'PENDING' || leave.status === 'MANAGER_APPROVED'));
+                                
+                                if (!canApprove) return null;
+                                
+                                return (
+                                  <>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleApprove(leave.id, leave.status)}
+                                      disabled={approveMutation.isPending}
+                                      className="h-8 bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
+                                    >
+                                      {approveMutation.isPending ? (
+                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      ) : (
+                                        <CheckCircle className="h-3 w-3 mr-1" />
+                                      )}
+                                      {leave.status === 'PENDING' ? 'Manager' : 'RH'}
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleReject(leave.id)}
+                                      disabled={rejectMutation.isPending}
+                                      className="h-8 bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                                    >
+                                      {rejectMutation.isPending ? (
+                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      ) : (
+                                        <XCircle className="h-3 w-3 mr-1" />
+                                      )}
+                                      Rejeter
+                                    </Button>
+                                  </>
+                                );
+                              })()}
                             </PermissionGate>
                           </div>
                         </td>
@@ -1330,33 +1352,45 @@ export default function LeavesPage() {
                   Fermer
                 </Button>
                 <PermissionGate permission="leave.approve">
-                  {(selectedLeave.status === 'PENDING' || selectedLeave.status === 'MANAGER_APPROVED') && (
-                    <>
-                      <Button
-                        variant="success"
-                        onClick={async () => {
-                          await handleApprove(selectedLeave.id, selectedLeave.status);
-                          setShowDetailsModal(false);
-                          setSelectedLeave(null);
-                        }}
-                        disabled={approveMutation.isPending}
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        {selectedLeave.status === 'PENDING' ? 'Approuver (Manager)' : 'Approuver (RH)'}
-                      </Button>
-                      <Button
-                        variant="danger"
-                        onClick={() => {
-                          setShowDetailsModal(false);
-                          setShowRejectModal(true);
-                        }}
-                        disabled={rejectMutation.isPending}
-                      >
-                        <XCircle className="h-4 w-4 mr-2" />
-                        Rejeter
-                      </Button>
-                    </>
-                  )}
+                  {(() => {
+                    // HR can only act on MANAGER_APPROVED leaves
+                    // Manager can act on PENDING leaves
+                    // SUPER_ADMIN can act on both
+                    const canApprove = 
+                      (isHRAdmin && selectedLeave.status === 'MANAGER_APPROVED') ||
+                      (isManager && selectedLeave.status === 'PENDING') ||
+                      (!isHRAdmin && !isManager && (selectedLeave.status === 'PENDING' || selectedLeave.status === 'MANAGER_APPROVED'));
+                    
+                    if (!canApprove) return null;
+                    
+                    return (
+                      <>
+                        <Button
+                          variant="success"
+                          onClick={async () => {
+                            await handleApprove(selectedLeave.id, selectedLeave.status);
+                            setShowDetailsModal(false);
+                            setSelectedLeave(null);
+                          }}
+                          disabled={approveMutation.isPending}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          {selectedLeave.status === 'PENDING' ? 'Approuver (Manager)' : 'Approuver (RH)'}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          onClick={() => {
+                            setShowDetailsModal(false);
+                            setShowRejectModal(true);
+                          }}
+                          disabled={rejectMutation.isPending}
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Rejeter
+                        </Button>
+                      </>
+                    );
+                  })()}
                 </PermissionGate>
               </div>
             </div>

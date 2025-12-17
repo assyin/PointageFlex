@@ -68,7 +68,7 @@ let UsersController = class UsersController {
         return this.usersService.update(user.tenantId, user.userId, { avatar: null }, user.role);
     }
     changePassword(user, dto) {
-        return this.usersService.changePassword(user.userId, dto.currentPassword, dto.newPassword);
+        return this.usersService.changePassword(user.userId, dto.currentPassword || '', dto.newPassword, dto.forceChange || false);
     }
     getPreferences(user) {
         return this.usersService.getPreferences(user.userId);

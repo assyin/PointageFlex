@@ -52,4 +52,13 @@ __decorate([
     (0, class_validator_1.IsEnum)(DashboardScope),
     __metadata("design:type", String)
 ], DashboardStatsQueryDto.prototype, "scope", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        example: 'uuid-site-123',
+        description: 'Site ID for site-specific dashboard (for managers managing multiple sites)'
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsUUID)(),
+    __metadata("design:type", String)
+], DashboardStatsQueryDto.prototype, "siteId", void 0);
 //# sourceMappingURL=dashboard-stats.dto.js.map

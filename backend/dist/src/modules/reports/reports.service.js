@@ -623,17 +623,28 @@ let ReportsService = class ReportsService {
         const startDate = query.startDate ? new Date(query.startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
         const endDate = query.endDate ? new Date(query.endDate) : new Date();
         const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
-        if (managerLevel.type !== 'SITE' || !managerLevel.siteId) {
+        if (managerLevel.type !== 'SITE' || !managerLevel.siteIds || managerLevel.siteIds.length === 0) {
             throw new common_1.ForbiddenException('User is not a site manager');
         }
+        let targetSiteId;
+        if (query.siteId && managerLevel.siteIds.includes(query.siteId)) {
+            targetSiteId = query.siteId;
+        }
+        else {
+            targetSiteId = managerLevel.siteIds[0];
+        }
+        const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
         const site = await this.prisma.site.findFirst({
             where: {
-                id: managerLevel.siteId,
+                id: targetSiteId,
                 tenantId,
             },
             include: {
                 employees: {
-                    where: { isActive: true },
+                    where: {
+                        isActive: true,
+                        id: managedEmployeeIds.length > 0 ? { in: managedEmployeeIds } : undefined,
+                    },
                     include: {
                         department: {
                             select: {
@@ -651,24 +662,46 @@ let ReportsService = class ReportsService {
         }
         const siteEmployeeIds = site.employees.map(e => e.id);
         const totalSiteEmployees = site.employees.length;
-        const departments = await this.prisma.department.findMany({
-            where: {
-                tenantId,
-                employees: {
-                    some: {
-                        siteId: managerLevel.siteId,
-                        isActive: true,
+        const departments = managerLevel.departmentId
+            ? await this.prisma.department.findMany({
+                where: {
+                    id: managerLevel.departmentId,
+                    tenantId,
+                    employees: {
+                        some: {
+                            siteId: targetSiteId,
+                            isActive: true,
+                            id: managedEmployeeIds.length > 0 ? { in: managedEmployeeIds } : undefined,
+                        },
                     },
                 },
-            },
-            include: {
-                _count: {
-                    select: {
-                        employees: true,
+                include: {
+                    _count: {
+                        select: {
+                            employees: true,
+                        },
                     },
                 },
-            },
-        });
+            })
+            : await this.prisma.department.findMany({
+                where: {
+                    tenantId,
+                    employees: {
+                        some: {
+                            siteId: targetSiteId,
+                            isActive: true,
+                            id: managedEmployeeIds.length > 0 ? { in: managedEmployeeIds } : undefined,
+                        },
+                    },
+                },
+                include: {
+                    _count: {
+                        select: {
+                            employees: true,
+                        },
+                    },
+                },
+            });
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);

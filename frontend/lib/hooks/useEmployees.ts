@@ -86,3 +86,57 @@ export function useDeleteAllEmployees() {
     },
   });
 }
+
+export function useCreateUserAccount() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ id, userEmail }: { id: string; userEmail?: string }) => 
+      employeesApi.createUserAccount(id, userEmail ? { userEmail } : undefined),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      
+      // Afficher les credentials si générés
+      if ((data as any).generatedCredentials) {
+        const creds = (data as any).generatedCredentials;
+        toast.success(
+          `Compte créé avec succès !\nEmail: ${creds.email}\nMot de passe: ${creds.password}`,
+          { duration: 10000 }
+        );
+        // Copier les credentials dans le presse-papier si possible
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(`Email: ${creds.email}\nMot de passe: ${creds.password}`);
+        }
+      } else {
+        toast.success('Compte créé avec succès');
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erreur lors de la création du compte');
+    },
+  });
+}
+
+export function useGetCredentials() {
+  return useMutation({
+    mutationFn: (id: string) => employeesApi.getCredentials(id),
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erreur lors de la récupération des identifiants');
+    },
+  });
+}
+
+export function useDeleteUserAccount() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => employeesApi.deleteUserAccount(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employees'] });
+      toast.success('Compte d\'accès supprimé avec succès');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Erreur lors de la suppression du compte d\'accès');
+    },
+  });
+}

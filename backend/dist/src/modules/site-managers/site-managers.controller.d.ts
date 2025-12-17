@@ -5,6 +5,11 @@ export declare class SiteManagersController {
     private readonly siteManagersService;
     constructor(siteManagersService: SiteManagersService);
     create(user: any, dto: CreateSiteManagerDto): Promise<{
+        department: {
+            id: string;
+            name: string;
+            code: string;
+        };
         site: {
             id: string;
             name: string;
@@ -12,15 +17,10 @@ export declare class SiteManagersController {
         };
         manager: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
-        };
-        department: {
-            id: string;
-            name: string;
-            code: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -28,28 +28,28 @@ export declare class SiteManagersController {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     }>;
     findAll(user: any, siteId?: string, departmentId?: string): Promise<({
-        site: {
-            id: string;
-            name: string;
-            city: string;
-            code: string;
-        };
-        manager: {
-            id: string;
-            matricule: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-            phone: string;
-        };
         department: {
             id: string;
             name: string;
             code: string;
+        };
+        site: {
+            id: string;
+            name: string;
+            code: string;
+            city: string;
+        };
+        manager: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            phone: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -57,21 +57,21 @@ export declare class SiteManagersController {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     })[]>;
     findBySite(user: any, siteId: string): Promise<({
-        manager: {
-            id: string;
-            matricule: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-        };
         department: {
             id: string;
             name: string;
             code: string;
+        };
+        manager: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -79,20 +79,20 @@ export declare class SiteManagersController {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     })[]>;
     findByManager(user: any, managerId: string): Promise<({
-        site: {
-            id: string;
-            name: string;
-            city: string;
-            code: string;
-        };
         department: {
             id: string;
             name: string;
             code: string;
+        };
+        site: {
+            id: string;
+            name: string;
+            code: string;
+            city: string;
         };
     } & {
         id: string;
@@ -100,28 +100,28 @@ export declare class SiteManagersController {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     })[]>;
     findOne(user: any, id: string): Promise<{
-        site: {
-            id: string;
-            name: string;
-            city: string;
-            code: string;
-        };
-        manager: {
-            id: string;
-            matricule: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-            phone: string;
-        };
         department: {
             id: string;
             name: string;
             code: string;
+        };
+        site: {
+            id: string;
+            name: string;
+            code: string;
+            city: string;
+        };
+        manager: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            phone: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -129,10 +129,15 @@ export declare class SiteManagersController {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     }>;
     update(user: any, id: string, dto: UpdateSiteManagerDto): Promise<{
+        department: {
+            id: string;
+            name: string;
+            code: string;
+        };
         site: {
             id: string;
             name: string;
@@ -140,15 +145,10 @@ export declare class SiteManagersController {
         };
         manager: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
-        };
-        department: {
-            id: string;
-            name: string;
-            code: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -156,8 +156,8 @@ export declare class SiteManagersController {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     }>;
     remove(user: any, id: string): Promise<{
         message: string;

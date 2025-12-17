@@ -23,8 +23,9 @@ export interface UpdateProfileDto {
 }
 
 export interface ChangePasswordDto {
-  currentPassword: string;
+  currentPassword?: string;
   newPassword: string;
+  forceChange?: boolean;
 }
 
 export interface UserPreferences {

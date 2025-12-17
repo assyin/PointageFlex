@@ -1,4 +1,4 @@
-import { IsOptional, IsDateString, IsEnum } from 'class-validator';
+import { IsOptional, IsDateString, IsEnum, IsUUID } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum DashboardScope {
@@ -27,7 +27,7 @@ export class DashboardStatsQueryDto {
   @IsDateString()
   endDate?: string;
 
-  @ApiPropertyOptional({ 
+  @ApiPropertyOptional({
     enum: DashboardScope,
     example: DashboardScope.TENANT,
     description: 'Scope of dashboard data: personal, team, tenant, or platform'
@@ -35,4 +35,12 @@ export class DashboardStatsQueryDto {
   @IsOptional()
   @IsEnum(DashboardScope)
   scope?: DashboardScope;
+
+  @ApiPropertyOptional({
+    example: 'uuid-site-123',
+    description: 'Site ID for site-specific dashboard (for managers managing multiple sites)'
+  })
+  @IsOptional()
+  @IsUUID()
+  siteId?: string;
 }

@@ -5,6 +5,7 @@ import { RegisterDto } from './dto/register.dto';
 export declare class AuthService {
     private prisma;
     private jwtService;
+    private readonly logger;
     constructor(prisma: PrismaService, jwtService: JwtService);
     register(dto: RegisterDto): Promise<{
         user: {
@@ -24,6 +25,7 @@ export declare class AuthService {
         user: {
             roles: string[];
             permissions: string[];
+            forcePasswordChange: boolean;
             id: string;
             tenantId: string;
             email: string;
@@ -45,6 +47,7 @@ export declare class AuthService {
             tenantId: string;
             roles: string[];
             permissions: string[];
+            forcePasswordChange: boolean;
         };
         accessToken: string;
         refreshToken: string;

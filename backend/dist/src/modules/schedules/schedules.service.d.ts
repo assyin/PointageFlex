@@ -5,17 +5,24 @@ import { ImportScheduleResultDto } from './dto/import-schedule.dto';
 export declare class SchedulesService {
     private prisma;
     constructor(prisma: PrismaService);
+    private parseDateString;
+    private formatDateToISO;
     private generateDateRange;
     create(tenantId: string, dto: CreateScheduleDto): Promise<{
         count: number;
         created: number;
         skipped: number;
+        conflictingDates: {
+            date: string;
+            shift: string;
+        }[];
         dateRange: {
             start: string;
             end: string;
         };
         message: string;
     }>;
+    private formatDate;
     findAll(tenantId: string, page?: number, limit?: number, filters?: {
         employeeId?: string;
         teamId?: string;
@@ -66,10 +73,10 @@ export declare class SchedulesService {
             teamId: string | null;
             employeeId: string;
             date: Date;
+            notes: string | null;
             shiftId: string;
             customStartTime: string | null;
             customEndTime: string | null;
-            notes: string | null;
         })[];
         meta: {
             total: number;
@@ -112,10 +119,10 @@ export declare class SchedulesService {
         teamId: string | null;
         employeeId: string;
         date: Date;
+        notes: string | null;
         shiftId: string;
         customStartTime: string | null;
         customEndTime: string | null;
-        notes: string | null;
     }>;
     update(tenantId: string, id: string, dto: UpdateScheduleDto): Promise<{
         employee: {
@@ -150,10 +157,10 @@ export declare class SchedulesService {
         teamId: string | null;
         employeeId: string;
         date: Date;
+        notes: string | null;
         shiftId: string;
         customStartTime: string | null;
         customEndTime: string | null;
-        notes: string | null;
     }>;
     remove(tenantId: string, id: string): Promise<{
         id: string;
@@ -163,10 +170,10 @@ export declare class SchedulesService {
         teamId: string | null;
         employeeId: string;
         date: Date;
+        notes: string | null;
         shiftId: string;
         customStartTime: string | null;
         customEndTime: string | null;
-        notes: string | null;
     }>;
     removeBulk(tenantId: string, ids: string[]): Promise<{
         count: number;
@@ -225,10 +232,10 @@ export declare class SchedulesService {
             teamId: string | null;
             employeeId: string;
             date: Date;
+            notes: string | null;
             shiftId: string;
             customStartTime: string | null;
             customEndTime: string | null;
-            notes: string | null;
         })[];
         leaves: ({
             employee: {
@@ -359,10 +366,10 @@ export declare class SchedulesService {
             teamId: string | null;
             employeeId: string;
             date: Date;
+            notes: string | null;
             shiftId: string;
             customStartTime: string | null;
             customEndTime: string | null;
-            notes: string | null;
         })[];
         leaves: ({
             employee: {

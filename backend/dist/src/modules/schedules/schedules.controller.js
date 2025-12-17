@@ -24,6 +24,7 @@ const create_replacement_dto_1 = require("./dto/create-replacement.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
+const permissions_guard_1 = require("../../common/guards/permissions.guard");
 let SchedulesController = class SchedulesController {
     constructor(schedulesService, alertsService) {
         this.schedulesService = schedulesService;
@@ -320,7 +321,7 @@ exports.SchedulesController = SchedulesController = __decorate([
     (0, swagger_1.ApiTags)('Schedules'),
     (0, common_1.Controller)('schedules'),
     (0, swagger_1.ApiBearerAuth)(),
-    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, common_1.UseGuards)(roles_guard_1.RolesGuard, permissions_guard_1.PermissionsGuard),
     __metadata("design:paramtypes", [schedules_service_1.SchedulesService,
         alerts_service_1.AlertsService])
 ], SchedulesController);

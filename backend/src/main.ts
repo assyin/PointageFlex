@@ -93,12 +93,37 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT || 3000;
+  const host = process.env.HOST || '0.0.0.0';
+  
   // Écouter sur 0.0.0.0 pour être accessible depuis le réseau (important pour WSL)
-  await app.listen(port, '0.0.0.0');
+  await app.listen(port, host);
+
+  // Obtenir l'adresse IP locale pour WSL
+  const os = require('os');
+  const networkInterfaces = os.networkInterfaces();
+  let localIP = 'localhost';
+  
+  for (const interfaceName in networkInterfaces) {
+    const interfaces = networkInterfaces[interfaceName];
+    for (const iface of interfaces) {
+      // Ignorer les adresses internes et IPv6
+      if (iface.family === 'IPv4' && !iface.internal) {
+        localIP = iface.address;
+        break;
+      }
+    }
+    if (localIP !== 'localhost') break;
+  }
 
   console.log(`🚀 Application is running on: http://localhost:${port}`);
-  console.log(`🌐 Network access: http://0.0.0.0:${port}`);
+  console.log(`🌐 Network access: http://${host}:${port}`);
+  if (localIP !== 'localhost') {
+    console.log(`📍 Local IP: http://${localIP}:${port}`);
+  }
   console.log(`📚 Swagger docs: http://localhost:${port}/api/docs`);
+  console.log(`\n💡 Pour accéder depuis Windows (WSL):`);
+  console.log(`   1. Configurez le port forwarding: netsh interface portproxy add v4tov4 listenport=${port} listenaddress=0.0.0.0 connectport=${port} connectaddress=${localIP}`);
+  console.log(`   2. Ajoutez la règle de pare-feu: New-NetFirewallRule -DisplayName 'WSL Backend' -Direction Inbound -LocalPort ${port} -Action Allow -Protocol TCP`);
 }
 
 bootstrap();

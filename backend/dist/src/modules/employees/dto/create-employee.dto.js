@@ -136,4 +136,16 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateEmployeeDto.prototype, "userId", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Créer un compte d\'accès automatiquement', default: false }),
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], CreateEmployeeDto.prototype, "createUserAccount", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Email pour le compte (si différent de employee.email)' }),
+    (0, class_validator_1.IsEmail)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateEmployeeDto.prototype, "userEmail", void 0);
 //# sourceMappingURL=create-employee.dto.js.map

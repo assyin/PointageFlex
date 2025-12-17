@@ -21,6 +21,7 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { BiometricDataDto } from './dto/biometric-data.dto';
 import { BulkAssignSiteDto } from './dto/bulk-assign-site.dto';
+import { CreateUserAccountDto } from './dto/create-user-account.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -43,9 +44,10 @@ export class EmployeesController {
   @ApiResponse({ status: 409, description: 'Employee with this matricule already exists' })
   create(
     @CurrentTenant() tenantId: string,
+    @CurrentUser() currentUser: any,
     @Body() createEmployeeDto: CreateEmployeeDto,
   ) {
-    return this.employeesService.create(tenantId, createEmployeeDto);
+    return this.employeesService.create(tenantId, createEmployeeDto, currentUser?.userId);
   }
 
   @Get()
@@ -128,12 +130,56 @@ export class EmployeesController {
     return this.employeesService.update(tenantId, id, updateEmployeeDto);
   }
 
+  @Post(':id/create-account')
+  @RequirePermissions('employee.update', 'employee.create')
+  @ApiOperation({ summary: 'Create user account for existing employee' })
+  @ApiResponse({ status: 201, description: 'User account created successfully' })
+  @ApiResponse({ status: 404, description: 'Employee not found' })
+  @ApiResponse({ status: 409, description: 'Employee already has an account' })
+  createUserAccount(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() currentUser: any,
+    @Param('id') id: string,
+    @Body() createUserAccountDto: CreateUserAccountDto,
+  ) {
+    return this.employeesService.createUserAccount(
+      tenantId,
+      id,
+      createUserAccountDto,
+      currentUser?.userId,
+    );
+  }
+
+  @Get(':id/credentials')
+  @RequirePermissions('employee.view_all', 'employee.view')
+  @ApiOperation({ summary: 'Get user account credentials for employee' })
+  @ApiResponse({ status: 200, description: 'Credentials retrieved successfully' })
+  @ApiResponse({ status: 404, description: 'Employee not found or credentials expired' })
+  getCredentials(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.employeesService.getCredentials(tenantId, id);
+  }
+
   @Delete('all')
   @RequirePermissions('employee.delete')
   @ApiOperation({ summary: 'Delete all employees for tenant' })
   @ApiResponse({ status: 200, description: 'All employees deleted successfully' })
   removeAll(@CurrentTenant() tenantId: string) {
     return this.employeesService.deleteAll(tenantId);
+  }
+
+  @Delete(':id/user-account')
+  @RequirePermissions('employee.update', 'employee.delete')
+  @ApiOperation({ summary: 'Delete user account for employee (without deleting employee)' })
+  @ApiResponse({ status: 200, description: 'User account deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Employee not found or has no user account' })
+  deleteUserAccount(
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.employeesService.deleteUserAccount(tenantId, id);
   }
 
   @Delete(':id')

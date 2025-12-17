@@ -31,13 +31,14 @@ let OvertimeController = class OvertimeController {
     create(user, dto) {
         return this.overtimeService.create(user.tenantId, dto);
     }
-    findAll(user, page, limit, employeeId, status, startDate, endDate, isNightShift) {
+    findAll(user, page, limit, employeeId, status, startDate, endDate, isNightShift, type) {
         return this.overtimeService.findAll(user.tenantId, parseInt(page) || 1, parseInt(limit) || 20, {
             employeeId,
             status,
             startDate,
             endDate,
             isNightShift: isNightShift ? isNightShift === 'true' : undefined,
+            type,
         }, user.userId, user.permissions || []);
     }
     findOne(user, id) {
@@ -51,6 +52,9 @@ let OvertimeController = class OvertimeController {
     }
     convertToRecovery(user, id) {
         return this.overtimeService.convertToRecovery(user.tenantId, id);
+    }
+    getBalance(user, employeeId) {
+        return this.overtimeService.getBalance(user.tenantId, employeeId);
     }
     remove(user, id) {
         return this.overtimeService.remove(user.tenantId, id);
@@ -79,8 +83,9 @@ __decorate([
     __param(5, (0, common_1.Query)('startDate')),
     __param(6, (0, common_1.Query)('endDate')),
     __param(7, (0, common_1.Query)('isNightShift')),
+    __param(8, (0, common_1.Query)('type')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String]),
+    __metadata("design:paramtypes", [Object, String, String, String, String, String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], OvertimeController.prototype, "findAll", null);
 __decorate([
@@ -124,6 +129,16 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], OvertimeController.prototype, "convertToRecovery", null);
+__decorate([
+    (0, common_1.Get)('balance/:employeeId'),
+    (0, permissions_decorator_1.RequirePermissions)('overtime.view_all', 'overtime.view_own'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get overtime balance for an employee' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('employeeId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], OvertimeController.prototype, "getBalance", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, permissions_decorator_1.RequirePermissions)('overtime.delete'),

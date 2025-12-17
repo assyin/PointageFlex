@@ -78,6 +78,8 @@ model TenantSettings {
   sfptExport               Boolean  @default(false)
   twoLevelWorkflow         Boolean  @default(true)
   workingDays              Json?
+  recoveryConversionRate   Decimal  @default(1.0) // Taux de conversion heures supp -> récupération (1.0 = 1h supp = 1h récup)
+  recoveryExpiryDays       Int      @default(90) // Nombre de jours avant expiration de la récupération
   tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
@@ -96,6 +98,7 @@ model User {
   avatar          String?
   isActive        Boolean          @default(true)
   lastLoginAt     DateTime?
+  forcePasswordChange Boolean      @default(false) // Forcer changement mot de passe à la première connexion
   role            LegacyRole?      @default(EMPLOYEE) // Optionnel pour compatibilité
   auditLogs       AuditLog[]
   employee        Employee?
@@ -103,6 +106,7 @@ model User {
   userTenantRoles UserTenantRole[]
   preferences     UserPreferences?
   sessions        UserSession[]
+  credentials     UserCredentials?
 
   @@index([tenantId])
   @@index([email])
@@ -164,6 +168,7 @@ model Employee {
   managedSites              Site[]             @relation("SiteManagerLegacy") // DEPRECATED
   managedDepartments        Department[]       @relation("DepartmentManager")
   siteManagements           SiteManager[] // Nouvelle relation: gestion de sites par département
+  credentials               UserCredentials? // Credentials temporaires du compte d'accès
 
   @@unique([tenantId, matricule])
   @@index([tenantId])
@@ -448,18 +453,24 @@ model Overtime {
   employeeId          String
   date                DateTime       @db.Date
   hours               Decimal
-  isNightShift        Boolean        @default(false)
+  approvedHours       Decimal?       // Nombre d'heures validées par le manager (peut différer de hours)
+  type                OvertimeType   @default(STANDARD)
+  isNightShift        Boolean        @default(false) // DEPRECATED: Utiliser type à la place
   rate                Decimal        @default(1.25)
   convertedToRecovery Boolean        @default(false)
   recoveryId          String?
   status              OvertimeStatus @default(PENDING)
   approvedBy          String?
   approvedAt          DateTime?
+  rejectionReason    String?        // Raison du rejet si la demande est rejetée
+  notes               String?        // Notes/justification de la demande
   employee            Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   tenant              Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([employeeId])
+  @@index([status])
+  @@index([type])
 }
 
 model Recovery {
@@ -629,6 +640,24 @@ model UserSession {
   @@index([isActive])
 }
 
+model UserCredentials {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  userId     String   @unique
+  employeeId String?  @unique // Optionnel: lien vers l'employé (unique si présent)
+  email      String
+  password   String   // Mot de passe en clair (temporaire, expirera)
+  expiresAt  DateTime // Expiration après 7 jours
+  viewedAt   DateTime? // Date de dernière consultation
+  viewCount  Int      @default(0) // Nombre de fois consulté
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([employeeId])
+  @@index([expiresAt])
+}
+
 // Liaison User-Tenant-Role : indique quel utilisateur a quel rôle dans quel tenant
 model UserTenantRole {
   id         String   @id @default(uuid())
@@ -697,6 +726,15 @@ enum OvertimeStatus {
   PENDING
   APPROVED
   REJECTED
+  PAID
+  RECOVERED
+}
+
+enum OvertimeType {
+  STANDARD
+  NIGHT
+  HOLIDAY
+  EMERGENCY
 }
 
 enum HolidayType {

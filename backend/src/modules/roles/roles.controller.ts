@@ -71,5 +71,11 @@ export class RolesController {
   resetDefaultPermissions(@Param('id') id: string) {
     return this.rolesService.resetDefaultPermissions(id);
   }
+
+  @Post('update-all-managers')
+  @Roles(LegacyRole.SUPER_ADMIN, LegacyRole.ADMIN_RH)
+  updateAllManagerRoles() {
+    return this.rolesService.updateAllManagerRoles();
+  }
 }
 

@@ -43,7 +43,7 @@ async function getManagerLevel(prisma, userId, tenantId) {
     if (siteManagements.length > 0) {
         return {
             type: 'SITE',
-            siteId: siteManagements[0].siteId,
+            siteIds: siteManagements.map(sm => sm.siteId),
             departmentId: siteManagements[0].departmentId,
         };
     }
@@ -60,7 +60,7 @@ async function getManagerLevel(prisma, userId, tenantId) {
     if (managedSitesLegacy.length > 0) {
         return {
             type: 'SITE',
-            siteId: managedSitesLegacy[0].id,
+            siteIds: managedSitesLegacy.map(s => s.id),
             departmentId: managedSitesLegacy[0].departmentId || undefined,
         };
     }
@@ -85,19 +85,24 @@ async function getManagedEmployeeIds(prisma, managerLevel, tenantId) {
     if (!managerLevel.type) {
         return [];
     }
-    const where = { tenantId, isActive: true };
+    const where = { tenantId };
     switch (managerLevel.type) {
         case 'DEPARTMENT':
             where.departmentId = managerLevel.departmentId;
             break;
         case 'SITE':
-            where.siteId = managerLevel.siteId;
+            if (managerLevel.siteIds && managerLevel.siteIds.length > 0) {
+                where.siteId = { in: managerLevel.siteIds };
+            }
+            else {
+                return [];
+            }
             if (managerLevel.departmentId) {
                 where.departmentId = managerLevel.departmentId;
             }
             else {
                 const site = await prisma.site.findUnique({
-                    where: { id: managerLevel.siteId },
+                    where: { id: managerLevel.siteIds[0] },
                     select: { departmentId: true },
                 });
                 if (site?.departmentId) {

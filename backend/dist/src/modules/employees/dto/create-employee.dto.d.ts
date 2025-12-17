@@ -20,4 +20,6 @@ export declare class CreateEmployeeDto {
     pinCode?: string;
     isActive?: boolean;
     userId?: string;
+    createUserAccount?: boolean;
+    userEmail?: string;
 }

@@ -40,7 +40,9 @@ import {
   useApproveOvertime,
   useRejectOvertime,
   useConvertToRecovery,
+  useCreateOvertime,
 } from '@/lib/hooks/useOvertime';
+import { SearchableEmployeeSelect } from '@/components/schedules/SearchableEmployeeSelect';
 import { useEmployees } from '@/lib/hooks/useEmployees';
 import { Textarea } from '@/components/ui/textarea';
 import { PermissionGate } from '@/components/auth/PermissionGate';
@@ -55,6 +57,7 @@ export default function OvertimePage() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState(''); // Search query for employee filter
   // Par défaut, afficher les données d'aujourd'hui
   const today = format(new Date(), 'yyyy-MM-dd');
   const [startDate, setStartDate] = useState(today);
@@ -64,6 +67,22 @@ export default function OvertimePage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [recordToReject, setRecordToReject] = useState<string | null>(null);
+
+  // Approval dialog
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [recordToApprove, setRecordToApprove] = useState<any | null>(null);
+  const [approvedHours, setApprovedHours] = useState<string>('');
+
+  // Create modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    employeeId: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    hours: '',
+    type: 'STANDARD' as 'STANDARD' | 'NIGHT' | 'HOLIDAY' | 'EMERGENCY',
+    notes: '',
+  });
+  const createMutation = useCreateOvertime();
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -148,15 +167,42 @@ export default function OvertimePage() {
     );
   };
 
+  // Fonction pour convertir les heures en nombre (gère Decimal, string, number)
+  const getHoursAsNumber = (hours: any): number => {
+    if (hours == null || hours === undefined) return 0;
+    if (typeof hours === 'number') return hours;
+    if (typeof hours === 'string') return parseFloat(hours) || 0;
+    // Gérer les objets Decimal de Prisma
+    if (typeof hours === 'object' && 'toNumber' in hours) {
+      return (hours as any).toNumber();
+    }
+    return parseFloat(String(hours)) || 0;
+  };
+
   // Fonction pour formater les heures avec 2 décimales et virgule
   const formatHours = (hours: number | string): string => {
-    const numHours = typeof hours === 'number' ? hours : parseFloat(hours) || 0;
+    const numHours = getHoursAsNumber(hours);
     return numHours.toFixed(2).replace('.', ',') + 'H';
   };
 
-  const handleApprove = async (id: string) => {
+  const handleApproveClick = (record: any) => {
+    setRecordToApprove(record);
+    setApprovedHours(record.hours?.toString() || '');
+    setApproveDialogOpen(true);
+  };
+
+  const handleApprove = async () => {
+    if (!recordToApprove) return;
+    
     try {
-      await approveMutation.mutateAsync(id);
+      const hours = approvedHours ? parseFloat(approvedHours) : undefined;
+      await approveMutation.mutateAsync({ 
+        id: recordToApprove.id, 
+        approvedHours: hours 
+      });
+      setApproveDialogOpen(false);
+      setRecordToApprove(null);
+      setApprovedHours('');
     } catch (error) {
       // Error handled by mutation
     }
@@ -192,38 +238,100 @@ export default function OvertimePage() {
     }
   };
 
-  // Client-side filtering for search (since API might not support it)
+  const handleCreateOvertime = async () => {
+    if (!createFormData.employeeId || !createFormData.date || !createFormData.hours) {
+      return;
+    }
+
+    try {
+      await createMutation.mutateAsync({
+        employeeId: createFormData.employeeId,
+        date: createFormData.date,
+        hours: parseFloat(createFormData.hours),
+        type: createFormData.type,
+        notes: createFormData.notes || undefined,
+      });
+      setShowCreateModal(false);
+      setCreateFormData({
+        employeeId: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        hours: '',
+        type: 'STANDARD',
+        notes: '',
+      });
+    } catch (error) {
+      // Error handled by mutation
+    }
+  };
+
+  // Client-side filtering for search and all filters
   const filteredRecords = useMemo(() => {
-    const records = overtimeData?.data || [];
-    if (!searchQuery) return records;
+    let records = overtimeData?.data || [];
     
-    const query = searchQuery.toLowerCase();
-    return records.filter((record: any) => {
-      const firstName = record.employee?.firstName?.toLowerCase() || '';
-      const lastName = record.employee?.lastName?.toLowerCase() || '';
-      const matricule = record.employee?.matricule?.toLowerCase() || '';
-      return firstName.includes(query) || lastName.includes(query) || matricule.includes(query);
-    });
+    // Appliquer le filtre de recherche par nom/prénom/matricule
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      records = records.filter((record: any) => {
+        const firstName = record.employee?.firstName?.toLowerCase() || '';
+        const lastName = record.employee?.lastName?.toLowerCase() || '';
+        const matricule = record.employee?.matricule?.toLowerCase() || '';
+        return firstName.includes(query) || lastName.includes(query) || matricule.includes(query);
+      });
+    }
+    
+    // Debug: Log pour vérifier les données (à retirer en production)
+    if (process.env.NODE_ENV === 'development' && records.length > 0) {
+      console.log('Overtime records for calculation:', records.map((r: any) => ({
+        id: r.id,
+        hours: r.hours,
+        approvedHours: r.approvedHours,
+        status: r.status,
+        employee: r.employee?.firstName + ' ' + r.employee?.lastName,
+      })));
+    }
+    
+    return records;
   }, [overtimeData?.data, searchQuery]);
 
-  // Statistics - utiliser les données filtrées (overtimeData) pour refléter les filtres appliqués
-  const allRecords = overtimeData?.data || [];
+  // Statistics - utiliser les données filtrées pour refléter tous les filtres appliqués
+  // Note: Les filtres de date, statut, type, et employé sont déjà appliqués côté serveur via filters
+  // Seul le filtre de recherche par nom est appliqué côté client
+  
+  // IMPORTANT: Utiliser le totalHours du backend (calculé sur toutes les données, pas seulement la page actuelle)
+  // Cela garantit la cohérence entre Manager et Employee même avec la pagination
+  // Si un filtre de recherche par nom est appliqué, calculer sur filteredRecords (filtré côté client)
+  const totalHours = searchQuery 
+    ? filteredRecords.reduce((sum: number, r: any) => {
+        // Si recherche appliquée, calculer sur les données filtrées côté client
+        const hoursToUse = (r.approvedHours != null && r.approvedHours !== undefined) 
+          ? r.approvedHours 
+          : r.hours;
+        const numHours = getHoursAsNumber(hoursToUse);
+        return sum + numHours;
+      }, 0)
+    : (overtimeData?.meta?.totalHours != null 
+        ? getHoursAsNumber(overtimeData.meta.totalHours)
+        : filteredRecords.reduce((sum: number, r: any) => {
+            // Fallback: calculer côté client si totalHours n'est pas disponible
+            const hoursToUse = (r.approvedHours != null && r.approvedHours !== undefined) 
+              ? r.approvedHours 
+              : r.hours;
+            const numHours = getHoursAsNumber(hoursToUse);
+            return sum + numHours;
+          }, 0));
   
   // Filtrer les enregistrements par statut (comparaison insensible à la casse pour sécurité)
-  const pendingCount = allRecords.filter((r: any) => {
+  // Note: Ces comptes sont calculés sur la page actuelle uniquement
+  // Pour avoir les totaux réels, il faudrait aussi les calculer côté serveur
+  const pendingCount = filteredRecords.filter((r: any) => {
     const status = String(r.status || '').toUpperCase();
     return status === 'PENDING';
   }).length;
   
-  const approvedCount = allRecords.filter((r: any) => {
+  const approvedCount = filteredRecords.filter((r: any) => {
     const status = String(r.status || '').toUpperCase();
     return status === 'APPROVED';
   }).length;
-  
-  const totalHours = allRecords.reduce((sum: number, r: any) => {
-    const hours = typeof r.hours === 'number' ? r.hours : parseFloat(String(r.hours)) || 0;
-    return sum + hours;
-  }, 0);
 
   // Pagination
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
@@ -266,11 +374,12 @@ export default function OvertimePage() {
     setStartDate(today);
     setEndDate(today);
     setSearchQuery('');
+    setEmployeeSearchQuery('');
     setCurrentPage(1);
   };
 
   const hasActiveFilters = selectedStatus !== 'all' || selectedEmployee !== 'all' || 
-    selectedType !== 'all' || searchQuery !== '';
+    selectedType !== 'all' || searchQuery !== '' || employeeSearchQuery !== '';
 
   return (
     <ProtectedRoute permissions={['overtime.view_all', 'overtime.view_own']}>
@@ -289,7 +398,11 @@ export default function OvertimePage() {
                   type="text"
                   placeholder="Rechercher par nom, prénom ou matricule..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setEmployeeSearchQuery(e.target.value); // Synchroniser avec la recherche des filtres avancés
+                    setCurrentPage(1); // Réinitialiser la pagination
+                  }}
                   className="pl-10"
                 />
               </div>
@@ -348,7 +461,7 @@ export default function OvertimePage() {
                 </Button>
               </PermissionGate>
               <PermissionGate permission="overtime.create">
-                <Button variant="primary" size="sm">
+                <Button variant="primary" size="sm" onClick={() => setShowCreateModal(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Nouvelle demande
                 </Button>
@@ -363,19 +476,48 @@ export default function OvertimePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="employee-filter">Employé</Label>
-                    <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                      <SelectTrigger id="employee-filter">
-                        <SelectValue placeholder="Tous les employés" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Tous les employés</SelectItem>
-                        {employeesData?.data?.map((emp: any) => (
-                          <SelectItem key={emp.id} value={emp.id}>
-                            {emp.firstName} {emp.lastName} ({emp.matricule})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+                        <Input
+                          id="employee-search"
+                          type="text"
+                          placeholder="Rechercher par nom, prénom ou matricule..."
+                          value={employeeSearchQuery}
+                          onChange={(e) => {
+                            setEmployeeSearchQuery(e.target.value);
+                            setSearchQuery(e.target.value); // Synchroniser avec la recherche principale
+                            setCurrentPage(1); // Réinitialiser la pagination
+                          }}
+                          className="pl-10"
+                        />
+                      </div>
+                      <Select value={selectedEmployee} onValueChange={(value) => {
+                        setSelectedEmployee(value);
+                        setCurrentPage(1); // Réinitialiser la pagination
+                      }}>
+                        <SelectTrigger id="employee-filter">
+                          <SelectValue placeholder="Tous les employés" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Tous les employés</SelectItem>
+                          {employeesData?.data
+                            ?.filter((emp: any) => {
+                              if (!employeeSearchQuery) return true;
+                              const query = employeeSearchQuery.toLowerCase();
+                              const firstName = emp.firstName?.toLowerCase() || '';
+                              const lastName = emp.lastName?.toLowerCase() || '';
+                              const matricule = emp.matricule?.toLowerCase() || '';
+                              return firstName.includes(query) || lastName.includes(query) || matricule.includes(query);
+                            })
+                            .map((emp: any) => (
+                              <SelectItem key={emp.id} value={emp.id}>
+                                {emp.firstName} {emp.lastName} ({emp.matricule})
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -524,7 +666,7 @@ export default function OvertimePage() {
                 <div>
                   <p className="text-sm font-medium text-text-secondary mb-1">Total demandes</p>
                   <p className="text-3xl font-bold text-text-primary">
-                    {allRecords.length}
+                    {filteredRecords.length}
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-info/10 flex items-center justify-center">
@@ -601,6 +743,7 @@ export default function OvertimePage() {
                     <thead>
                       <tr className="bg-table-header border-b border-table-border">
                         <th className="p-4 text-left text-sm font-semibold text-text-primary">Employé</th>
+                        <th className="p-4 text-left text-sm font-semibold text-text-primary">Site</th>
                         <th className="p-4 text-left text-sm font-semibold text-text-primary">Date</th>
                         <th className="p-4 text-left text-sm font-semibold text-text-primary">Heures</th>
                         <th className="p-4 text-left text-sm font-semibold text-text-primary">Type</th>
@@ -621,18 +764,37 @@ export default function OvertimePage() {
                             </div>
                           </td>
                           <td className="p-4 text-sm text-text-secondary">
+                            {record.employee?.site?.name || record.employee?.site?.code || '-'}
+                          </td>
+                          <td className="p-4 text-sm text-text-secondary">
                             {format(new Date(record.date), 'dd MMM yyyy', { locale: fr })}
                           </td>
                           <td className="p-4">
-                            <span className="font-semibold text-lg text-text-primary">
-                              {formatHours(record.hours)}
-                            </span>
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-lg text-text-primary">
+                                {formatHours((record.approvedHours != null && record.approvedHours !== undefined) ? record.approvedHours : record.hours)}
+                              </span>
+                              {record.approvedHours != null && record.approvedHours !== undefined && record.approvedHours !== record.hours && (
+                                <span className="text-xs text-text-secondary line-through">
+                                  Demandé: {formatHours(record.hours)}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             {getTypeBadge(record.type)}
                           </td>
                           <td className="p-4">
-                            {getStatusBadge(record.status)}
+                            <div className="flex flex-col gap-1">
+                              {getStatusBadge(record.status)}
+                              {record.rejectionReason && record.status === 'REJECTED' && (
+                                <span className="text-xs text-text-secondary italic mt-1" title={record.rejectionReason}>
+                                  {record.rejectionReason.length > 50 
+                                    ? record.rejectionReason.substring(0, 50) + '...'
+                                    : record.rejectionReason}
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             {record.convertedToRecovery ? (
@@ -649,7 +811,7 @@ export default function OvertimePage() {
                                     <Button
                                       variant="success"
                                       size="sm"
-                                      onClick={() => handleApprove(record.id)}
+                                      onClick={() => handleApproveClick(record)}
                                       disabled={approveMutation.isPending}
                                       className="text-xs"
                                     >
@@ -750,6 +912,79 @@ export default function OvertimePage() {
         </Card>
       </div>
 
+      {/* Approval Dialog */}
+      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Approuver les heures supplémentaires</DialogTitle>
+            <DialogDescription>
+              Vous pouvez personnaliser le nombre d'heures validées si nécessaire.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {recordToApprove && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="employee-info">Employé</Label>
+                  <div className="text-sm text-text-secondary p-2 bg-gray-50 rounded">
+                    {recordToApprove.employee?.firstName} {recordToApprove.employee?.lastName} 
+                    {' '}({recordToApprove.employee?.matricule})
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="requested-hours">Heures demandées</Label>
+                  <div className="text-sm text-text-secondary p-2 bg-gray-50 rounded">
+                    {formatHours(recordToApprove.hours)}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="approved-hours">Heures validées *</Label>
+                  <Input
+                    id="approved-hours"
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    placeholder="Ex: 2.5"
+                    value={approvedHours}
+                    onChange={(e) => setApprovedHours(e.target.value)}
+                    className="w-full"
+                  />
+                  <p className="text-xs text-text-secondary">
+                    Laissez vide pour valider le nombre d'heures demandées ({formatHours(recordToApprove.hours)})
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setApproveDialogOpen(false);
+              setRecordToApprove(null);
+              setApprovedHours('');
+            }}>
+              Annuler
+            </Button>
+            <Button
+              variant="success"
+              onClick={handleApprove}
+              disabled={approveMutation.isPending || (approvedHours && (parseFloat(approvedHours) < 0.5 || isNaN(parseFloat(approvedHours))))}
+            >
+              {approveMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  En cours...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Approuver
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Rejection Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent>
@@ -790,6 +1025,138 @@ export default function OvertimePage() {
                 <>
                   <XCircle className="h-4 w-4 mr-2" />
                   Rejeter
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Overtime Modal */}
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Nouvelle demande d'heures supplémentaires</DialogTitle>
+            <DialogDescription>
+              Créez une nouvelle demande d'heures supplémentaires pour un employé.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="create-employee">Employé *</Label>
+              <SearchableEmployeeSelect
+                value={createFormData.employeeId}
+                onChange={(value) => setCreateFormData({ ...createFormData, employeeId: value })}
+                employees={employeesData?.data || []}
+                isLoading={!employeesData}
+                placeholder="Rechercher un employé..."
+                label="Employé"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="create-date">Date *</Label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+                  <Input
+                    id="create-date"
+                    type="date"
+                    value={createFormData.date}
+                    onChange={(e) => setCreateFormData({ ...createFormData, date: e.target.value })}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="create-hours">Heures *</Label>
+                <Input
+                  id="create-hours"
+                  type="number"
+                  step="0.5"
+                  min="0.5"
+                  placeholder="Ex: 2.5"
+                  value={createFormData.hours}
+                  onChange={(e) => setCreateFormData({ ...createFormData, hours: e.target.value })}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-type">Type *</Label>
+              <Select
+                value={createFormData.type}
+                onValueChange={(value: any) => setCreateFormData({ ...createFormData, type: value })}
+              >
+                <SelectTrigger id="create-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="STANDARD">Standard</SelectItem>
+                  <SelectItem value="NIGHT">Nuit</SelectItem>
+                  <SelectItem value="HOLIDAY">Jour férié</SelectItem>
+                  <SelectItem value="EMERGENCY">Urgence</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="create-notes">Notes / Justification</Label>
+              <Textarea
+                id="create-notes"
+                placeholder="Ex: Travail supplémentaire pour terminer le projet urgent..."
+                value={createFormData.notes}
+                onChange={(e) => setCreateFormData({ ...createFormData, notes: e.target.value })}
+                rows={3}
+                className="resize-none"
+                maxLength={500}
+              />
+              <p className="text-xs text-text-secondary">
+                {createFormData.notes.length}/500 caractères
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowCreateModal(false);
+                setCreateFormData({
+                  employeeId: '',
+                  date: format(new Date(), 'yyyy-MM-dd'),
+                  hours: '',
+                  type: 'STANDARD',
+                  notes: '',
+                });
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleCreateOvertime}
+              disabled={
+                createMutation.isPending ||
+                !createFormData.employeeId ||
+                !createFormData.date ||
+                !createFormData.hours ||
+                parseFloat(createFormData.hours) < 0.5 ||
+                isNaN(parseFloat(createFormData.hours))
+              }
+            >
+              {createMutation.isPending ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Création...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Créer la demande
                 </>
               )}
             </Button>

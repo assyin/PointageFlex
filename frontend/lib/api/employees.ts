@@ -45,11 +45,13 @@ export interface CreateEmployeeDto {
 
 export interface UpdateEmployeeDto extends Partial<CreateEmployeeDto> {
   status?: 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE' | 'TERMINATED';
+  isActive?: boolean; // Statut actif/inactif
 }
 
 export interface EmployeeFilters {
   search?: string;
-  status?: string;
+  status?: string; // Pour compatibilité frontend
+  isActive?: boolean; // Correspond au backend
   departmentId?: string;
   siteId?: string;
   teamId?: string;
@@ -59,7 +61,20 @@ export interface EmployeeFilters {
 
 export const employeesApi = {
   getAll: async (filters?: EmployeeFilters) => {
-    const response = await apiClient.get('/employees', { params: filters });
+    // Préparer les paramètres pour l'API
+    const params: any = {};
+    
+    if (filters?.search) params.search = filters.search;
+    if (filters?.siteId) params.siteId = filters.siteId;
+    if (filters?.departmentId) params.departmentId = filters.departmentId;
+    if (filters?.teamId) params.teamId = filters.teamId;
+    
+    // Le backend attend isActive comme string 'true' ou 'false'
+    if (filters?.isActive !== undefined) {
+      params.isActive = filters.isActive.toString();
+    }
+    
+    const response = await apiClient.get('/employees', { params });
     return response.data;
   },
 
@@ -93,6 +108,21 @@ export const employeesApi = {
       siteId,
       employeeIds,
     });
+    return response.data;
+  },
+
+  createUserAccount: async (id: string, data?: { userEmail?: string }) => {
+    const response = await apiClient.post(`/employees/${id}/create-account`, data || {});
+    return response.data;
+  },
+
+  getCredentials: async (id: string) => {
+    const response = await apiClient.get(`/employees/${id}/credentials`);
+    return response.data;
+  },
+
+  deleteUserAccount: async (id: string) => {
+    const response = await apiClient.delete(`/employees/${id}/user-account`);
     return response.data;
   },
 };

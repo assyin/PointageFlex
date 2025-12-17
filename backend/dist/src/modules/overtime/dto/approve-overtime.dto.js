@@ -21,4 +21,26 @@ __decorate([
     (0, class_validator_1.IsEnum)(client_1.OvertimeStatus),
     __metadata("design:type", String)
 ], ApproveOvertimeDto.prototype, "status", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Nombre d\'heures validées (si différent du nombre demandé)',
+        example: 2.5,
+        minimum: 0.5
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0.5),
+    __metadata("design:type", Number)
+], ApproveOvertimeDto.prototype, "approvedHours", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Raison du rejet (obligatoire si status = REJECTED)',
+        example: 'Heures non justifiées ou dépassement du quota autorisé',
+        maxLength: 500
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], ApproveOvertimeDto.prototype, "rejectionReason", void 0);
 //# sourceMappingURL=approve-overtime.dto.js.map

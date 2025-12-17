@@ -359,6 +359,10 @@ let RolesService = class RolesService {
                 'attendance.view_anomalies',
                 'attendance.correct',
                 'schedule.view_team',
+                'schedule.view_all',
+                'schedule.create',
+                'schedule.update',
+                'schedule.delete',
                 'schedule.manage_team',
                 'schedule.approve_replacement',
                 'leave.view_team',
@@ -419,14 +423,44 @@ let RolesService = class RolesService {
                 },
             });
             if (!existing) {
-                await this.prisma.role.create({
+                const role = await this.prisma.role.create({
                     data: {
                         ...roleData,
                         tenantId,
                     },
                 });
+                try {
+                    await this.resetDefaultPermissions(role.id);
+                }
+                catch (error) {
+                }
             }
         }
+    }
+    async updateAllManagerRoles() {
+        const managerRoles = await this.prisma.role.findMany({
+            where: {
+                code: 'MANAGER',
+                isSystem: true,
+                isActive: true,
+            },
+        });
+        const results = [];
+        for (const role of managerRoles) {
+            try {
+                await this.resetDefaultPermissions(role.id);
+                results.push({ roleId: role.id, tenantId: role.tenantId, status: 'success' });
+            }
+            catch (error) {
+                results.push({ roleId: role.id, tenantId: role.tenantId, status: 'error', error: error.message });
+            }
+        }
+        return {
+            total: managerRoles.length,
+            updated: results.filter((r) => r.status === 'success').length,
+            failed: results.filter((r) => r.status === 'error').length,
+            results,
+        };
     }
 };
 exports.RolesService = RolesService;

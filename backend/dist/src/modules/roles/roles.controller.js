@@ -47,6 +47,9 @@ let RolesController = class RolesController {
     resetDefaultPermissions(id) {
         return this.rolesService.resetDefaultPermissions(id);
     }
+    updateAllManagerRoles() {
+        return this.rolesService.updateAllManagerRoles();
+    }
 };
 exports.RolesController = RolesController;
 __decorate([
@@ -109,6 +112,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], RolesController.prototype, "resetDefaultPermissions", null);
+__decorate([
+    (0, common_1.Post)('update-all-managers'),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.SUPER_ADMIN, client_1.LegacyRole.ADMIN_RH),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], RolesController.prototype, "updateAllManagerRoles", null);
 exports.RolesController = RolesController = __decorate([
     (0, common_1.Controller)('roles'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

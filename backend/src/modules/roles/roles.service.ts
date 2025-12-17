@@ -449,6 +449,10 @@ export class RolesService {
         'attendance.view_anomalies',
         'attendance.correct',
         'schedule.view_team',
+        'schedule.view_all', // Permet de voir tous les plannings des employés gérés
+        'schedule.create', // Permet de créer des plannings
+        'schedule.update', // Permet de modifier des plannings
+        'schedule.delete', // Permet de supprimer des plannings
         'schedule.manage_team',
         'schedule.approve_replacement',
         'leave.view_team',
@@ -519,14 +523,52 @@ export class RolesService {
       });
 
       if (!existing) {
-        await this.prisma.role.create({
+        const role = await this.prisma.role.create({
           data: {
             ...roleData,
             tenantId,
           },
         });
+
+        // Assigner les permissions par défaut pour les rôles système
+        try {
+          await this.resetDefaultPermissions(role.id);
+        } catch (error) {
+          // Si les permissions par défaut ne sont pas définies, continuer sans erreur
+          // Les permissions pourront être assignées manuellement plus tard
+        }
       }
     }
+  }
+
+  /**
+   * Met à jour tous les rôles MANAGER existants avec les nouvelles permissions par défaut
+   */
+  async updateAllManagerRoles() {
+    const managerRoles = await this.prisma.role.findMany({
+      where: {
+        code: 'MANAGER',
+        isSystem: true,
+        isActive: true,
+      },
+    });
+
+    const results = [];
+    for (const role of managerRoles) {
+      try {
+        await this.resetDefaultPermissions(role.id);
+        results.push({ roleId: role.id, tenantId: role.tenantId, status: 'success' });
+      } catch (error) {
+        results.push({ roleId: role.id, tenantId: role.tenantId, status: 'error', error: error.message });
+      }
+    }
+
+    return {
+      total: managerRoles.length,
+      updated: results.filter((r) => r.status === 'success').length,
+      failed: results.filter((r) => r.status === 'error').length,
+      results,
+    };
   }
 }
 

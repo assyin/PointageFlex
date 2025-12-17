@@ -141,9 +141,10 @@ export declare class UsersService {
         avatar: string | null;
         isActive: boolean;
         lastLoginAt: Date | null;
+        forcePasswordChange: boolean;
         role: import(".prisma/client").$Enums.LegacyRole | null;
     }>;
-    changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{
+    changePassword(userId: string, currentPassword: string, newPassword: string, skipCurrentPasswordCheck?: boolean): Promise<{
         message: string;
     }>;
     getPreferences(userId: string): Promise<{

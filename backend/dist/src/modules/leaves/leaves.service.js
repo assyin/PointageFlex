@@ -97,29 +97,9 @@ let LeavesService = class LeavesService {
         const hasViewTeam = userPermissions?.includes('leave.view_team');
         const hasViewDepartment = userPermissions?.includes('leave.view_department');
         const hasViewSite = userPermissions?.includes('leave.view_site');
-        if (!hasViewAll && hasViewOwn && userId) {
-            const employee = await this.prisma.employee.findFirst({
-                where: { userId, tenantId },
-                select: { id: true },
-            });
-            if (employee) {
-                where.employeeId = employee.id;
-            }
-            else {
-                return {
-                    data: [],
-                    meta: {
-                        total: 0,
-                        page,
-                        limit,
-                        totalPages: 0,
-                    },
-                };
-            }
-        }
-        else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
+        if (userId) {
             const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
-            if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+            if (managerLevel.type === 'DEPARTMENT') {
                 const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
                 if (managedEmployeeIds.length === 0) {
                     return {
@@ -134,7 +114,7 @@ let LeavesService = class LeavesService {
                 }
                 where.employeeId = { in: managedEmployeeIds };
             }
-            else if (managerLevel.type === 'SITE' && hasViewSite) {
+            else if (managerLevel.type === 'SITE') {
                 const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
                 if (managedEmployeeIds.length === 0) {
                     return {
@@ -149,7 +129,7 @@ let LeavesService = class LeavesService {
                 }
                 where.employeeId = { in: managedEmployeeIds };
             }
-            else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+            else if (managerLevel.type === 'TEAM') {
                 const employee = await this.prisma.employee.findFirst({
                     where: { userId, tenantId },
                     select: { teamId: true },
@@ -175,16 +155,25 @@ let LeavesService = class LeavesService {
                     };
                 }
             }
-            else if (managerLevel.type) {
-                return {
-                    data: [],
-                    meta: {
-                        total: 0,
-                        page,
-                        limit,
-                        totalPages: 0,
-                    },
-                };
+            else if (!hasViewAll && hasViewOwn) {
+                const employee = await this.prisma.employee.findFirst({
+                    where: { userId, tenantId },
+                    select: { id: true },
+                });
+                if (employee) {
+                    where.employeeId = employee.id;
+                }
+                else {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
             }
         }
         if (filters?.employeeId) {
@@ -217,6 +206,13 @@ let LeavesService = class LeavesService {
                             firstName: true,
                             lastName: true,
                             matricule: true,
+                            site: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    code: true,
+                                },
+                            },
                         },
                     },
                     leaveType: true,
@@ -344,6 +340,9 @@ let LeavesService = class LeavesService {
             }
         }
         else if (userRole === client_1.LegacyRole.ADMIN_RH) {
+            if (leave.status !== client_1.LeaveStatus.MANAGER_APPROVED) {
+                throw new common_1.ForbiddenException('Vous ne pouvez pas approuver ou rejeter ce congé. Le manager doit d\'abord approuver la demande.');
+            }
             if (dto.status === client_1.LeaveStatus.APPROVED || dto.status === client_1.LeaveStatus.HR_APPROVED) {
                 updateData.status = client_1.LeaveStatus.APPROVED;
                 updateData.hrApprovedBy = userId;

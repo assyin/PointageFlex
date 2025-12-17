@@ -31,17 +31,32 @@ let OvertimeService = class OvertimeService {
         const settings = await this.prisma.tenantSettings.findUnique({
             where: { tenantId },
         });
-        const rate = dto.rate || (dto.isNightShift
-            ? Number(settings?.nightShiftRate || 1.5)
-            : Number(settings?.overtimeRate || 1.25));
+        const overtimeType = dto.type || (dto.isNightShift ? 'NIGHT' : 'STANDARD');
+        let rate = dto.rate;
+        if (!rate) {
+            if (overtimeType === 'NIGHT') {
+                rate = Number(settings?.nightShiftRate || 1.5);
+            }
+            else if (overtimeType === 'HOLIDAY') {
+                rate = Number(settings?.overtimeRate || 1.25) * 1.5;
+            }
+            else if (overtimeType === 'EMERGENCY') {
+                rate = Number(settings?.overtimeRate || 1.25) * 1.3;
+            }
+            else {
+                rate = Number(settings?.overtimeRate || 1.25);
+            }
+        }
         return this.prisma.overtime.create({
             data: {
                 tenantId,
                 employeeId: dto.employeeId,
                 date: new Date(dto.date),
                 hours: dto.hours,
-                isNightShift: dto.isNightShift || false,
+                type: overtimeType,
+                isNightShift: overtimeType === 'NIGHT',
                 rate,
+                notes: dto.notes,
                 status: client_1.OvertimeStatus.PENDING,
             },
             include: {
@@ -63,29 +78,9 @@ let OvertimeService = class OvertimeService {
         const hasViewOwn = userPermissions?.includes('overtime.view_own');
         const hasViewDepartment = userPermissions?.includes('overtime.view_department');
         const hasViewSite = userPermissions?.includes('overtime.view_site');
-        if (!hasViewAll && hasViewOwn && userId) {
-            const employee = await this.prisma.employee.findFirst({
-                where: { userId, tenantId },
-                select: { id: true },
-            });
-            if (employee) {
-                where.employeeId = employee.id;
-            }
-            else {
-                return {
-                    data: [],
-                    meta: {
-                        total: 0,
-                        page,
-                        limit,
-                        totalPages: 0,
-                    },
-                };
-            }
-        }
-        else if (!hasViewAll && userId && (hasViewDepartment || hasViewSite)) {
+        if (userId) {
             const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
-            if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+            if (managerLevel.type === 'DEPARTMENT') {
                 const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
                 if (managedEmployeeIds.length === 0) {
                     return {
@@ -100,8 +95,13 @@ let OvertimeService = class OvertimeService {
                 }
                 where.employeeId = { in: managedEmployeeIds };
             }
-            else if (managerLevel.type === 'SITE' && hasViewSite) {
+            else if (managerLevel.type === 'SITE') {
                 const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                if (process.env.NODE_ENV === 'development') {
+                    console.log('[OvertimeService] Manager SITE - Managed Employee IDs:', managedEmployeeIds);
+                    console.log('[OvertimeService] Manager SITE - Site IDs:', managerLevel.siteIds);
+                    console.log('[OvertimeService] Manager SITE - Department ID:', managerLevel.departmentId);
+                }
                 if (managedEmployeeIds.length === 0) {
                     return {
                         data: [],
@@ -115,19 +115,54 @@ let OvertimeService = class OvertimeService {
                 }
                 where.employeeId = { in: managedEmployeeIds };
             }
-            else if (managerLevel.type) {
-                return {
-                    data: [],
-                    meta: {
-                        total: 0,
-                        page,
-                        limit,
-                        totalPages: 0,
-                    },
-                };
+            else if (managerLevel.type === 'TEAM') {
+                const employee = await this.prisma.employee.findFirst({
+                    where: { userId, tenantId },
+                    select: { teamId: true },
+                });
+                if (employee?.teamId) {
+                    const teamMembers = await this.prisma.employee.findMany({
+                        where: { teamId: employee.teamId, tenantId },
+                        select: { id: true },
+                    });
+                    where.employeeId = {
+                        in: teamMembers.map(m => m.id),
+                    };
+                }
+                else {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
+            }
+            else if (!hasViewAll && hasViewOwn) {
+                const employee = await this.prisma.employee.findFirst({
+                    where: { userId, tenantId },
+                    select: { id: true },
+                });
+                if (employee) {
+                    where.employeeId = employee.id;
+                }
+                else {
+                    return {
+                        data: [],
+                        meta: {
+                            total: 0,
+                            page,
+                            limit,
+                            totalPages: 0,
+                        },
+                    };
+                }
             }
         }
-        else if (filters?.employeeId) {
+        if (filters?.employeeId) {
             where.employeeId = filters.employeeId;
         }
         if (filters?.status) {
@@ -135,6 +170,9 @@ let OvertimeService = class OvertimeService {
         }
         if (filters?.isNightShift !== undefined) {
             where.isNightShift = filters.isNightShift;
+        }
+        if (filters?.type) {
+            where.type = filters.type;
         }
         if (filters?.startDate || filters?.endDate) {
             where.date = {};
@@ -145,32 +183,113 @@ let OvertimeService = class OvertimeService {
                 where.date.lte = new Date(filters.endDate);
             }
         }
-        const [data, total] = await Promise.all([
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[OvertimeService] Final where clause:', JSON.stringify(where, null, 2));
+            console.log('[OvertimeService] Filters:', filters);
+            console.log('[OvertimeService] Pagination:', { page, limit, skip });
+        }
+        const [data, total, allRecordsForTotal] = await Promise.all([
             this.prisma.overtime.findMany({
                 where,
                 skip,
                 take: limit,
-                include: {
+                select: {
+                    id: true,
+                    date: true,
+                    hours: true,
+                    approvedHours: true,
+                    type: true,
+                    isNightShift: true,
+                    rate: true,
+                    convertedToRecovery: true,
+                    recoveryId: true,
+                    status: true,
+                    rejectionReason: true,
+                    notes: true,
+                    approvedBy: true,
+                    approvedAt: true,
+                    createdAt: true,
+                    updatedAt: true,
                     employee: {
                         select: {
                             id: true,
                             firstName: true,
                             lastName: true,
                             matricule: true,
+                            site: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    code: true,
+                                },
+                            },
                         },
                     },
                 },
                 orderBy: { date: 'desc' },
             }),
             this.prisma.overtime.count({ where }),
+            this.prisma.overtime.findMany({
+                where,
+                select: {
+                    hours: true,
+                    approvedHours: true,
+                },
+            }),
         ]);
+        if (process.env.NODE_ENV === 'development') {
+            console.log('[OvertimeService] Found records:', data.length, 'Total:', total);
+            console.log('[OvertimeService] All records for total calculation:', allRecordsForTotal.length);
+            console.log('[OvertimeService] Record dates:', data.map((r) => ({
+                date: r.date,
+                employee: r.employee?.firstName + ' ' + r.employee?.lastName,
+                hours: r.hours
+            })));
+        }
+        const totalHours = allRecordsForTotal.reduce((sum, record) => {
+            const hoursToUse = (record.approvedHours != null && record.approvedHours !== undefined)
+                ? record.approvedHours
+                : record.hours;
+            let numHours;
+            if (typeof hoursToUse === 'object' && 'toNumber' in hoursToUse) {
+                numHours = hoursToUse.toNumber();
+            }
+            else if (typeof hoursToUse === 'string') {
+                numHours = parseFloat(hoursToUse) || 0;
+            }
+            else {
+                numHours = typeof hoursToUse === 'number' ? hoursToUse : parseFloat(String(hoursToUse)) || 0;
+            }
+            return sum + numHours;
+        }, 0);
+        const transformedData = data.map((record) => ({
+            ...record,
+            hours: typeof record.hours === 'object' && 'toNumber' in record.hours
+                ? record.hours.toNumber()
+                : typeof record.hours === 'string'
+                    ? parseFloat(record.hours)
+                    : record.hours,
+            approvedHours: record.approvedHours
+                ? (typeof record.approvedHours === 'object' && 'toNumber' in record.approvedHours
+                    ? record.approvedHours.toNumber()
+                    : typeof record.approvedHours === 'string'
+                        ? parseFloat(record.approvedHours)
+                        : record.approvedHours)
+                : null,
+            rate: typeof record.rate === 'object' && 'toNumber' in record.rate
+                ? record.rate.toNumber()
+                : typeof record.rate === 'string'
+                    ? parseFloat(record.rate)
+                    : record.rate,
+        }));
         return {
-            data,
+            data: transformedData,
             meta: {
                 total,
                 page,
                 limit,
                 totalPages: Math.ceil(total / limit),
+                totalHours,
             },
         };
     }
@@ -180,7 +299,23 @@ let OvertimeService = class OvertimeService {
                 id,
                 tenantId,
             },
-            include: {
+            select: {
+                id: true,
+                date: true,
+                hours: true,
+                approvedHours: true,
+                type: true,
+                isNightShift: true,
+                rate: true,
+                convertedToRecovery: true,
+                recoveryId: true,
+                status: true,
+                rejectionReason: true,
+                notes: true,
+                approvedBy: true,
+                approvedAt: true,
+                createdAt: true,
+                updatedAt: true,
                 employee: {
                     select: {
                         id: true,
@@ -203,15 +338,43 @@ let OvertimeService = class OvertimeService {
         if (overtime.status !== client_1.OvertimeStatus.PENDING) {
             throw new common_1.BadRequestException('Cannot update overtime that is not pending');
         }
+        const updateData = {};
+        if (dto.date)
+            updateData.date = new Date(dto.date);
+        if (dto.hours !== undefined)
+            updateData.hours = dto.hours;
+        if (dto.type) {
+            updateData.type = dto.type;
+            updateData.isNightShift = dto.type === 'NIGHT';
+        }
+        else if (dto.isNightShift !== undefined) {
+            updateData.isNightShift = dto.isNightShift;
+            updateData.type = dto.isNightShift ? 'NIGHT' : 'STANDARD';
+        }
+        if (dto.rate !== undefined)
+            updateData.rate = dto.rate;
+        if (dto.notes !== undefined)
+            updateData.notes = dto.notes;
         return this.prisma.overtime.update({
             where: { id },
-            data: {
-                ...(dto.date && { date: new Date(dto.date) }),
-                ...(dto.hours !== undefined && { hours: dto.hours }),
-                ...(dto.isNightShift !== undefined && { isNightShift: dto.isNightShift }),
-                ...(dto.rate !== undefined && { rate: dto.rate }),
-            },
-            include: {
+            data: updateData,
+            select: {
+                id: true,
+                date: true,
+                hours: true,
+                approvedHours: true,
+                type: true,
+                isNightShift: true,
+                rate: true,
+                convertedToRecovery: true,
+                recoveryId: true,
+                status: true,
+                rejectionReason: true,
+                notes: true,
+                approvedBy: true,
+                approvedAt: true,
+                createdAt: true,
+                updatedAt: true,
                 employee: {
                     select: {
                         id: true,
@@ -228,14 +391,38 @@ let OvertimeService = class OvertimeService {
         if (overtime.status !== client_1.OvertimeStatus.PENDING) {
             throw new common_1.BadRequestException('Overtime can only be approved or rejected when pending');
         }
+        if (dto.status === client_1.OvertimeStatus.REJECTED && !dto.rejectionReason?.trim()) {
+            throw new common_1.BadRequestException('Rejection reason is required when rejecting overtime');
+        }
+        const updateData = {
+            status: dto.status,
+            approvedBy: dto.status === client_1.OvertimeStatus.APPROVED ? userId : undefined,
+            approvedAt: dto.status === client_1.OvertimeStatus.APPROVED ? new Date() : undefined,
+            rejectionReason: dto.status === client_1.OvertimeStatus.REJECTED ? dto.rejectionReason : null,
+        };
+        if (dto.status === client_1.OvertimeStatus.APPROVED && dto.approvedHours !== undefined) {
+            updateData.approvedHours = dto.approvedHours;
+        }
         return this.prisma.overtime.update({
             where: { id },
-            data: {
-                status: dto.status,
-                approvedBy: dto.status === client_1.OvertimeStatus.APPROVED ? userId : undefined,
-                approvedAt: dto.status === client_1.OvertimeStatus.APPROVED ? new Date() : undefined,
-            },
-            include: {
+            data: updateData,
+            select: {
+                id: true,
+                date: true,
+                hours: true,
+                approvedHours: true,
+                type: true,
+                isNightShift: true,
+                rate: true,
+                convertedToRecovery: true,
+                recoveryId: true,
+                status: true,
+                rejectionReason: true,
+                notes: true,
+                approvedBy: true,
+                approvedAt: true,
+                createdAt: true,
+                updatedAt: true,
                 employee: {
                     select: {
                         id: true,
@@ -247,7 +434,7 @@ let OvertimeService = class OvertimeService {
             },
         });
     }
-    async convertToRecovery(tenantId, id) {
+    async convertToRecovery(tenantId, id, conversionRate, expiryDays) {
         const overtime = await this.findOne(tenantId, id);
         if (overtime.status !== client_1.OvertimeStatus.APPROVED) {
             throw new common_1.BadRequestException('Only approved overtime can be converted to recovery');
@@ -255,14 +442,34 @@ let OvertimeService = class OvertimeService {
         if (overtime.convertedToRecovery) {
             throw new common_1.BadRequestException('Overtime already converted to recovery');
         }
+        const settings = await this.prisma.tenantSettings.findUnique({
+            where: { tenantId },
+        });
+        const hoursDecimal = overtime.approvedHours || overtime.hours;
+        let hoursToConvert;
+        if (typeof hoursDecimal === 'object' && hoursDecimal !== null && 'toNumber' in hoursDecimal) {
+            hoursToConvert = hoursDecimal.toNumber();
+        }
+        else if (typeof hoursDecimal === 'string') {
+            hoursToConvert = parseFloat(hoursDecimal);
+        }
+        else {
+            hoursToConvert = Number(hoursDecimal);
+        }
+        const rate = conversionRate || Number(settings?.recoveryConversionRate || 1.0);
+        const recoveryHours = hoursToConvert * rate;
+        const expiryDaysValue = expiryDays || Number(settings?.recoveryExpiryDays || 365);
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + expiryDaysValue);
         const recovery = await this.prisma.recovery.create({
             data: {
                 tenantId,
-                employeeId: overtime.employeeId,
-                hours: overtime.hours,
+                employeeId: overtime.employee.id,
+                hours: recoveryHours,
                 source: 'OVERTIME',
                 usedHours: 0,
-                remainingHours: overtime.hours,
+                remainingHours: recoveryHours,
+                expiryDate,
             },
         });
         await this.prisma.overtime.update({
@@ -270,9 +477,82 @@ let OvertimeService = class OvertimeService {
             data: {
                 convertedToRecovery: true,
                 recoveryId: recovery.id,
+                status: client_1.OvertimeStatus.RECOVERED,
             },
         });
         return recovery;
+    }
+    async getBalance(tenantId, employeeId) {
+        const employee = await this.prisma.employee.findFirst({
+            where: {
+                id: employeeId,
+                tenantId,
+            },
+        });
+        if (!employee) {
+            throw new common_1.NotFoundException('Employee not found');
+        }
+        const overtimeRecords = await this.prisma.overtime.findMany({
+            where: {
+                tenantId,
+                employeeId,
+            },
+            select: {
+                hours: true,
+                approvedHours: true,
+                status: true,
+                convertedToRecovery: true,
+                date: true,
+            },
+        });
+        let totalRequested = 0;
+        let totalApproved = 0;
+        let totalPending = 0;
+        let totalRejected = 0;
+        let totalPaid = 0;
+        let totalRecovered = 0;
+        overtimeRecords.forEach((record) => {
+            const hours = typeof record.hours === 'object' && 'toNumber' in record.hours
+                ? record.hours.toNumber()
+                : typeof record.hours === 'string'
+                    ? parseFloat(record.hours)
+                    : record.hours;
+            const approvedHours = record.approvedHours
+                ? (typeof record.approvedHours === 'object' && 'toNumber' in record.approvedHours
+                    ? record.approvedHours.toNumber()
+                    : typeof record.approvedHours === 'string'
+                        ? parseFloat(record.approvedHours)
+                        : record.approvedHours)
+                : hours;
+            totalRequested += hours;
+            switch (record.status) {
+                case client_1.OvertimeStatus.PENDING:
+                    totalPending += hours;
+                    break;
+                case client_1.OvertimeStatus.APPROVED:
+                    totalApproved += approvedHours;
+                    break;
+                case client_1.OvertimeStatus.REJECTED:
+                    totalRejected += hours;
+                    break;
+                case client_1.OvertimeStatus.PAID:
+                    totalPaid += approvedHours;
+                    break;
+                case client_1.OvertimeStatus.RECOVERED:
+                    totalRecovered += approvedHours;
+                    break;
+            }
+        });
+        return {
+            employeeId,
+            totalRequested,
+            totalApproved,
+            totalPending,
+            totalRejected,
+            totalPaid,
+            totalRecovered,
+            availableForConversion: totalApproved - totalRecovered - totalPaid,
+        };
     }
     async remove(tenantId, id) {
         await this.findOne(tenantId, id);

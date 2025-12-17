@@ -33,6 +33,8 @@ export declare class TenantsService {
             overtimeRounding: number;
             sfptExport: boolean;
             twoLevelWorkflow: boolean;
+            recoveryConversionRate: import("@prisma/client/runtime/library").Decimal;
+            recoveryExpiryDays: number;
         };
     } & {
         id: string;
@@ -85,6 +87,8 @@ export declare class TenantsService {
                 overtimeRounding: number;
                 sfptExport: boolean;
                 twoLevelWorkflow: boolean;
+                recoveryConversionRate: import("@prisma/client/runtime/library").Decimal;
+                recoveryExpiryDays: number;
             };
         } & {
             id: string;
@@ -144,6 +148,8 @@ export declare class TenantsService {
             overtimeRounding: number;
             sfptExport: boolean;
             twoLevelWorkflow: boolean;
+            recoveryConversionRate: import("@prisma/client/runtime/library").Decimal;
+            recoveryExpiryDays: number;
         };
     } & {
         id: string;
@@ -191,6 +197,8 @@ export declare class TenantsService {
             overtimeRounding: number;
             sfptExport: boolean;
             twoLevelWorkflow: boolean;
+            recoveryConversionRate: import("@prisma/client/runtime/library").Decimal;
+            recoveryExpiryDays: number;
         };
     } & {
         id: string;
@@ -255,6 +263,8 @@ export declare class TenantsService {
         overtimeRounding?: number;
         sfptExport?: boolean;
         twoLevelWorkflow?: boolean;
+        recoveryConversionRate?: import("@prisma/client/runtime/library").Decimal;
+        recoveryExpiryDays?: number;
         legalName: any;
         displayName: any;
         country: any;
@@ -291,6 +301,8 @@ export declare class TenantsService {
             overtimeRounding: number;
             sfptExport: boolean;
             twoLevelWorkflow: boolean;
+            recoveryConversionRate: import("@prisma/client/runtime/library").Decimal;
+            recoveryExpiryDays: number;
         };
         id: string;
         createdAt: Date;
@@ -337,6 +349,8 @@ export declare class TenantsService {
             overtimeRounding: number;
             sfptExport: boolean;
             twoLevelWorkflow: boolean;
+            recoveryConversionRate: import("@prisma/client/runtime/library").Decimal;
+            recoveryExpiryDays: number;
         };
     }>;
 }

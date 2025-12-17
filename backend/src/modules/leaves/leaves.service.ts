@@ -121,32 +121,14 @@ export class LeavesService {
     const hasViewDepartment = userPermissions?.includes('leave.view_department');
     const hasViewSite = userPermissions?.includes('leave.view_site');
 
-    if (!hasViewAll && hasViewOwn && userId) {
-      // Récupérer l'employé lié à cet utilisateur
-      const employee = await this.prisma.employee.findFirst({
-        where: { userId, tenantId },
-        select: { id: true },
-      });
-
-      if (employee) {
-        where.employeeId = employee.id;
-      } else {
-        // Si pas d'employé lié, retourner vide
-        return {
-          data: [],
-          meta: {
-            total: 0,
-            page,
-            limit,
-            totalPages: 0,
-          },
-        };
-      }
-    } else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
-      // Détecter le niveau hiérarchique du manager
+    // IMPORTANT: Détecter TOUJOURS si l'utilisateur est un manager, indépendamment des permissions
+    // Cela permet aux managers régionaux de voir leurs employés même s'ils n'ont que 'leave.view_team'
+    // PRIORITÉ: Le statut de manager prime sur les permissions
+    if (userId) {
       const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
 
-      if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+      // Si l'utilisateur est un manager, appliquer le filtrage selon son niveau hiérarchique
+      if (managerLevel.type === 'DEPARTMENT') {
         // Manager de département : filtrer par les employés du département
         const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
         if (managedEmployeeIds.length === 0) {
@@ -161,8 +143,8 @@ export class LeavesService {
           };
         }
         where.employeeId = { in: managedEmployeeIds };
-      } else if (managerLevel.type === 'SITE' && hasViewSite) {
-        // Manager de site : filtrer par les employés du site
+      } else if (managerLevel.type === 'SITE') {
+        // Manager régional : filtrer par les employés du site ET département
         const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
         if (managedEmployeeIds.length === 0) {
           return {
@@ -176,7 +158,7 @@ export class LeavesService {
           };
         }
         where.employeeId = { in: managedEmployeeIds };
-      } else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+      } else if (managerLevel.type === 'TEAM') {
         // Manager d'équipe : filtrer par l'équipe de l'utilisateur
         const employee = await this.prisma.employee.findFirst({
           where: { userId, tenantId },
@@ -205,17 +187,27 @@ export class LeavesService {
             },
           };
         }
-      } else if (managerLevel.type) {
-        // Manager détecté mais pas la permission correspondante
-        return {
-          data: [],
-          meta: {
-            total: 0,
-            page,
-            limit,
-            totalPages: 0,
-          },
-        };
+      } else if (!hasViewAll && hasViewOwn) {
+        // Si pas manager et a seulement 'view_own', filtrer par son propre ID
+        const employee = await this.prisma.employee.findFirst({
+          where: { userId, tenantId },
+          select: { id: true },
+        });
+
+        if (employee) {
+          where.employeeId = employee.id;
+        } else {
+          // Si pas d'employé lié, retourner vide
+          return {
+            data: [],
+            meta: {
+              total: 0,
+              page,
+              limit,
+              totalPages: 0,
+            },
+          };
+        }
       }
     }
 
@@ -253,6 +245,13 @@ export class LeavesService {
               firstName: true,
               lastName: true,
               matricule: true,
+              site: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                },
+              },
             },
           },
           leaveType: true,
@@ -405,8 +404,15 @@ export class LeavesService {
         updateData.managerComment = dto.comment;
       }
     }
-    // HR approval
+    // HR approval - ONLY after manager approval
     else if (userRole === LegacyRole.ADMIN_RH) {
+      // IMPORTANT: RH can only approve/reject if the leave has been approved by manager first
+      if (leave.status !== LeaveStatus.MANAGER_APPROVED) {
+        throw new ForbiddenException(
+          'Vous ne pouvez pas approuver ou rejeter ce congé. Le manager doit d\'abord approuver la demande.'
+        );
+      }
+
       if (dto.status === LeaveStatus.APPROVED || dto.status === LeaveStatus.HR_APPROVED) {
         updateData.status = LeaveStatus.APPROVED;
         updateData.hrApprovedBy = userId;

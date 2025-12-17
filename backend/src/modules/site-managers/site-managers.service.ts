@@ -91,12 +91,32 @@ export class SiteManagersService {
       );
     }
 
-    // Vérifier que ce manager ne gère pas déjà un site dans un autre département
-    const otherSiteManagers = await this.prisma.siteManager.findMany({
+    // Vérifier que le manager n'est pas déjà Manager de Direction de ce département
+    const isDirectorOfDepartment = await this.prisma.department.findFirst({
       where: {
         managerId: dto.managerId,
         tenantId,
-        departmentId: { not: dto.departmentId },
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (isDirectorOfDepartment) {
+      throw new ConflictException(
+        `L'employé "${manager.firstName} ${manager.lastName}" est déjà Manager de Direction du département "${isDirectorOfDepartment.name}". ` +
+        `Un employé ne peut pas être à la fois Manager de Direction et Manager Régional.`,
+      );
+    }
+
+    // Vérifier que le manager ne gère pas déjà un AUTRE département (différent de celui-ci)
+    // Un manager régional peut gérer plusieurs sites du MÊME département
+    const differentDepartmentManagement = await this.prisma.siteManager.findFirst({
+      where: {
+        managerId: dto.managerId,
+        tenantId,
+        departmentId: { not: dto.departmentId }, // Uniquement les autres départements
       },
       include: {
         site: {
@@ -108,11 +128,12 @@ export class SiteManagersService {
       },
     });
 
-    if (otherSiteManagers.length > 0) {
-      const otherSite = otherSiteManagers[0];
+    if (differentDepartmentManagement) {
       throw new ForbiddenException(
-        `Ce manager gère déjà le site "${otherSite.site.name}" dans le département "${otherSite.department.name}". ` +
-        `Un manager régional ne peut gérer qu'un seul département.`,
+        `Ce manager gère déjà le département "${differentDepartmentManagement.department.name}" ` +
+        `dans le site "${differentDepartmentManagement.site.name}". ` +
+        `Un manager régional ne peut gérer qu'un seul département. ` +
+        `Il peut cependant gérer ce même département dans plusieurs sites.`,
       );
     }
 
@@ -298,13 +319,33 @@ export class SiteManagersService {
         );
       }
 
-      // Vérifier que le nouveau manager ne gère pas déjà un site dans un autre département
-      const otherSiteManagers = await this.prisma.siteManager.findMany({
+      // Vérifier que le nouveau manager n'est pas déjà Manager de Direction
+      const isDirectorOfDepartment = await this.prisma.department.findFirst({
+        where: {
+          managerId: dto.managerId,
+          tenantId,
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
+
+      if (isDirectorOfDepartment) {
+        throw new ConflictException(
+          `L'employé "${newManager.firstName} ${newManager.lastName}" est déjà Manager de Direction du département "${isDirectorOfDepartment.name}". ` +
+          `Un employé ne peut pas être à la fois Manager de Direction et Manager Régional.`,
+        );
+      }
+
+      // Vérifier que le nouveau manager ne gère pas déjà un AUTRE département (différent de celui-ci)
+      // Un manager régional peut gérer plusieurs sites du MÊME département
+      const differentDepartmentManagement = await this.prisma.siteManager.findMany({
         where: {
           managerId: dto.managerId,
           tenantId,
           id: { not: id }, // Exclure le SiteManager actuel
-          departmentId: { not: siteManager.departmentId },
+          departmentId: { not: siteManager.departmentId }, // Uniquement les autres départements
         },
         include: {
           site: {
@@ -316,11 +357,13 @@ export class SiteManagersService {
         },
       });
 
-      if (otherSiteManagers.length > 0) {
-        const otherSite = otherSiteManagers[0];
+      if (differentDepartmentManagement.length > 0) {
+        const otherSite = differentDepartmentManagement[0];
         throw new ForbiddenException(
-          `Ce manager gère déjà le site "${otherSite.site.name}" dans le département "${otherSite.department.name}". ` +
-          `Un manager régional ne peut gérer qu'un seul département.`,
+          `Ce manager gère déjà le département "${otherSite.department.name}" ` +
+          `dans le site "${otherSite.site.name}". ` +
+          `Un manager régional ne peut gérer qu'un seul département. ` +
+          `Il peut cependant gérer ce même département dans plusieurs sites.`,
         );
       }
     }

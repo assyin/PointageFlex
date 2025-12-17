@@ -22,7 +22,8 @@ export function useApproveOvertime() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => overtimeApi.approve(id),
+    mutationFn: ({ id, approvedHours }: { id: string; approvedHours?: number }) => 
+      overtimeApi.approve(id, approvedHours),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['overtime'] });
       toast.success('Heures supplémentaires approuvées avec succès');

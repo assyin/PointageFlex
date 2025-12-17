@@ -46,6 +46,7 @@ export class OvertimeController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('isNightShift') isNightShift?: string,
+    @Query('type') type?: string,
   ) {
     return this.overtimeService.findAll(
       user.tenantId,
@@ -57,6 +58,7 @@ export class OvertimeController {
         startDate,
         endDate,
         isNightShift: isNightShift ? isNightShift === 'true' : undefined,
+        type,
       },
       user.userId,
       user.permissions || [],
@@ -96,6 +98,13 @@ export class OvertimeController {
   @ApiOperation({ summary: 'Convert overtime to recovery hours' })
   convertToRecovery(@CurrentUser() user: any, @Param('id') id: string) {
     return this.overtimeService.convertToRecovery(user.tenantId, id);
+  }
+
+  @Get('balance/:employeeId')
+  @RequirePermissions('overtime.view_all', 'overtime.view_own')
+  @ApiOperation({ summary: 'Get overtime balance for an employee' })
+  getBalance(@CurrentUser() user: any, @Param('employeeId') employeeId: string) {
+    return this.overtimeService.getBalance(user.tenantId, employeeId);
   }
 
   @Delete(':id')

@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, Building2, Fingerprint, Calendar, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,11 +13,29 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { setUser } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
+  const [redirectUrl, setRedirectUrl] = useState('/dashboard');
+
+  // Récupérer l'URL de redirection depuis les paramètres de requête
+  useEffect(() => {
+    const redirect = searchParams?.get('redirect');
+    if (redirect && redirect !== '/login') {
+      setRedirectUrl(redirect);
+    }
+
+    // Afficher un message si la session a expiré ou si l'utilisateur n'était pas connecté
+    const message = searchParams?.get('message');
+    if (message === 'session_expired') {
+      setError('Votre session a expiré. Veuillez vous reconnecter.');
+    } else if (message === 'auth_required') {
+      setError('Vous devez être connecté pour accéder à cette page.');
+    }
+  }, [searchParams]);
 
   const [formData, setFormData] = useState({
     tenantCode: '',
@@ -45,14 +63,17 @@ export default function LoginPage() {
       // Mettre à jour le contexte Auth avec l'utilisateur et ses permissions RBAC
       setUser(response.user);
       
-      // Rediriger vers le dashboard
-      router.push('/dashboard');
-
       // Réinitialiser les tentatives échouées
       setFailedAttempts(0);
 
-      // Rediriger vers le dashboard
-      router.push('/dashboard');
+      // Vérifier si le changement de mot de passe est forcé
+      if (response.user.forcePasswordChange) {
+        // Rediriger vers la page de changement de mot de passe forcé
+        router.push('/change-password?force=true');
+      } else {
+        // Rediriger vers l'URL demandée ou le dashboard par défaut
+        router.push(redirectUrl);
+      }
     } catch (err: any) {
       // Incrémenter les tentatives échouées
       setFailedAttempts(prev => prev + 1);

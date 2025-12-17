@@ -1,5 +1,6 @@
-import { IsUUID, IsDateString, IsNumber, Min, IsBoolean, IsOptional } from 'class-validator';
+import { IsUUID, IsDateString, IsNumber, Min, IsBoolean, IsOptional, IsEnum, IsString, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { OvertimeType } from '@prisma/client';
 
 export class CreateOvertimeDto {
   @ApiProperty({ description: 'Employee ID' })
@@ -15,7 +16,16 @@ export class CreateOvertimeDto {
   @Min(0.5)
   hours: number;
 
-  @ApiPropertyOptional({ example: false, default: false })
+  @ApiPropertyOptional({ 
+    enum: OvertimeType, 
+    default: OvertimeType.STANDARD,
+    description: 'Type of overtime'
+  })
+  @IsOptional()
+  @IsEnum(OvertimeType)
+  type?: OvertimeType;
+
+  @ApiPropertyOptional({ example: false, default: false, description: 'DEPRECATED: Use type instead' })
   @IsOptional()
   @IsBoolean()
   isNightShift?: boolean;
@@ -25,4 +35,14 @@ export class CreateOvertimeDto {
   @IsNumber()
   @Min(1)
   rate?: number;
+
+  @ApiPropertyOptional({ 
+    example: 'Travail supplémentaire pour terminer le projet urgent',
+    description: 'Notes or justification for the overtime request',
+    maxLength: 500
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
 }

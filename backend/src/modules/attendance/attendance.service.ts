@@ -161,38 +161,28 @@ export class AttendanceService {
     const hasViewDepartment = userPermissions?.includes('attendance.view_department');
     const hasViewSite = userPermissions?.includes('attendance.view_site');
 
-    if (!hasViewAll && hasViewOwn && userId) {
-      // Récupérer l'employé lié à cet utilisateur
-      const employee = await this.prisma.employee.findFirst({
-        where: { userId, tenantId },
-        select: { id: true },
-      });
-
-      if (employee) {
-        where.employeeId = employee.id;
-      } else {
-        // Si pas d'employé lié, retourner tableau vide
-        return [];
-      }
-    } else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
-      // Détecter le niveau hiérarchique du manager
+    // IMPORTANT: Détecter TOUJOURS si l'utilisateur est un manager, indépendamment des permissions
+    // Cela permet aux managers régionaux de voir leurs employés même s'ils n'ont que 'attendance.view_team'
+    // PRIORITÉ: Le statut de manager prime sur les permissions
+    if (userId) {
       const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
 
-      if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+      // Si l'utilisateur est un manager, appliquer le filtrage selon son niveau hiérarchique
+      if (managerLevel.type === 'DEPARTMENT') {
         // Manager de département : filtrer par les employés du département
         const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
         if (managedEmployeeIds.length === 0) {
           return [];
         }
         where.employeeId = { in: managedEmployeeIds };
-      } else if (managerLevel.type === 'SITE' && hasViewSite) {
-        // Manager de site : filtrer par les employés du site
+      } else if (managerLevel.type === 'SITE') {
+        // Manager régional : filtrer par les employés du site ET département
         const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
         if (managedEmployeeIds.length === 0) {
           return [];
         }
         where.employeeId = { in: managedEmployeeIds };
-      } else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+      } else if (managerLevel.type === 'TEAM') {
         // Manager d'équipe : filtrer par l'équipe de l'utilisateur
         const employee = await this.prisma.employee.findFirst({
           where: { userId, tenantId },
@@ -213,9 +203,19 @@ export class AttendanceService {
           // Si pas d'équipe, retourner tableau vide
           return [];
         }
-      } else if (managerLevel.type) {
-        // Manager détecté mais pas la permission correspondante
-        return [];
+      } else if (!hasViewAll && hasViewOwn) {
+        // Si pas manager et a seulement 'view_own', filtrer par son propre ID
+        const employee = await this.prisma.employee.findFirst({
+          where: { userId, tenantId },
+          select: { id: true },
+        });
+
+        if (employee) {
+          where.employeeId = employee.id;
+        } else {
+          // Si pas d'employé lié, retourner tableau vide
+          return [];
+        }
       }
     }
 

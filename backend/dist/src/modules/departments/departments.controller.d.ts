@@ -8,6 +8,11 @@ export declare class DepartmentsController {
         _count: {
             employees: number;
         };
+        manager: {
+            id: string;
+            firstName: string;
+            lastName: string;
+        };
     } & {
         id: string;
         createdAt: Date;
@@ -21,6 +26,11 @@ export declare class DepartmentsController {
     findAll(tenantId: string): Promise<({
         _count: {
             employees: number;
+        };
+        manager: {
+            id: string;
+            firstName: string;
+            lastName: string;
         };
     } & {
         id: string;
@@ -56,6 +66,11 @@ export declare class DepartmentsController {
             matricule: string;
             position: string;
         }[];
+        manager: {
+            id: string;
+            firstName: string;
+            lastName: string;
+        };
     } & {
         id: string;
         createdAt: Date;
@@ -69,6 +84,11 @@ export declare class DepartmentsController {
     update(id: string, tenantId: string, updateDepartmentDto: UpdateDepartmentDto): Promise<{
         _count: {
             employees: number;
+        };
+        manager: {
+            id: string;
+            firstName: string;
+            lastName: string;
         };
     } & {
         id: string;

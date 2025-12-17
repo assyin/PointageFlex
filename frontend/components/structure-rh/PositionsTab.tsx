@@ -50,6 +50,7 @@ import type { Position, CreatePositionDto } from '@/lib/api/positions';
 import { Plus, Pencil, Trash2, Briefcase, Search, Filter, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { PositionsAdvancedFilters, type PositionsFilters } from './PositionsAdvancedFilters';
 
 export function PositionsTab() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -58,6 +59,8 @@ export function PositionsTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isMounted, setIsMounted] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filters, setFilters] = useState<PositionsFilters>({});
   const [formData, setFormData] = useState<CreatePositionDto>({
     name: '',
     code: '',
@@ -130,11 +133,25 @@ export function PositionsTab() {
     }
   };
 
-  const filteredPositions = positions?.filter((pos) =>
-    pos.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    pos.code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    pos.category?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPositions = positions?.filter((pos) => {
+    // Recherche principale
+    const searchLower = (filters.search || searchQuery || '').toLowerCase();
+    const matchesSearch = !searchLower || 
+      pos.name.toLowerCase().includes(searchLower) ||
+      pos.code?.toLowerCase().includes(searchLower) ||
+      pos.category?.toLowerCase().includes(searchLower);
+
+    // Filtre catégorie (depuis filtres avancés ou filtre simple)
+    const selectedCategory = filters.category || (categoryFilter === 'all' ? undefined : categoryFilter);
+    const matchesCategory = !selectedCategory || pos.category === selectedCategory;
+
+    // Filtre nombre d'employés
+    const employeeCount = pos._count?.employees || 0;
+    const matchesMinEmployees = filters.minEmployees === undefined || employeeCount >= filters.minEmployees;
+    const matchesMaxEmployees = filters.maxEmployees === undefined || employeeCount <= filters.maxEmployees;
+
+    return matchesSearch && matchesCategory && matchesMinEmployees && matchesMaxEmployees;
+  });
 
   return (
     <div className="space-y-6">
@@ -162,38 +179,42 @@ export function PositionsTab() {
         </PermissionGate>
       </div>
 
-      {/* Filters */}
+      {/* Search */}
       <Card className="border border-gray-200 shadow-sm">
         <div className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <Input
-                placeholder="Rechercher une fonction par nom, code ou catégorie..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11 border-gray-300 focus:border-purple-500 focus:ring-purple-500"
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-full sm:w-[220px] h-11 border-gray-300 focus:border-purple-500 focus:ring-purple-500">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-gray-500" />
-                  <SelectValue placeholder="Catégorie" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toutes les catégories</SelectItem>
-                {categories?.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Input
+              placeholder="Rechercher une fonction par nom, code ou catégorie..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-11 border-gray-300 focus:border-purple-500 focus:ring-purple-500"
+            />
           </div>
         </div>
       </Card>
+
+      {/* Advanced Filters */}
+      <PositionsAdvancedFilters
+        filters={filters}
+        onFiltersChange={(newFilters) => {
+          setFilters(newFilters);
+          // Synchroniser le filtre de catégorie simple avec les filtres avancés
+          if (newFilters.category) {
+            setCategoryFilter(newFilters.category);
+          } else if (!newFilters.category && categoryFilter !== 'all') {
+            setCategoryFilter('all');
+          }
+        }}
+        onReset={() => {
+          setFilters({});
+          setSearchQuery('');
+          setCategoryFilter('all');
+        }}
+        categories={categories || []}
+        isOpen={showAdvancedFilters}
+        onToggle={() => setShowAdvancedFilters(!showAdvancedFilters)}
+      />
 
       {/* Table */}
       <Card className="border border-gray-200 shadow-sm overflow-hidden">

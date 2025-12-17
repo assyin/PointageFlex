@@ -21,6 +21,7 @@ const create_employee_dto_1 = require("./dto/create-employee.dto");
 const update_employee_dto_1 = require("./dto/update-employee.dto");
 const biometric_data_dto_1 = require("./dto/biometric-data.dto");
 const bulk_assign_site_dto_1 = require("./dto/bulk-assign-site.dto");
+const create_user_account_dto_1 = require("./dto/create-user-account.dto");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const permissions_decorator_1 = require("../../common/decorators/permissions.decorator");
@@ -30,8 +31,8 @@ let EmployeesController = class EmployeesController {
     constructor(employeesService) {
         this.employeesService = employeesService;
     }
-    create(tenantId, createEmployeeDto) {
-        return this.employeesService.create(tenantId, createEmployeeDto);
+    create(tenantId, currentUser, createEmployeeDto) {
+        return this.employeesService.create(tenantId, createEmployeeDto, currentUser?.userId);
     }
     findAll(user, tenantId, siteId, departmentId, teamId, isActive, search) {
         return this.employeesService.findAll(tenantId, {
@@ -61,8 +62,17 @@ let EmployeesController = class EmployeesController {
     update(tenantId, id, updateEmployeeDto) {
         return this.employeesService.update(tenantId, id, updateEmployeeDto);
     }
+    createUserAccount(tenantId, currentUser, id, createUserAccountDto) {
+        return this.employeesService.createUserAccount(tenantId, id, createUserAccountDto, currentUser?.userId);
+    }
+    getCredentials(tenantId, id) {
+        return this.employeesService.getCredentials(tenantId, id);
+    }
     removeAll(tenantId) {
         return this.employeesService.deleteAll(tenantId);
+    }
+    deleteUserAccount(tenantId, id) {
+        return this.employeesService.deleteUserAccount(tenantId, id);
     }
     remove(tenantId, id) {
         return this.employeesService.remove(tenantId, id);
@@ -102,9 +112,10 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Employee created successfully' }),
     (0, swagger_1.ApiResponse)({ status: 409, description: 'Employee with this matricule already exists' }),
     __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
-    __param(1, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, create_employee_dto_1.CreateEmployeeDto]),
+    __metadata("design:paramtypes", [String, Object, create_employee_dto_1.CreateEmployeeDto]),
     __metadata("design:returntype", void 0)
 ], EmployeesController.prototype, "create", null);
 __decorate([
@@ -169,6 +180,33 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], EmployeesController.prototype, "update", null);
 __decorate([
+    (0, common_1.Post)(':id/create-account'),
+    (0, permissions_decorator_1.RequirePermissions)('employee.update', 'employee.create'),
+    (0, swagger_1.ApiOperation)({ summary: 'Create user account for existing employee' }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'User account created successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Employee not found' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'Employee already has an account' }),
+    __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, common_1.Param)('id')),
+    __param(3, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, String, create_user_account_dto_1.CreateUserAccountDto]),
+    __metadata("design:returntype", void 0)
+], EmployeesController.prototype, "createUserAccount", null);
+__decorate([
+    (0, common_1.Get)(':id/credentials'),
+    (0, permissions_decorator_1.RequirePermissions)('employee.view_all', 'employee.view'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get user account credentials for employee' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Credentials retrieved successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Employee not found or credentials expired' }),
+    __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], EmployeesController.prototype, "getCredentials", null);
+__decorate([
     (0, common_1.Delete)('all'),
     (0, permissions_decorator_1.RequirePermissions)('employee.delete'),
     (0, swagger_1.ApiOperation)({ summary: 'Delete all employees for tenant' }),
@@ -178,6 +216,18 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], EmployeesController.prototype, "removeAll", null);
+__decorate([
+    (0, common_1.Delete)(':id/user-account'),
+    (0, permissions_decorator_1.RequirePermissions)('employee.update', 'employee.delete'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete user account for employee (without deleting employee)' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'User account deleted successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Employee not found or has no user account' }),
+    __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], EmployeesController.prototype, "deleteUserAccount", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, permissions_decorator_1.RequirePermissions)('employee.delete'),

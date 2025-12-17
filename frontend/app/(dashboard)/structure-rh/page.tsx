@@ -77,10 +77,6 @@ export default function StructureRHPage() {
             <TabsContent value="stats" className="mt-0 space-y-6">
               <StatisticsTab />
             </TabsContent>
-
-            <TabsContent value="managers" className="mt-0 space-y-6">
-              <ManagersTab />
-            </TabsContent>
           </div>
         </Tabs>
       </Card>

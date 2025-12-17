@@ -101,4 +101,14 @@ export class CreateEmployeeDto {
   @IsUUID()
   @IsOptional()
   userId?: string;
+
+  @ApiPropertyOptional({ description: 'Créer un compte d\'accès automatiquement', default: false })
+  @IsBoolean()
+  @IsOptional()
+  createUserAccount?: boolean;
+
+  @ApiPropertyOptional({ description: 'Email pour le compte (si différent de employee.email)' })
+  @IsEmail()
+  @IsOptional()
+  userEmail?: string;
 }

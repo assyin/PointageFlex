@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, parseISO, isWithinInterval, startOfDay, endOfDay, differenceInDays, isAfter } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
@@ -29,6 +29,7 @@ import { useTeams } from '@/lib/hooks/useTeams';
 import { useEmployees } from '@/lib/hooks/useEmployees';
 import { useSites } from '@/lib/hooks/useSites';
 import { ImportSchedulesModal } from '@/components/schedules/ImportSchedulesModal';
+import { SearchableEmployeeSelect } from '@/components/schedules/SearchableEmployeeSelect';
 import { formatErrorAlert } from '@/lib/utils/errorMessages';
 import { toast } from 'sonner';
 import { schedulesApi, type CreateScheduleDto } from '@/lib/api/schedules';
@@ -157,8 +158,16 @@ export default function ShiftsPlanningPage() {
 
   const { data: shiftsData, isLoading: shiftsLoading } = useShifts();
   const { data: teamsData } = useTeams();
-  const { data: employeesData } = useEmployees();
+  const { data: employeesData, isLoading: employeesLoading } = useEmployees();
   const { data: sitesResponse, isLoading: sitesLoading } = useSites();
+  
+  // Debug: Log employeesData structure (moved to avoid setState during render)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && employeesData) {
+      console.log('Employees Data:', employeesData);
+      console.log('Employees Loading:', employeesLoading);
+    }
+  }, [employeesData, employeesLoading]);
   
   // Extract sites from response
   const sitesData = sitesResponse?.data || sitesResponse || [];
@@ -999,6 +1008,7 @@ export default function ShiftsPlanningPage() {
             }}
             shiftsData={shiftsData}
             employeesData={employeesData}
+            employeesLoading={employeesLoading}
             teamsData={teamsData}
             createScheduleMutation={createScheduleMutation}
           />
@@ -1026,6 +1036,7 @@ function CreateScheduleModalComponent({
   onSuccess,
   shiftsData,
   employeesData,
+  employeesLoading,
   teamsData,
   createScheduleMutation,
 }: {
@@ -1033,6 +1044,7 @@ function CreateScheduleModalComponent({
   onSuccess: () => void;
   shiftsData: any;
   employeesData: any;
+  employeesLoading?: boolean;
   teamsData: any;
   createScheduleMutation: any;
 }) {
@@ -1047,16 +1059,83 @@ function CreateScheduleModalComponent({
     notes: '',
   });
   const [scheduleType, setScheduleType] = useState<'single' | 'range'>('single');
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  // Fonction de validation complète
+  const validateSchedule = (): boolean => {
+    const errors: string[] = [];
+
+    // Validation champs obligatoires
+    if (!formData.employeeId) errors.push('L\'employé est obligatoire');
+    if (!formData.shiftId) errors.push('Le shift est obligatoire');
+    if (!formData.dateDebut) errors.push('La date de début est obligatoire');
+    
+    if (scheduleType === 'range' && !formData.dateFin) {
+      errors.push('La date de fin est obligatoire pour un intervalle');
+    }
+
+    // Validation dates
+    if (formData.dateDebut && formData.dateFin) {
+      const start = parseISO(formData.dateDebut);
+      const end = parseISO(formData.dateFin);
+      
+      if (isAfter(start, end)) {
+        errors.push('La date de fin doit être supérieure ou égale à la date de début');
+      }
+      
+      const daysDiff = differenceInDays(end, start);
+      if (daysDiff > 365) {
+        errors.push('L\'intervalle ne peut pas dépasser 365 jours');
+      }
+    }
+
+    // Validation heures personnalisées
+    if (formData.customStartTime && formData.customEndTime) {
+      const [startH, startM] = formData.customStartTime.split(':').map(Number);
+      const [endH, endM] = formData.customEndTime.split(':').map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
+      
+      if (endMinutes <= startMinutes) {
+        errors.push('L\'heure de fin doit être supérieure à l\'heure de début');
+      }
+    }
+
+    // Si une seule heure est fournie, c'est une erreur
+    if ((formData.customStartTime && !formData.customEndTime) || 
+        (!formData.customStartTime && formData.customEndTime)) {
+      errors.push('Si vous personnalisez les heures, vous devez fournir l\'heure de début ET l\'heure de fin');
+    }
+
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
+  // Calculer le nombre de jours qui seront créés (pour prévisualisation)
+  const previewDates = useMemo(() => {
+    if (!formData.dateDebut) return [];
+    
+    if (scheduleType === 'range' && formData.dateFin) {
+      try {
+        const start = parseISO(formData.dateDebut);
+        const end = parseISO(formData.dateFin);
+        if (!isAfter(start, end)) {
+          return eachDayOfInterval({ start, end });
+        }
+      } catch (e) {
+        return [];
+      }
+    }
+    
+    return [parseISO(formData.dateDebut)];
+  }, [formData.dateDebut, formData.dateFin, scheduleType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.employeeId || !formData.shiftId || !formData.dateDebut) {
-      toast.error('Veuillez remplir tous les champs obligatoires');
-      return;
-    }
-
-    if (scheduleType === 'range' && !formData.dateFin) {
-      toast.error('Veuillez sélectionner une date de fin');
+    
+    // Validation avant soumission
+    if (!validateSchedule()) {
+      validationErrors.forEach(error => toast.error(error));
       return;
     }
 
@@ -1090,21 +1169,26 @@ function CreateScheduleModalComponent({
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
                       <div>
-                        <Label htmlFor="employeeId">Employé *</Label>
-              <select
-                id="employeeId"
-                required
-                value={formData.employeeId}
-                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                className="w-full border border-border rounded-md px-3 py-2 text-sm"
-                        >
-                          <option value="">Sélectionner un employé</option>
-                {employeesData?.data?.map((emp: any) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.firstName} {emp.lastName} ({emp.matricule})
-                              </option>
-                ))}
-              </select>
+                        <SearchableEmployeeSelect
+                          value={formData.employeeId}
+                          onChange={(value) => {
+                            setFormData({ ...formData, employeeId: value });
+                            setValidationErrors([]);
+                          }}
+                          employees={
+                            // Gérer différentes structures de données
+                            Array.isArray(employeesData)
+                              ? employeesData.filter((emp: any) => emp.isActive !== false) // Filtrer les employés actifs
+                              : employeesData?.data
+                              ? employeesData.data.filter((emp: any) => emp.isActive !== false)
+                              : []
+                          }
+                          isLoading={employeesLoading || false}
+                          placeholder="Rechercher un employé par nom ou matricule..."
+                          label="Employé"
+                          required
+                          error={validationErrors.find((e) => e.includes('employé'))}
+                        />
                       </div>
 
                       <div>
@@ -1170,9 +1254,30 @@ function CreateScheduleModalComponent({
                               type="date"
                   required={scheduleType === 'range'}
                   value={formData.dateFin}
-                  onChange={(e) => setFormData({ ...formData, dateFin: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, dateFin: e.target.value });
+                    setValidationErrors([]); // Réinitialiser les erreurs lors de la modification
+                  }}
                   min={formData.dateDebut}
                 />
+                            {formData.dateDebut && formData.dateFin && (
+                              <p className="text-xs text-text-secondary mt-1">
+                                {(() => {
+                                  try {
+                                    const start = parseISO(formData.dateDebut);
+                                    const end = parseISO(formData.dateFin);
+                                    const days = differenceInDays(end, start) + 1;
+                                    if (days > 0 && days <= 365) {
+                                      return `${days} jour(s) seront créé(s)`;
+                                    } else if (days > 365) {
+                                      return <span className="text-red-600">⚠️ Maximum 365 jours autorisés</span>;
+                                    }
+                                  } catch (e) {
+                                    return null;
+                                  }
+                                })()}
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -1200,8 +1305,14 @@ function CreateScheduleModalComponent({
                   id="customStartTime"
                         type="time"
                   value={formData.customStartTime}
-                  onChange={(e) => setFormData({ ...formData, customStartTime: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, customStartTime: e.target.value });
+                    setValidationErrors([]); // Réinitialiser les erreurs lors de la modification
+                  }}
                       />
+                      <p className="text-xs text-text-secondary mt-1">
+                        Optionnel. Si non renseigné, les heures du shift seront utilisées.
+                      </p>
                     </div>
                     <div>
                 <Label htmlFor="customEndTime">Heure de fin personnalisée</Label>
@@ -1209,10 +1320,38 @@ function CreateScheduleModalComponent({
                   id="customEndTime"
                         type="time"
                   value={formData.customEndTime}
-                  onChange={(e) => setFormData({ ...formData, customEndTime: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, customEndTime: e.target.value });
+                    setValidationErrors([]); // Réinitialiser les erreurs lors de la modification
+                  }}
                       />
+                      <p className="text-xs text-text-secondary mt-1">
+                        Optionnel. Doit être supérieure à l'heure de début.
+                      </p>
                     </div>
                   </div>
+                  {formData.customStartTime && formData.customEndTime && (
+                    <div className="text-xs text-text-secondary">
+                      {(() => {
+                        const [startH, startM] = formData.customStartTime.split(':').map(Number);
+                        const [endH, endM] = formData.customEndTime.split(':').map(Number);
+                        const startMinutes = startH * 60 + startM;
+                        const endMinutes = endH * 60 + endM;
+                        const duration = endMinutes - startMinutes;
+                        const hours = Math.floor(duration / 60);
+                        const minutes = duration % 60;
+                        return endMinutes > startMinutes ? (
+                          <span className="text-success" style={{ color: '#28A745' }}>
+                            Durée : {hours}h{minutes > 0 ? `${minutes}min` : ''}
+                          </span>
+                        ) : (
+                          <span className="text-red-600">
+                            ⚠️ L'heure de fin doit être supérieure à l'heure de début
+                          </span>
+                        );
+                      })()}
+                    </div>
+                  )}
 
                   <div>
               <Label htmlFor="notes">Notes</Label>
@@ -1223,6 +1362,68 @@ function CreateScheduleModalComponent({
                 placeholder="Notes optionnelles..."
                     />
                   </div>
+
+                  {/* Prévisualisation */}
+                  {formData.employeeId && formData.shiftId && formData.dateDebut && (
+                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Eye className="h-4 w-4 text-primary" />
+                        <Label className="text-sm font-semibold">Prévisualisation</Label>
+                      </div>
+                      <div className="text-sm text-text-secondary space-y-1">
+                        <p>
+                          <span className="font-medium">{previewDates.length}</span> jour(s) seront créé(s)
+                        </p>
+                        {previewDates.length > 0 && previewDates.length <= 10 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-text-secondary mb-1">Dates concernées :</p>
+                            <ul className="list-disc list-inside space-y-0.5 text-xs">
+                              {previewDates.map((date, idx) => (
+                                <li key={idx}>
+                                  {format(date, 'dd/MM/yyyy', { locale: fr })}
+                                  {shiftsData?.data?.find((s: any) => s.id === formData.shiftId) && (
+                                    <span className="ml-2 text-text-secondary">
+                                      - {shiftsData.data.find((s: any) => s.id === formData.shiftId).name}
+                                    </span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {previewDates.length > 10 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-text-secondary">
+                              {format(previewDates[0], 'dd/MM/yyyy', { locale: fr })} au{' '}
+                              {format(previewDates[previewDates.length - 1], 'dd/MM/yyyy', { locale: fr })}
+                            </p>
+                          </div>
+                        )}
+                        {formData.customStartTime && formData.customEndTime && (
+                          <p className="mt-2 text-xs">
+                            Heures personnalisées : {formData.customStartTime} - {formData.customEndTime}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Affichage des erreurs de validation */}
+                  {validationErrors.length > 0 && (
+                    <Alert variant="danger" className="mt-4">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        <div className="space-y-1">
+                          <p className="font-semibold">Erreurs de validation :</p>
+                          <ul className="list-disc list-inside space-y-0.5 text-sm">
+                            {validationErrors.map((error, idx) => (
+                              <li key={idx}>{error}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={onClose}>

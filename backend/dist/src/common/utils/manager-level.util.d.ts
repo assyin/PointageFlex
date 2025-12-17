@@ -2,7 +2,7 @@ import { PrismaService } from 'src/database/prisma.service';
 export interface ManagerLevel {
     type: 'DEPARTMENT' | 'SITE' | 'TEAM' | null;
     departmentId?: string;
-    siteId?: string;
+    siteIds?: string[];
     teamId?: string;
 }
 export declare function getManagerLevel(prisma: PrismaService, userId: string, tenantId: string): Promise<ManagerLevel>;

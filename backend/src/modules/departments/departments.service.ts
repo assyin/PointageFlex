@@ -19,6 +19,13 @@ export class DepartmentsService {
             employees: true,
           },
         },
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
       },
     });
   }
@@ -30,6 +37,13 @@ export class DepartmentsService {
         _count: {
           select: {
             employees: true,
+          },
+        },
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
           },
         },
       },
@@ -44,6 +58,13 @@ export class DepartmentsService {
         _count: {
           select: {
             employees: true,
+          },
+        },
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
           },
         },
         employees: {
@@ -78,6 +99,13 @@ export class DepartmentsService {
         _count: {
           select: {
             employees: true,
+          },
+        },
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
           },
         },
       },

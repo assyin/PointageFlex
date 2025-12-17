@@ -302,4 +302,10 @@ export declare class RolesService {
         isSystem: boolean;
     }>;
     initializeTenantRoles(tenantId: string): Promise<void>;
+    updateAllManagerRoles(): Promise<{
+        total: number;
+        updated: number;
+        failed: number;
+        results: any[];
+    }>;
 }

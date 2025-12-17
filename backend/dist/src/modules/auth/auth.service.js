@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var AuthService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
@@ -15,10 +16,11 @@ const jwt_1 = require("@nestjs/jwt");
 const bcrypt = require("bcrypt");
 const prisma_service_1 = require("../../database/prisma.service");
 const client_1 = require("@prisma/client");
-let AuthService = class AuthService {
+let AuthService = AuthService_1 = class AuthService {
     constructor(prisma, jwtService) {
         this.prisma = prisma;
         this.jwtService = jwtService;
+        this.logger = new common_1.Logger(AuthService_1.name);
     }
     async register(dto) {
         const existingUser = await this.prisma.user.findFirst({
@@ -105,75 +107,116 @@ let AuthService = class AuthService {
         };
     }
     async login(dto) {
-        const user = await this.prisma.user.findFirst({
-            where: {
-                email: dto.email.toLowerCase().trim(),
-            },
-            select: {
-                id: true,
-                email: true,
-                password: true,
-                firstName: true,
-                lastName: true,
-                role: true,
-                tenantId: true,
-                isActive: true,
-            },
-        });
-        if (!user) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
-        }
-        if (!user.isActive) {
-            throw new common_1.UnauthorizedException('Account is disabled');
-        }
-        const isPasswordValid = await bcrypt.compare(dto.password, user.password);
-        if (!isPasswordValid) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
-        }
-        await this.prisma.user.update({
-            where: { id: user.id },
-            data: { lastLoginAt: new Date() },
-        });
-        const tenantId = user.tenantId;
-        const userTenantRoles = tenantId
-            ? await this.prisma.userTenantRole.findMany({
+        try {
+            const user = await this.prisma.user.findFirst({
                 where: {
-                    userId: user.id,
-                    tenantId,
+                    email: dto.email.toLowerCase().trim(),
+                },
+                select: {
+                    id: true,
+                    email: true,
+                    password: true,
+                    firstName: true,
+                    lastName: true,
+                    role: true,
+                    tenantId: true,
                     isActive: true,
                 },
-                include: {
-                    role: {
+            });
+            if (!user) {
+                throw new common_1.UnauthorizedException('Invalid credentials');
+            }
+            if (!user.isActive) {
+                throw new common_1.UnauthorizedException('Account is disabled');
+            }
+            const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+            if (!isPasswordValid) {
+                throw new common_1.UnauthorizedException('Invalid credentials');
+            }
+            try {
+                await this.prisma.user.update({
+                    where: { id: user.id },
+                    data: { lastLoginAt: new Date() },
+                });
+            }
+            catch (error) {
+                this.logger.warn(`Failed to update lastLoginAt for user ${user.id}: ${error.message}`);
+            }
+            const tenantId = user.tenantId;
+            let roles = [];
+            let permissions = new Set();
+            try {
+                const userTenantRoles = tenantId
+                    ? await this.prisma.userTenantRole.findMany({
+                        where: {
+                            userId: user.id,
+                            tenantId,
+                            isActive: true,
+                        },
                         include: {
-                            permissions: {
+                            role: {
                                 include: {
-                                    permission: true,
+                                    permissions: {
+                                        include: {
+                                            permission: true,
+                                        },
+                                    },
                                 },
                             },
                         },
-                    },
-                },
-            })
-            : [];
-        const roles = userTenantRoles.map((utr) => utr.role.code);
-        const permissions = new Set();
-        userTenantRoles.forEach((utr) => {
-            utr.role.permissions.forEach((rp) => {
-                if (rp.permission.isActive) {
-                    permissions.add(rp.permission.code);
+                    })
+                    : [];
+                roles = userTenantRoles
+                    .filter((utr) => utr.role && utr.role.code)
+                    .map((utr) => utr.role.code);
+                userTenantRoles.forEach((utr) => {
+                    if (utr.role && utr.role.permissions) {
+                        utr.role.permissions.forEach((rp) => {
+                            if (rp.permission && rp.permission.isActive && rp.permission.code) {
+                                permissions.add(rp.permission.code);
+                            }
+                        });
+                    }
+                });
+            }
+            catch (error) {
+                this.logger.error(`Error fetching user roles: ${error.message}`);
+                if (user.role) {
+                    roles = [user.role];
                 }
-            });
-        });
-        const tokens = await this.generateTokens(user);
-        const { password, ...userWithoutPassword } = user;
-        return {
-            ...tokens,
-            user: {
-                ...userWithoutPassword,
-                roles: Array.from(roles),
-                permissions: Array.from(permissions),
-            },
-        };
+            }
+            const tokens = await this.generateTokens(user);
+            const { password, ...userWithoutPassword } = user;
+            let forcePasswordChange = false;
+            try {
+                const result = await this.prisma.$queryRaw `
+          SELECT "forcePasswordChange" FROM "User" WHERE id = ${user.id} LIMIT 1
+        `.catch(() => null);
+                if (result && result.length > 0 && result[0]?.forcePasswordChange !== undefined) {
+                    forcePasswordChange = result[0].forcePasswordChange;
+                }
+            }
+            catch (error) {
+                forcePasswordChange = false;
+            }
+            return {
+                ...tokens,
+                user: {
+                    ...userWithoutPassword,
+                    roles: Array.from(roles),
+                    permissions: Array.from(permissions),
+                    forcePasswordChange,
+                },
+            };
+        }
+        catch (error) {
+            this.logger.error(`Login error: ${error.message}`);
+            this.logger.error(error.stack);
+            if (error instanceof common_1.UnauthorizedException) {
+                throw error;
+            }
+            throw new common_1.UnauthorizedException('Login failed. Please try again.');
+        }
     }
     async refreshTokens(userId) {
         const user = await this.prisma.user.findUnique({
@@ -222,6 +265,17 @@ let AuthService = class AuthService {
             });
         });
         const tokens = await this.generateTokens(user);
+        let forcePasswordChange = false;
+        try {
+            const userWithForcePassword = await this.prisma.user.findUnique({
+                where: { id: user.id },
+                select: { forcePasswordChange: true },
+            });
+            forcePasswordChange = userWithForcePassword?.forcePasswordChange || false;
+        }
+        catch (error) {
+            forcePasswordChange = false;
+        }
         return {
             ...tokens,
             user: {
@@ -233,6 +287,7 @@ let AuthService = class AuthService {
                 tenantId: user.tenantId,
                 roles: Array.from(roles),
                 permissions: Array.from(permissions),
+                forcePasswordChange,
             },
         };
     }
@@ -260,7 +315,7 @@ let AuthService = class AuthService {
     }
 };
 exports.AuthService = AuthService;
-exports.AuthService = AuthService = __decorate([
+exports.AuthService = AuthService = AuthService_1 = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         jwt_1.JwtService])

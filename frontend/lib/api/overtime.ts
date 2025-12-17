@@ -62,18 +62,18 @@ export const overtimeApi = {
     return response.data;
   },
 
-  approve: async (id: string) => {
+  approve: async (id: string, approvedHours?: number) => {
     const response = await apiClient.post(`/overtime/${id}/approve`, {
       status: 'APPROVED',
+      ...(approvedHours !== undefined && { approvedHours }),
     });
     return response.data;
   },
 
   reject: async (id: string, reason: string) => {
-    // Note: Le backend n'accepte que le status pour l'instant
-    // La raison pourrait être stockée dans un champ notes ou rejectionReason si ajouté au schéma
     const response = await apiClient.post(`/overtime/${id}/approve`, {
       status: 'REJECTED',
+      rejectionReason: reason,
     });
     return response.data;
   },

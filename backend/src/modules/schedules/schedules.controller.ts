@@ -26,12 +26,13 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator';
 import { LegacyRole } from '@prisma/client';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { PermissionsGuard } from '../../common/guards/permissions.guard';
 
 
 @ApiTags('Schedules')
 @Controller('schedules')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, PermissionsGuard)
 export class SchedulesController {
   constructor(
     private schedulesService: SchedulesService,

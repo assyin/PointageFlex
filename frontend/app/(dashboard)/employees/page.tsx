@@ -7,15 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, Search, Edit, Trash2, User, Mail, Phone, Upload, Download, FileSpreadsheet, XCircle, ChevronLeft, ChevronRight, Building2, X, UserCircle, Briefcase, Calendar } from 'lucide-react';
-import { useEmployees, useCreateEmployee, useUpdateEmployee, useDeleteEmployee, useDeleteAllEmployees } from '@/lib/hooks/useEmployees';
+import { Plus, Search, Edit, Trash2, User, Phone, Upload, Download, FileSpreadsheet, XCircle, ChevronLeft, ChevronRight, Building2, X, UserCircle, Briefcase, Calendar, UserPlus, Key, Eye, Copy, Check, Power, PowerOff } from 'lucide-react';
+import { useEmployees, useCreateEmployee, useUpdateEmployee, useDeleteEmployee, useDeleteAllEmployees, useCreateUserAccount, useGetCredentials, useDeleteUserAccount } from '@/lib/hooks/useEmployees';
 import { useSites } from '@/lib/hooks/useSites';
 import { useDepartments } from '@/lib/hooks/useDepartments';
 import { usePositions } from '@/lib/hooks/usePositions';
 import { ImportExcelModal } from '@/components/employees/ImportExcelModal';
+import { AdvancedFilters } from '@/components/employees/AdvancedFilters';
 import { PermissionGate } from '@/components/auth/PermissionGate';
 import { toast } from 'sonner';
 import apiClient from '@/lib/api/client';
+import type { EmployeeFilters } from '@/lib/api/employees';
 
 export default function EmployeesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -27,6 +29,8 @@ export default function EmployeesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isMounted, setIsMounted] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filters, setFilters] = useState<EmployeeFilters>({});
   const [formData, setFormData] = useState({
     matricule: '',
     firstName: '',
@@ -38,9 +42,43 @@ export default function EmployeesPage() {
     siteId: '',
     departmentId: '',
     hireDate: new Date().toISOString().split('T')[0],
+    createUserAccount: false,
+    userEmail: '',
   });
 
-  const { data: employees, isLoading, error, refetch } = useEmployees();
+  // Construire les filtres pour l'API
+  const apiFilters: EmployeeFilters = useMemo(() => {
+    const apiFilter: EmployeeFilters = {
+      ...filters,
+    };
+    
+    // Si searchQuery est défini, l'ajouter aux filtres
+    if (searchQuery.trim()) {
+      apiFilter.search = searchQuery.trim();
+    }
+    
+    // Convertir isActive en boolean si défini
+    if (apiFilter.isActive !== undefined) {
+      // isActive est déjà un boolean, pas besoin de conversion
+    }
+    
+    // Nettoyer les valeurs vides et ne pas inclure page/limit dans les query params
+    // car le backend ne les gère pas directement
+    Object.keys(apiFilter).forEach((key) => {
+      const filterKey = key as keyof EmployeeFilters;
+      if (apiFilter[filterKey] === '' || apiFilter[filterKey] === undefined) {
+        delete apiFilter[filterKey];
+      }
+    });
+    
+    // Retirer page et limit car le backend ne les gère pas dans les query params
+    delete apiFilter.page;
+    delete apiFilter.limit;
+    
+    return apiFilter;
+  }, [filters, searchQuery]);
+
+  const { data: employees, isLoading, error, refetch } = useEmployees(apiFilters);
   const { data: sitesData } = useSites();
   const { data: departmentsData } = useDepartments();
   const { data: positionsData } = usePositions();
@@ -48,6 +86,13 @@ export default function EmployeesPage() {
   const updateMutation = useUpdateEmployee();
   const deleteMutation = useDeleteEmployee();
   const deleteAllMutation = useDeleteAllEmployees();
+  const createAccountMutation = useCreateUserAccount();
+  const getCredentialsMutation = useGetCredentials();
+  const deleteUserAccountMutation = useDeleteUserAccount();
+  
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [credentials, setCredentials] = useState<{ email: string; password: string; expiresAt: string; viewCount: number } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Extraire les tableaux des réponses API (qui peuvent être { data: [...], total: number } ou directement un tableau)
   // Utiliser useMemo pour éviter les recalculs et les problèmes de rendu
@@ -105,6 +150,8 @@ export default function EmployeesPage() {
       siteId: '',
       departmentId: '',
       hireDate: new Date().toISOString().split('T')[0],
+      createUserAccount: false,
+      userEmail: '',
     });
   };
 
@@ -159,7 +206,26 @@ export default function EmployeesPage() {
       siteId: '',
       departmentId: '',
       hireDate: new Date().toISOString().split('T')[0],
+      createUserAccount: false,
+      userEmail: '',
     });
+  };
+
+  const handleToggleActive = async (employee: any) => {
+    const newStatus = !employee.isActive;
+    const statusText = newStatus ? 'actif' : 'inactif';
+    
+    if (confirm(`Êtes-vous sûr de vouloir ${newStatus ? 'activer' : 'désactiver'} l'employé ${employee.firstName} ${employee.lastName} ?`)) {
+      try {
+        await updateMutation.mutateAsync({
+          id: employee.id,
+          data: { isActive: newStatus },
+        });
+        toast.success(`L'employé a été marqué comme ${statusText}`);
+      } catch (error) {
+        // Error is already handled by the mutation
+      }
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -185,6 +251,25 @@ export default function EmployeesPage() {
         refetch();
       }
     }
+  };
+
+  const handleViewCredentials = async (employeeId: string) => {
+    try {
+      const creds = await getCredentialsMutation.mutateAsync(employeeId);
+      setCredentials(creds);
+      setShowCredentialsModal(true);
+    } catch (error) {
+      // Error is already handled by the mutation
+    }
+  };
+
+  const handleCopyCredentials = () => {
+    if (!credentials) return;
+    const text = `Email: ${credentials.email}\nMot de passe: ${credentials.password}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success('Identifiants copiés dans le presse-papier');
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleExportExcel = async () => {
@@ -216,27 +301,41 @@ export default function EmployeesPage() {
     }
   };
 
-  const filteredEmployees = Array.isArray(employees)
-    ? employees.filter((emp: any) =>
-        searchQuery === '' ||
-        emp.matricule?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.lastName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.region?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
+  // Extraire les employés de la réponse API (peut être un tableau ou { data: [...], total: number })
+  const employeesList = useMemo(() => {
+    if (!employees) return [];
+    if (Array.isArray(employees)) return employees;
+    if (employees?.data && Array.isArray(employees.data)) return employees.data;
+    return [];
+  }, [employees]);
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+  const totalCount = useMemo(() => {
+    if (!employees) return 0;
+    if (Array.isArray(employees)) return employees.length;
+    if (employees?.total !== undefined) return employees.total;
+    if (employees?.data && Array.isArray(employees.data)) return employees.data.length;
+    return 0;
+  }, [employees]);
+
+  // Pagination logic - gérée côté client sur les résultats filtrés
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedEmployees = filteredEmployees.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + itemsPerPage, totalCount);
+  const paginatedEmployees = employeesList.slice(startIndex, endIndex);
 
-  // Reset to first page when search query changes
+  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, filters]);
+
+  const handleFiltersChange = (newFilters: EmployeeFilters) => {
+    setFilters(newFilters);
+  };
+
+  const handleResetFilters = () => {
+    setFilters({});
+    setSearchQuery('');
+  };
 
   // Fix hydration error by ensuring consistent initial render
   useEffect(() => {
@@ -251,15 +350,17 @@ export default function EmployeesPage() {
       <div className="space-y-6">
         {/* Actions Bar */}
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
-            <Input
-              type="text"
-              placeholder="Rechercher un employé..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 w-64"
-            />
+          <div className="flex items-center gap-3 flex-1 min-w-[300px]">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
+              <Input
+                type="text"
+                placeholder="Rechercher un employé..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 w-full"
+              />
+            </div>
           </div>
 
           <div className="flex gap-2">
@@ -267,7 +368,7 @@ export default function EmployeesPage() {
               <Button
                 variant="outline"
                 onClick={handleDeleteAll}
-                disabled={deleteAllMutation.isPending || !Array.isArray(employees) || employees.length === 0}
+                disabled={deleteAllMutation.isPending || totalCount === 0}
                 className="text-red-600 hover:text-red-700 hover:bg-red-50"
               >
                 <XCircle className="h-4 w-4 mr-2" />
@@ -278,7 +379,7 @@ export default function EmployeesPage() {
               <Button
                 variant="outline"
                 onClick={handleExportExcel}
-                disabled={isExporting || !Array.isArray(employees) || employees.length === 0}
+                disabled={isExporting || totalCount === 0}
               >
                 <Download className="h-4 w-4 mr-2" />
                 {isExporting ? 'Export en cours...' : 'Exporter Excel'}
@@ -299,6 +400,17 @@ export default function EmployeesPage() {
           </div>
         </div>
 
+        {/* Advanced Filters */}
+        <AdvancedFilters
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          onReset={handleResetFilters}
+          sites={sites}
+          departments={departments}
+          isOpen={showAdvancedFilters}
+          onToggle={() => setShowAdvancedFilters(!showAdvancedFilters)}
+        />
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
@@ -307,7 +419,7 @@ export default function EmployeesPage() {
                 <div>
                   <p className="text-sm font-medium text-text-secondary">Total employés</p>
                   <p className="text-2xl font-bold text-text-primary mt-1">
-                    {Array.isArray(employees) ? employees.length : 0}
+                    {totalCount}
                   </p>
                 </div>
                 <User className="h-10 w-10 text-primary opacity-20" />
@@ -330,7 +442,7 @@ export default function EmployeesPage() {
               <Alert variant="danger">
                 <AlertDescription>Erreur lors du chargement des employés</AlertDescription>
               </Alert>
-            ) : filteredEmployees.length === 0 ? (
+            ) : employeesList.length === 0 ? (
               <div className="text-center py-12 text-text-secondary">
                 <User className="h-12 w-12 mx-auto mb-3 opacity-20" />
                 <p>Aucun employé trouvé</p>
@@ -342,13 +454,13 @@ export default function EmployeesPage() {
                     <tr className="bg-table-header text-left text-sm font-semibold text-text-primary">
                       <th className="p-3">Matricule</th>
                       <th className="p-3">Nom complet</th>
-                      <th className="p-3">Email</th>
                       <th className="p-3">Téléphone</th>
                       <th className="p-3">Poste</th>
                       <th className="p-3">Département</th>
                       <th className="p-3">Région</th>
                       <th className="p-3">Date d'embauche</th>
                       <th className="p-3">Statut</th>
+                      <th className="p-3">Compte</th>
                       <th className="p-3">Actions</th>
                     </tr>
                   </thead>
@@ -361,12 +473,6 @@ export default function EmployeesPage() {
                           {employee.civilite && (
                             <div className="text-xs text-text-secondary">{employee.civilite}</div>
                           )}
-                        </td>
-                        <td className="p-3 text-sm text-text-secondary">
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-3 w-3" />
-                            {employee.email}
-                          </div>
                         </td>
                         <td className="p-3 text-sm text-text-secondary">
                           <div className="flex items-center gap-2">
@@ -384,15 +490,88 @@ export default function EmployeesPage() {
                           {employee.department?.name || '—'}
                         </td>
                         <td className="p-3 text-sm text-text-secondary">
-                          {employee.region || '—'}
+                          {employee.region || employee.site?.name || employee.site?.city || '—'}
                         </td>
                         <td className="p-3 text-sm text-text-secondary">
                           {employee.hireDate ? new Date(employee.hireDate).toLocaleDateString('fr-FR') : '—'}
                         </td>
                         <td className="p-3">
-                          <Badge variant={employee.status === 'ACTIVE' ? 'success' : 'default'}>
-                            {employee.status === 'ACTIVE' ? 'Actif' : employee.status}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={employee.isActive ? 'success' : 'default'}>
+                              {employee.isActive ? 'Actif' : 'Inactif'}
+                            </Badge>
+                            <PermissionGate permission="employee.update">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleActive(employee)}
+                                disabled={updateMutation.isPending}
+                                title={employee.isActive ? 'Désactiver l\'employé' : 'Activer l\'employé'}
+                                className="h-7 w-7 p-0 hover:bg-gray-100"
+                              >
+                                {employee.isActive ? (
+                                  <PowerOff className="h-3.5 w-3.5 text-gray-500 hover:text-red-600" />
+                                ) : (
+                                  <Power className="h-3.5 w-3.5 text-gray-500 hover:text-green-600" />
+                                )}
+                              </Button>
+                            </PermissionGate>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          {employee.userId || employee.user ? (
+                            <div className="flex items-center gap-2">
+                              <Badge variant="success" className="flex items-center gap-1 w-fit">
+                                <Key className="h-3 w-3" />
+                                Compte actif
+                              </Badge>
+                              <PermissionGate permission="employee.view_all">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleViewCredentials(employee.id)}
+                                  title="Consulter les identifiants"
+                                  className="text-primary hover:text-primary-dark"
+                                >
+                                  <Eye className="h-3 w-3" />
+                                </Button>
+                              </PermissionGate>
+                              <PermissionGate permission="employee.update">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (confirm(`Êtes-vous sûr de vouloir supprimer le compte d'accès de ${employee.firstName} ${employee.lastName} ?\n\nL'employé ne sera pas supprimé, seul son compte d'authentification sera supprimé.`)) {
+                                      deleteUserAccountMutation.mutate(employee.id);
+                                    }
+                                  }}
+                                  disabled={deleteUserAccountMutation.isPending}
+                                  title="Supprimer le compte d'accès"
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <XCircle className="h-3 w-3" />
+                                </Button>
+                              </PermissionGate>
+                            </div>
+                          ) : (
+                            <PermissionGate permission="employee.update">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  if (confirm(`Créer un compte d'accès pour ${employee.firstName} ${employee.lastName} ?\n\nUn email et un mot de passe seront générés automatiquement.`)) {
+                                    createAccountMutation.mutate({ id: employee.id });
+                                  }
+                                }}
+                                disabled={createAccountMutation.isPending}
+                                title="Créer un compte d'accès"
+                                className="text-primary hover:text-primary-dark"
+                              >
+                                <UserPlus className="h-3 w-3 mr-1" />
+                                Créer compte
+                              </Button>
+                            </PermissionGate>
+                          )}
                         </td>
                         <td className="p-3">
                           <div className="flex gap-2">
@@ -427,11 +606,11 @@ export default function EmployeesPage() {
             )}
 
             {/* Pagination Controls */}
-            {filteredEmployees.length > 0 && (
+            {employeesList.length > 0 && (
               <div className="mt-4 flex items-center justify-between border-t border-table-border pt-4">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-text-secondary">
-                    Affichage de {startIndex + 1} à {Math.min(endIndex, filteredEmployees.length)} sur {filteredEmployees.length} employés
+                    Affichage de {startIndex + 1} à {endIndex} sur {totalCount} employé{totalCount > 1 ? 's' : ''}
                   </span>
                 </div>
 
@@ -715,6 +894,48 @@ export default function EmployeesPage() {
                     </div>
                   </div>
 
+                  {/* Section 4: Compte d'Accès */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                      <UserCircle className="h-5 w-5 text-gray-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Compte d'Accès</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="createUserAccount"
+                          checked={formData.createUserAccount}
+                          onChange={(e) => setFormData({ ...formData, createUserAccount: e.target.checked, userEmail: '' })}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="createUserAccount" className="text-sm font-medium text-gray-700 cursor-pointer">
+                          Créer un compte d'accès pour cet employé
+                        </label>
+                      </div>
+                      {formData.createUserAccount && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                            Email du compte (optionnel)
+                          </label>
+                          <Input
+                            type="email"
+                            value={formData.userEmail}
+                            onChange={(e) => setFormData({ ...formData, userEmail: e.target.value })}
+                            placeholder="Si vide, un email sera généré automatiquement"
+                            className="w-full"
+                          />
+                          <p className="text-xs text-gray-500 mt-1.5">
+                            Si non spécifié, un email sera généré automatiquement au format: {formData.matricule || 'matricule'}@tenant.local
+                          </p>
+                          <p className="text-xs text-blue-600 mt-1.5">
+                            ⓘ Un mot de passe sécurisé sera généré automatiquement. L'employé devra le changer à sa première connexion.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Actions */}
                   <div className="flex gap-3 justify-end pt-4 border-t border-gray-200">
                     <Button 
@@ -739,6 +960,132 @@ export default function EmployeesPage() {
                         <>
                           <Plus className="h-4 w-4 mr-2" />
                           Créer l'employé
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Credentials Modal */}
+        {showCredentialsModal && credentials && (
+          <div 
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+            onClick={() => {
+              setShowCredentialsModal(false);
+              setCredentials(null);
+            }}
+          >
+            <Card 
+              className="w-full max-w-md shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CardHeader className="border-b border-gray-200 pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <Key className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl font-bold text-gray-900">Identifiants d'accès</CardTitle>
+                      <p className="text-sm text-gray-500 mt-1">Identifiants du compte d'accès</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      setShowCredentialsModal(false);
+                      setCredentials(null);
+                    }}
+                    className="h-8 w-8 p-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <Alert>
+                    <AlertDescription className="text-sm">
+                      ⚠️ Ces identifiants sont valides pendant 7 jours. Notez-les dans un endroit sûr.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Email
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={credentials.email}
+                          readOnly
+                          className="font-mono text-sm bg-gray-50"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(credentials.email);
+                            toast.success('Email copié');
+                          }}
+                          title="Copier l'email"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Mot de passe
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="text"
+                          value={credentials.password}
+                          readOnly
+                          className="font-mono text-sm bg-gray-50"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(credentials.password);
+                            toast.success('Mot de passe copié');
+                          }}
+                          title="Copier le mot de passe"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                      <span>Consultations: {credentials.viewCount}</span>
+                      <span>Expire le: {new Date(credentials.expiresAt).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                    <Button
+                      variant="primary"
+                      className="w-full"
+                      onClick={handleCopyCredentials}
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Copié !
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copier les identifiants
                         </>
                       )}
                     </Button>

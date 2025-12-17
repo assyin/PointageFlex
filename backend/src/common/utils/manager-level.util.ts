@@ -2,8 +2,8 @@ import { PrismaService } from 'src/database/prisma.service';
 
 export interface ManagerLevel {
   type: 'DEPARTMENT' | 'SITE' | 'TEAM' | null;
-  departmentId?: string; // Pour SITE: département géré par ce manager dans ce site
-  siteId?: string;
+  departmentId?: string; // Pour SITE: département géré par ce manager dans ce/ces site(s)
+  siteIds?: string[]; // Pour SITE: tous les sites gérés (un manager peut gérer plusieurs sites du même département)
   teamId?: string;
 }
 
@@ -73,11 +73,12 @@ export async function getManagerLevel(
   });
 
   if (siteManagements.length > 0) {
-    // Utiliser le premier site trouvé avec son département
+    // Retourner TOUS les sites gérés par ce manager
+    // Un manager régional peut gérer plusieurs sites du même département
     return {
       type: 'SITE',
-      siteId: siteManagements[0].siteId,
-      departmentId: siteManagements[0].departmentId, // Important: le département géré dans ce site
+      siteIds: siteManagements.map(sm => sm.siteId), // Tous les sites
+      departmentId: siteManagements[0].departmentId, // Le département (même pour tous les sites)
     };
   }
 
@@ -96,7 +97,7 @@ export async function getManagerLevel(
   if (managedSitesLegacy.length > 0) {
     return {
       type: 'SITE',
-      siteId: managedSitesLegacy[0].id,
+      siteIds: managedSitesLegacy.map(s => s.id), // Tous les sites (ancien système)
       departmentId: managedSitesLegacy[0].departmentId || undefined,
     };
   }
@@ -141,7 +142,9 @@ export async function getManagedEmployeeIds(
     return [];
   }
 
-  const where: any = { tenantId, isActive: true };
+  // IMPORTANT: Ne pas filtrer par isActive pour inclure tous les employés gérés
+  // Cela permet de voir toutes les demandes d'overtime, même si l'employé a changé de statut
+  const where: any = { tenantId };
 
   switch (managerLevel.type) {
     case 'DEPARTMENT':
@@ -150,19 +153,25 @@ export async function getManagedEmployeeIds(
       break;
 
     case 'SITE':
-      // Manager de site régional : uniquement les employés du site ET du département spécifique
-      where.siteId = managerLevel.siteId;
-      
-      // Utiliser le departmentId du managerLevel (département géré par ce manager dans ce site)
+      // Manager de site régional : uniquement les employés des sites gérés ET du département spécifique
+      // Un manager régional peut gérer plusieurs sites du même département
+      if (managerLevel.siteIds && managerLevel.siteIds.length > 0) {
+        where.siteId = { in: managerLevel.siteIds }; // Filtrer par tous les sites gérés
+      } else {
+        // Si aucun site n'est défini, retourner vide
+        return [];
+      }
+
+      // Utiliser le departmentId du managerLevel (département géré par ce manager dans ces sites)
       if (managerLevel.departmentId) {
         where.departmentId = managerLevel.departmentId;
       } else {
-        // Fallback: Récupérer le département principal du site (ancien système)
+        // Fallback: Récupérer le département principal du premier site (ancien système)
         const site = await prisma.site.findUnique({
-          where: { id: managerLevel.siteId },
+          where: { id: managerLevel.siteIds[0] },
           select: { departmentId: true },
         });
-        
+
         if (site?.departmentId) {
           where.departmentId = site.departmentId;
         } else {

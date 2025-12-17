@@ -355,12 +355,13 @@ export class UsersService {
   /**
    * Change user password
    */
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(userId: string, currentPassword: string, newPassword: string, skipCurrentPasswordCheck: boolean = false) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         password: true,
+        forcePasswordChange: true,
       },
     });
 
@@ -368,19 +369,24 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // Vérifier le mot de passe actuel
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isPasswordValid) {
-      throw new ConflictException('Mot de passe actuel incorrect');
+    // Vérifier le mot de passe actuel (sauf si changement forcé)
+    if (!skipCurrentPasswordCheck) {
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        throw new ConflictException('Mot de passe actuel incorrect');
+      }
     }
 
     // Hasher le nouveau mot de passe
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Mettre à jour
+    // Mettre à jour le mot de passe et désactiver le flag forcePasswordChange
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { 
+        password: hashedPassword,
+        forcePasswordChange: false, // Désactiver le flag après changement
+      },
     });
 
     return { message: 'Mot de passe modifié avec succès' };

@@ -44,6 +44,7 @@ import type { SiteManager, CreateSiteManagerDto } from '@/lib/api/site-managers'
 import { Plus, Pencil, Trash2, Users, Search, Loader2, MapPin, Building2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ManagersAdvancedFilters, type ManagersFilters } from './ManagersAdvancedFilters';
 
 export function ManagersTab() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -51,6 +52,8 @@ export function ManagersTab() {
   const [deletingManager, setDeletingManager] = useState<SiteManager | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filters, setFilters] = useState<ManagersFilters>({});
   const [formData, setFormData] = useState<CreateSiteManagerDto>({
     siteId: '',
     managerId: '',
@@ -146,14 +149,22 @@ export function ManagersTab() {
   };
 
   const filteredManagers = siteManagers?.filter((sm) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
+    // Recherche principale
+    const searchLower = (filters.search || searchQuery || '').toLowerCase();
+    const matchesSearch = !searchLower || 
       sm.site?.name.toLowerCase().includes(searchLower) ||
       sm.department?.name.toLowerCase().includes(searchLower) ||
       sm.manager?.firstName.toLowerCase().includes(searchLower) ||
       sm.manager?.lastName.toLowerCase().includes(searchLower) ||
-      sm.manager?.matricule.toLowerCase().includes(searchLower)
-    );
+      sm.manager?.matricule.toLowerCase().includes(searchLower);
+
+    // Filtre site
+    const matchesSite = !filters.siteId || sm.siteId === filters.siteId;
+
+    // Filtre département
+    const matchesDepartment = !filters.departmentId || sm.departmentId === filters.departmentId;
+
+    return matchesSearch && matchesSite && matchesDepartment;
   });
 
   return (
@@ -196,6 +207,20 @@ export function ManagersTab() {
           </div>
         </div>
       </Card>
+
+      {/* Advanced Filters */}
+      <ManagersAdvancedFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        onReset={() => {
+          setFilters({});
+          setSearchQuery('');
+        }}
+        sites={sites}
+        departments={departments}
+        isOpen={showAdvancedFilters}
+        onToggle={() => setShowAdvancedFilters(!showAdvancedFilters)}
+      />
 
       {/* Table */}
       <Card className="border border-gray-200 shadow-sm overflow-hidden">

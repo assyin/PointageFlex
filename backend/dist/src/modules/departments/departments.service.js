@@ -28,6 +28,13 @@ let DepartmentsService = class DepartmentsService {
                         employees: true,
                     },
                 },
+                manager: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                    },
+                },
             },
         });
     }
@@ -38,6 +45,13 @@ let DepartmentsService = class DepartmentsService {
                 _count: {
                     select: {
                         employees: true,
+                    },
+                },
+                manager: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
                     },
                 },
             },
@@ -51,6 +65,13 @@ let DepartmentsService = class DepartmentsService {
                 _count: {
                     select: {
                         employees: true,
+                    },
+                },
+                manager: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
                     },
                 },
                 employees: {
@@ -81,6 +102,13 @@ let DepartmentsService = class DepartmentsService {
                 _count: {
                     select: {
                         employees: true,
+                    },
+                },
+                manager: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
                     },
                 },
             },

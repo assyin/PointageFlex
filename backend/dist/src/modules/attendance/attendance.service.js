@@ -116,35 +116,23 @@ let AttendanceService = class AttendanceService {
         const hasViewTeam = userPermissions?.includes('attendance.view_team');
         const hasViewDepartment = userPermissions?.includes('attendance.view_department');
         const hasViewSite = userPermissions?.includes('attendance.view_site');
-        if (!hasViewAll && hasViewOwn && userId) {
-            const employee = await this.prisma.employee.findFirst({
-                where: { userId, tenantId },
-                select: { id: true },
-            });
-            if (employee) {
-                where.employeeId = employee.id;
-            }
-            else {
-                return [];
-            }
-        }
-        else if (!hasViewAll && userId && (hasViewTeam || hasViewDepartment || hasViewSite)) {
+        if (userId) {
             const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
-            if (managerLevel.type === 'DEPARTMENT' && hasViewDepartment) {
+            if (managerLevel.type === 'DEPARTMENT') {
                 const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
                 if (managedEmployeeIds.length === 0) {
                     return [];
                 }
                 where.employeeId = { in: managedEmployeeIds };
             }
-            else if (managerLevel.type === 'SITE' && hasViewSite) {
+            else if (managerLevel.type === 'SITE') {
                 const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
                 if (managedEmployeeIds.length === 0) {
                     return [];
                 }
                 where.employeeId = { in: managedEmployeeIds };
             }
-            else if (managerLevel.type === 'TEAM' && hasViewTeam) {
+            else if (managerLevel.type === 'TEAM') {
                 const employee = await this.prisma.employee.findFirst({
                     where: { userId, tenantId },
                     select: { teamId: true },
@@ -162,8 +150,17 @@ let AttendanceService = class AttendanceService {
                     return [];
                 }
             }
-            else if (managerLevel.type) {
-                return [];
+            else if (!hasViewAll && hasViewOwn) {
+                const employee = await this.prisma.employee.findFirst({
+                    where: { userId, tenantId },
+                    select: { id: true },
+                });
+                if (employee) {
+                    where.employeeId = employee.id;
+                }
+                else {
+                    return [];
+                }
             }
         }
         if (filters?.employeeId)

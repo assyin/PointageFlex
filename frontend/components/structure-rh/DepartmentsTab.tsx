@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { PermissionGate } from '@/components/auth/PermissionGate';
 import { Input } from '@/components/ui/input';
@@ -38,10 +38,12 @@ import {
   useUpdateDepartment,
   useDeleteDepartment,
 } from '@/lib/hooks/useDepartments';
+import { useEmployees } from '@/lib/hooks/useEmployees';
 import type { Department, CreateDepartmentDto } from '@/lib/api/departments';
-import { Plus, Pencil, Trash2, Building2, Search, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Building2, Search, Loader2, UserCog } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { DepartmentsAdvancedFilters, type DepartmentsFilters } from './DepartmentsAdvancedFilters';
 
 export function DepartmentsTab() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -49,13 +51,25 @@ export function DepartmentsTab() {
   const [deletingDepartment, setDeletingDepartment] = useState<Department | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [filters, setFilters] = useState<DepartmentsFilters>({});
   const [formData, setFormData] = useState<CreateDepartmentDto>({
     name: '',
     code: '',
     description: '',
+    managerId: undefined,
   });
 
   const { data: departments, isLoading } = useDepartments();
+  const { data: employeesData } = useEmployees();
+
+  // Extraire les employés de la réponse API
+  const employees = useMemo(() => {
+    if (!employeesData) return [];
+    if (Array.isArray(employeesData)) return employeesData;
+    if (employeesData?.data && Array.isArray(employeesData.data)) return employeesData.data;
+    return [];
+  }, [employeesData]);
 
   // Fix hydration mismatch by ensuring client-side only rendering
   useEffect(() => {
@@ -74,7 +88,7 @@ export function DepartmentsTab() {
     try {
       await createMutation.mutateAsync(formData);
       setIsCreateOpen(false);
-      setFormData({ name: '', code: '', description: '' });
+      setFormData({ name: '', code: '', description: '', managerId: undefined });
     } catch (error) {
       // Error is handled by the mutation's onError callback
     }
@@ -86,6 +100,7 @@ export function DepartmentsTab() {
       name: department.name,
       code: department.code || '',
       description: department.description || '',
+      managerId: department.managerId || undefined,
     });
   };
 
@@ -102,7 +117,7 @@ export function DepartmentsTab() {
           data: formData,
         });
         setEditingDepartment(null);
-        setFormData({ name: '', code: '', description: '' });
+        setFormData({ name: '', code: '', description: '', managerId: undefined });
       } catch (error) {
         // Error is handled by the mutation's onError callback
       }
@@ -116,10 +131,25 @@ export function DepartmentsTab() {
     }
   };
 
-  const filteredDepartments = departments?.filter((dept) =>
-    dept.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    dept.code?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDepartments = departments?.filter((dept) => {
+    // Recherche principale
+    const searchLower = (filters.search || searchQuery || '').toLowerCase();
+    const matchesSearch = !searchLower || 
+      dept.name.toLowerCase().includes(searchLower) ||
+      dept.code?.toLowerCase().includes(searchLower);
+
+    // Filtre manager
+    const matchesManager = filters.hasManager === undefined || 
+      (filters.hasManager === true && !!dept.managerId) ||
+      (filters.hasManager === false && !dept.managerId);
+
+    // Filtre nombre d'employés
+    const employeeCount = dept._count?.employees || 0;
+    const matchesMinEmployees = filters.minEmployees === undefined || employeeCount >= filters.minEmployees;
+    const matchesMaxEmployees = filters.maxEmployees === undefined || employeeCount <= filters.maxEmployees;
+
+    return matchesSearch && matchesManager && matchesMinEmployees && matchesMaxEmployees;
+  });
 
   return (
     <div className="space-y-6">
@@ -162,6 +192,19 @@ export function DepartmentsTab() {
         </div>
       </Card>
 
+      {/* Advanced Filters */}
+      <DepartmentsAdvancedFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        onReset={() => {
+          setFilters({});
+          setSearchQuery('');
+        }}
+        employees={employees}
+        isOpen={showAdvancedFilters}
+        onToggle={() => setShowAdvancedFilters(!showAdvancedFilters)}
+      />
+
       {/* Table */}
       <Card className="border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -170,7 +213,7 @@ export function DepartmentsTab() {
               <TableRow className="bg-gray-50 hover:bg-gray-50 border-b border-gray-200">
                 <TableHead className="font-semibold text-gray-700 py-4">Nom</TableHead>
                 <TableHead className="font-semibold text-gray-700 py-4">Code</TableHead>
-                <TableHead className="font-semibold text-gray-700 py-4">Description</TableHead>
+                <TableHead className="font-semibold text-gray-700 py-4">Manager de Direction</TableHead>
                 <TableHead className="font-semibold text-gray-700 py-4">Employés</TableHead>
                 <TableHead className="text-right font-semibold text-gray-700 py-4">Actions</TableHead>
               </TableRow>
@@ -217,9 +260,19 @@ export function DepartmentsTab() {
                         <span className="text-gray-400">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-xs truncate text-gray-600 py-4">
-                      {department.description || (
-                        <span className="text-gray-400 italic">Aucune description</span>
+                    <TableCell className="py-4">
+                      {department.manager ? (
+                        <div className="flex items-center gap-2">
+                          <UserCog className="h-4 w-4 text-blue-600" />
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {department.manager.firstName} {department.manager.lastName}
+                            </p>
+                            <p className="text-xs text-gray-500">Directeur</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 italic">Non assigné</span>
                       )}
                     </TableCell>
                     <TableCell className="py-4">
@@ -268,7 +321,7 @@ export function DepartmentsTab() {
           if (!open) {
             setIsCreateOpen(false);
             setEditingDepartment(null);
-            setFormData({ name: '', code: '', description: '' });
+            setFormData({ name: '', code: '', description: '', managerId: undefined });
           }
         }}
       >
@@ -331,6 +384,28 @@ export function DepartmentsTab() {
                   className="border-gray-300 focus:border-gray-500 focus:ring-gray-500 resize-none"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="managerId" className="text-sm font-semibold text-gray-700">
+                  Manager de Direction
+                </Label>
+                <select
+                  id="managerId"
+                  value={formData.managerId || ''}
+                  onChange={(e) => setFormData({ ...formData, managerId: e.target.value || undefined })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent bg-white h-11"
+                >
+                  <option value="">Aucun manager (à assigner plus tard)</option>
+                  {employees.map((emp: any) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.firstName} {emp.lastName} - {emp.matricule}
+                      {emp.department?.name ? ` (${emp.department.name})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500">
+                  Le Manager de Direction gère ce département dans tous les sites
+                </p>
+              </div>
             </div>
             <DialogFooter className="border-t border-gray-200 pt-4 gap-3">
               <Button
@@ -339,7 +414,7 @@ export function DepartmentsTab() {
                 onClick={() => {
                   setIsCreateOpen(false);
                   setEditingDepartment(null);
-                  setFormData({ name: '', code: '', description: '' });
+                  setFormData({ name: '', code: '', description: '', managerId: undefined });
                 }}
                 className="border-gray-300 text-gray-700 hover:bg-gray-50"
               >

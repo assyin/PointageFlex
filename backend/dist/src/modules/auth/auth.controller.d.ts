@@ -22,6 +22,7 @@ export declare class AuthController {
         user: {
             roles: string[];
             permissions: string[];
+            forcePasswordChange: boolean;
             id: string;
             tenantId: string;
             email: string;
@@ -43,6 +44,7 @@ export declare class AuthController {
             tenantId: string;
             roles: string[];
             permissions: string[];
+            forcePasswordChange: boolean;
         };
         accessToken: string;
         refreshToken: string;

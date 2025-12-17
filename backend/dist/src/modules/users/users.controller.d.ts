@@ -498,6 +498,7 @@ export declare class UsersController {
         avatar: string | null;
         isActive: boolean;
         lastLoginAt: Date | null;
+        forcePasswordChange: boolean;
         role: import(".prisma/client").$Enums.LegacyRole | null;
     }>;
     getUserRoles(user: any, tenantId: string, id: string): Promise<({

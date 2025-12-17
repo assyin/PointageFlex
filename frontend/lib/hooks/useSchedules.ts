@@ -46,7 +46,12 @@ export function useCreateSchedule() {
       
       // Show success message with count if available
       if (data?.count !== undefined) {
-        toast.success(`${data.count} planning(s) créé(s) avec succès${data.skipped > 0 ? ` (${data.skipped} ignoré(s))` : ''}`);
+        const message = data.conflictingDates && data.conflictingDates.length > 0
+          ? `${data.count} planning(s) créé(s) avec succès. ${data.conflictingDates.length} date(s) ignorée(s) car déjà planifiée(s).`
+          : `${data.count} planning(s) créé(s) avec succès${data.skipped > 0 ? ` (${data.skipped} ignoré(s))` : ''}`;
+        toast.success(message, {
+          duration: data.conflictingDates && data.conflictingDates.length > 0 ? 7000 : 5000,
+        });
       } else {
         toast.success('Planning créé avec succès');
       }
@@ -61,9 +66,33 @@ export function useCreateSchedule() {
       });
       
       const errorMessage = translateErrorMessage(error);
+      const statusCode = error?.response?.status;
+      
+      // Messages d'erreur contextuels selon le type d'erreur
+      let description = 'Veuillez vérifier les informations saisies et réessayer.';
+      
+      if (statusCode === 409) {
+        // Conflit - planning déjà existant
+        description = 'Certains plannings existent déjà pour cette période. Veuillez choisir une autre période ou modifier les plannings existants.';
+      } else if (statusCode === 400) {
+        // Erreur de validation
+        const apiMessage = error?.response?.data?.message || '';
+        if (apiMessage.includes('actif')) {
+          description = 'L\'employé ou le shift sélectionné n\'est pas actif. Veuillez sélectionner un élément actif.';
+        } else if (apiMessage.includes('équipe')) {
+          description = 'L\'employé n\'appartient pas à l\'équipe sélectionnée. Veuillez corriger cette information.';
+        } else if (apiMessage.includes('heure')) {
+          description = 'Les heures personnalisées sont invalides. L\'heure de fin doit être supérieure à l\'heure de début.';
+        } else if (apiMessage.includes('intervalle')) {
+          description = 'L\'intervalle de dates sélectionné dépasse la limite autorisée (365 jours maximum).';
+        }
+      } else if (statusCode === 404) {
+        description = 'L\'employé, le shift ou l\'équipe sélectionné(e) n\'existe pas. Veuillez en sélectionner un(e) autre.';
+      }
+      
       toast.error(errorMessage, {
-        description: 'Veuillez vérifier les informations saisies et réessayer.',
-        duration: 5000,
+        description,
+        duration: 6000,
       });
     },
   });

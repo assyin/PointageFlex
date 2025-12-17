@@ -234,4 +234,10 @@ export declare class RolesController {
         description: string | null;
         isSystem: boolean;
     }>;
+    updateAllManagerRoles(): Promise<{
+        total: number;
+        updated: number;
+        failed: number;
+        results: any[];
+    }>;
 }

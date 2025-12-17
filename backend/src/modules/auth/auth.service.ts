@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../../database/prisma.service';
@@ -8,6 +8,8 @@ import { LegacyRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -120,90 +122,139 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    // Utiliser findUnique si email est unique, sinon findFirst
-    // Note: Si email est unique dans le schéma, findUnique est plus sûr
-    const user = await this.prisma.user.findFirst({
-      where: { 
-        email: dto.email.toLowerCase().trim(), // Normaliser l'email
-      },
-      select: {
-        id: true,
-        email: true,
-        password: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        tenantId: true,
-        isActive: true,
-      },
-    });
+    try {
+      // Utiliser findUnique si email est unique, sinon findFirst
+      // Note: Si email est unique dans le schéma, findUnique est plus sûr
+      const user = await this.prisma.user.findFirst({
+        where: { 
+          email: dto.email.toLowerCase().trim(), // Normaliser l'email
+        },
+        select: {
+          id: true,
+          email: true,
+          password: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          tenantId: true,
+          isActive: true,
+        },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+      if (!user) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
 
-    if (!user.isActive) {
-      throw new UnauthorizedException('Account is disabled');
-    }
+      if (!user.isActive) {
+        throw new UnauthorizedException('Account is disabled');
+      }
 
-    const isPasswordValid = await bcrypt.compare(dto.password, user.password);
+      const isPasswordValid = await bcrypt.compare(dto.password, user.password);
 
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
 
-    // Update last login
-    await this.prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
+      // Update last login (ne pas faire échouer la connexion si ça échoue)
+      try {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
+      } catch (error) {
+        this.logger.warn(`Failed to update lastLoginAt for user ${user.id}: ${error.message}`);
+      }
 
-    // Récupérer les rôles et permissions RBAC pour le tenant de l'utilisateur
-    const tenantId = user.tenantId;
-    const userTenantRoles = tenantId
-      ? await this.prisma.userTenantRole.findMany({
-          where: {
-            userId: user.id,
-            tenantId,
-            isActive: true,
-          },
-          include: {
-            role: {
+      // Récupérer les rôles et permissions RBAC pour le tenant de l'utilisateur
+      const tenantId = user.tenantId;
+      let roles: string[] = [];
+      let permissions = new Set<string>();
+
+      try {
+        const userTenantRoles = tenantId
+          ? await this.prisma.userTenantRole.findMany({
+              where: {
+                userId: user.id,
+                tenantId,
+                isActive: true,
+              },
               include: {
-                permissions: {
+                role: {
                   include: {
-                    permission: true,
+                    permissions: {
+                      include: {
+                        permission: true,
+                      },
+                    },
                   },
                 },
               },
-            },
-          },
-        })
-      : [];
+            })
+          : [];
 
-    // Extraire les codes de rôles et permissions
-    const roles = userTenantRoles.map((utr) => utr.role.code);
-    const permissions = new Set<string>();
-    userTenantRoles.forEach((utr) => {
-      utr.role.permissions.forEach((rp) => {
-        if (rp.permission.isActive) {
-          permissions.add(rp.permission.code);
+        // Extraire les codes de rôles et permissions (avec protection contre null)
+        roles = userTenantRoles
+          .filter((utr) => utr.role && utr.role.code)
+          .map((utr) => utr.role.code);
+
+        userTenantRoles.forEach((utr) => {
+          if (utr.role && utr.role.permissions) {
+            utr.role.permissions.forEach((rp) => {
+              if (rp.permission && rp.permission.isActive && rp.permission.code) {
+                permissions.add(rp.permission.code);
+              }
+            });
+          }
+        });
+      } catch (error) {
+        // Si erreur lors de la récupération des rôles, utiliser le rôle legacy
+        this.logger.error(`Error fetching user roles: ${error.message}`);
+        if (user.role) {
+          roles = [user.role];
         }
-      });
-    });
+      }
 
-    const tokens = await this.generateTokens(user);
+      const tokens = await this.generateTokens(user);
 
-    const { password, ...userWithoutPassword } = user;
+      const { password, ...userWithoutPassword } = user;
 
-    return {
-      ...tokens,
-      user: {
-        ...userWithoutPassword,
-        roles: Array.from(roles),
-        permissions: Array.from(permissions),
-      },
-    };
+      // Récupérer forcePasswordChange séparément si le champ existe
+      let forcePasswordChange = false;
+      try {
+        // Utiliser une requête brute pour éviter les erreurs si le champ n'existe pas
+        const result = await this.prisma.$queryRaw<Array<{ forcePasswordChange?: boolean }>>`
+          SELECT "forcePasswordChange" FROM "User" WHERE id = ${user.id} LIMIT 1
+        `.catch(() => null);
+        
+        if (result && result.length > 0 && result[0]?.forcePasswordChange !== undefined) {
+          forcePasswordChange = result[0].forcePasswordChange;
+        }
+      } catch (error) {
+        // Si le champ n'existe pas encore dans la base, utiliser false par défaut
+        forcePasswordChange = false;
+      }
+
+      return {
+        ...tokens,
+        user: {
+          ...userWithoutPassword,
+          roles: Array.from(roles),
+          permissions: Array.from(permissions),
+          forcePasswordChange,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Login error: ${error.message}`);
+      this.logger.error(error.stack);
+      
+      // Si c'est déjà une UnauthorizedException, la relancer
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      
+      // Sinon, lancer une erreur générique
+      throw new UnauthorizedException('Login failed. Please try again.');
+    }
   }
 
   async refreshTokens(userId: string) {
@@ -260,6 +311,19 @@ export class AuthService {
 
     const tokens = await this.generateTokens(user);
 
+    // Récupérer forcePasswordChange séparément si le champ existe
+    let forcePasswordChange = false;
+    try {
+      const userWithForcePassword = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { forcePasswordChange: true },
+      });
+      forcePasswordChange = userWithForcePassword?.forcePasswordChange || false;
+    } catch (error) {
+      // Si le champ n'existe pas encore dans la base, utiliser false par défaut
+      forcePasswordChange = false;
+    }
+
     return {
       ...tokens,
       user: {
@@ -271,6 +335,7 @@ export class AuthService {
         tenantId: user.tenantId,
         roles: Array.from(roles),
         permissions: Array.from(permissions),
+        forcePasswordChange,
       },
     };
   }

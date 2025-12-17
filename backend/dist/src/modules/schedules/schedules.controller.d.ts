@@ -13,6 +13,10 @@ export declare class SchedulesController {
         count: number;
         created: number;
         skipped: number;
+        conflictingDates: {
+            date: string;
+            shift: string;
+        }[];
         dateRange: {
             start: string;
             end: string;
@@ -68,10 +72,10 @@ export declare class SchedulesController {
             teamId: string | null;
             employeeId: string;
             date: Date;
+            notes: string | null;
             shiftId: string;
             customStartTime: string | null;
             customEndTime: string | null;
-            notes: string | null;
         })[];
         meta: {
             total: number;
@@ -130,10 +134,10 @@ export declare class SchedulesController {
             teamId: string | null;
             employeeId: string;
             date: Date;
+            notes: string | null;
             shiftId: string;
             customStartTime: string | null;
             customEndTime: string | null;
-            notes: string | null;
         })[];
         leaves: ({
             employee: {
@@ -261,10 +265,10 @@ export declare class SchedulesController {
             teamId: string | null;
             employeeId: string;
             date: Date;
+            notes: string | null;
             shiftId: string;
             customStartTime: string | null;
             customEndTime: string | null;
-            notes: string | null;
         })[];
         leaves: ({
             employee: {
@@ -533,10 +537,10 @@ export declare class SchedulesController {
         teamId: string | null;
         employeeId: string;
         date: Date;
+        notes: string | null;
         shiftId: string;
         customStartTime: string | null;
         customEndTime: string | null;
-        notes: string | null;
     }>;
     update(user: any, id: string, dto: UpdateScheduleDto): Promise<{
         employee: {
@@ -571,10 +575,10 @@ export declare class SchedulesController {
         teamId: string | null;
         employeeId: string;
         date: Date;
+        notes: string | null;
         shiftId: string;
         customStartTime: string | null;
         customEndTime: string | null;
-        notes: string | null;
     }>;
     remove(user: any, id: string): Promise<{
         id: string;
@@ -584,10 +588,10 @@ export declare class SchedulesController {
         teamId: string | null;
         employeeId: string;
         date: Date;
+        notes: string | null;
         shiftId: string;
         customStartTime: string | null;
         customEndTime: string | null;
-        notes: string | null;
     }>;
     removeBulk(user: any, body: {
         ids: string[];

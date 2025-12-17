@@ -16,8 +16,9 @@ class ChangePasswordDto {
 }
 exports.ChangePasswordDto = ChangePasswordDto;
 __decorate([
-    (0, swagger_1.ApiProperty)(),
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Mot de passe actuel (requis sauf si changement forcé)' }),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], ChangePasswordDto.prototype, "currentPassword", void 0);
 __decorate([
@@ -26,4 +27,9 @@ __decorate([
     (0, class_validator_1.MinLength)(8, { message: 'Le mot de passe doit contenir au moins 8 caractères' }),
     __metadata("design:type", String)
 ], ChangePasswordDto.prototype, "newPassword", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Forcer le changement (ignorer vérification mot de passe actuel)', default: false }),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], ChangePasswordDto.prototype, "forceChange", void 0);
 //# sourceMappingURL=change-password.dto.js.map

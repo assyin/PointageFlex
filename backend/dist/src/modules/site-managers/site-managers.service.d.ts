@@ -5,6 +5,11 @@ export declare class SiteManagersService {
     private prisma;
     constructor(prisma: PrismaService);
     create(tenantId: string, dto: CreateSiteManagerDto): Promise<{
+        department: {
+            id: string;
+            name: string;
+            code: string;
+        };
         site: {
             id: string;
             name: string;
@@ -12,15 +17,10 @@ export declare class SiteManagersService {
         };
         manager: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
-        };
-        department: {
-            id: string;
-            name: string;
-            code: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -28,31 +28,31 @@ export declare class SiteManagersService {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     }>;
     findAll(tenantId: string, filters?: {
         siteId?: string;
         departmentId?: string;
     }): Promise<({
-        site: {
-            id: string;
-            name: string;
-            city: string;
-            code: string;
-        };
-        manager: {
-            id: string;
-            matricule: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-            phone: string;
-        };
         department: {
             id: string;
             name: string;
             code: string;
+        };
+        site: {
+            id: string;
+            name: string;
+            code: string;
+            city: string;
+        };
+        manager: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            phone: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -60,28 +60,28 @@ export declare class SiteManagersService {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     })[]>;
     findOne(tenantId: string, id: string): Promise<{
-        site: {
-            id: string;
-            name: string;
-            city: string;
-            code: string;
-        };
-        manager: {
-            id: string;
-            matricule: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-            phone: string;
-        };
         department: {
             id: string;
             name: string;
             code: string;
+        };
+        site: {
+            id: string;
+            name: string;
+            code: string;
+            city: string;
+        };
+        manager: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            phone: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -89,10 +89,15 @@ export declare class SiteManagersService {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     }>;
     update(tenantId: string, id: string, dto: UpdateSiteManagerDto): Promise<{
+        department: {
+            id: string;
+            name: string;
+            code: string;
+        };
         site: {
             id: string;
             name: string;
@@ -100,15 +105,10 @@ export declare class SiteManagersService {
         };
         manager: {
             id: string;
-            matricule: string;
+            email: string;
             firstName: string;
             lastName: string;
-            email: string;
-        };
-        department: {
-            id: string;
-            name: string;
-            code: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -116,24 +116,24 @@ export declare class SiteManagersService {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     }>;
     remove(tenantId: string, id: string): Promise<{
         message: string;
     }>;
     findBySite(tenantId: string, siteId: string): Promise<({
-        manager: {
-            id: string;
-            matricule: string;
-            firstName: string;
-            lastName: string;
-            email: string;
-        };
         department: {
             id: string;
             name: string;
             code: string;
+        };
+        manager: {
+            id: string;
+            email: string;
+            firstName: string;
+            lastName: string;
+            matricule: string;
         };
     } & {
         id: string;
@@ -141,20 +141,20 @@ export declare class SiteManagersService {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     })[]>;
     findByManager(tenantId: string, managerId: string): Promise<({
+        department: {
+            id: string;
+            name: string;
+            code: string;
+        };
         site: {
             id: string;
             name: string;
+            code: string;
             city: string;
-            code: string;
-        };
-        department: {
-            id: string;
-            name: string;
-            code: string;
         };
     } & {
         id: string;
@@ -162,7 +162,7 @@ export declare class SiteManagersService {
         updatedAt: Date;
         tenantId: string;
         siteId: string;
-        managerId: string;
         departmentId: string;
+        managerId: string;
     })[]>;
 }
