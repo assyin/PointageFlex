@@ -19,6 +19,7 @@ const create_department_dto_1 = require("./dto/create-department.dto");
 const update_department_dto_1 = require("./dto/update-department.dto");
 const jwt_auth_guard_1 = require("../../common/guards/jwt-auth.guard");
 const current_tenant_decorator_1 = require("../../common/decorators/current-tenant.decorator");
+const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 let DepartmentsController = class DepartmentsController {
     constructor(departmentsService) {
         this.departmentsService = departmentsService;
@@ -26,11 +27,11 @@ let DepartmentsController = class DepartmentsController {
     create(tenantId, createDepartmentDto) {
         return this.departmentsService.create(tenantId, createDepartmentDto);
     }
-    findAll(tenantId) {
-        return this.departmentsService.findAll(tenantId);
+    findAll(tenantId, user) {
+        return this.departmentsService.findAll(tenantId, user?.userId, user?.permissions);
     }
-    getStats(tenantId) {
-        return this.departmentsService.getStats(tenantId);
+    getStats(tenantId, user) {
+        return this.departmentsService.getStats(tenantId, user?.userId, user?.permissions);
     }
     findOne(id, tenantId) {
         return this.departmentsService.findOne(id, tenantId);
@@ -54,15 +55,17 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], DepartmentsController.prototype, "findAll", null);
 __decorate([
     (0, common_1.Get)('stats'),
     __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], DepartmentsController.prototype, "getStats", null);
 __decorate([

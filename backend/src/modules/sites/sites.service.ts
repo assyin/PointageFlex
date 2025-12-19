@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException, ForbiddenException, B
 import { PrismaService } from '../../database/prisma.service';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
+import { getManagerLevel } from '../../common/utils/manager-level.util';
 
 @Injectable()
 export class SitesService {
@@ -167,10 +168,58 @@ export class SitesService {
     }
   }
 
-  async findAll(tenantId: string) {
+  async findAll(tenantId: string, userId?: string, userPermissions?: string[]) {
+    const where: any = { tenantId };
+    
+    // Vérifier si l'utilisateur a la permission de voir tous les sites
+    const hasViewAll = userPermissions?.includes('site.view_all') || false;
+    
+    // IMPORTANT: Même avec 'view_all', un manager régional ne doit voir que son département/site assigné
+    // Seuls les ADMIN_RH et SUPER_ADMIN devraient voir tous les sites
+    // Toujours vérifier le niveau du manager pour appliquer les restrictions appropriées
+    if (userId) {
+      const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
+      
+      // Si l'utilisateur est un manager, appliquer le filtrage selon son niveau
+      // Même avec 'view_all', un manager ne voit que ce qu'il gère
+      if (managerLevel.type === 'DEPARTMENT') {
+        // Manager de département : voir tous les sites (car il gère le département sur tous les sites)
+        // Pas de filtre sur siteId
+      } else if (managerLevel.type === 'SITE') {
+        // Manager régional : voir uniquement ses sites
+        if (managerLevel.siteIds && managerLevel.siteIds.length > 0) {
+          where.id = { in: managerLevel.siteIds };
+        } else {
+          // Si pas de sites, retourner vide
+          return { data: [], total: 0 };
+        }
+      } else if (managerLevel.type === 'TEAM') {
+        // Manager d'équipe : récupérer le site de son équipe
+        const team = await this.prisma.team.findUnique({
+          where: { id: managerLevel.teamId },
+          select: { 
+            employees: {
+              select: { siteId: true },
+              take: 1,
+            },
+          },
+        });
+        
+        if (team?.employees?.[0]?.siteId) {
+          where.id = team.employees[0].siteId;
+        } else {
+          // Si pas de site dans l'équipe, retourner vide
+          return { data: [], total: 0 };
+        }
+      }
+      // Si managerLevel.type === null, l'utilisateur n'est pas manager
+      // Dans ce cas, si il a 'view_all', il voit tout (ADMIN_RH, SUPER_ADMIN)
+      // Sinon, il ne voit rien (ou seulement son propre site si applicable)
+    }
+    
     try {
       const sites = await this.prisma.site.findMany({
-        where: { tenantId },
+        where,
         include: {
           manager: {
             select: {
@@ -199,7 +248,7 @@ export class SitesService {
       // Si erreur liée à des colonnes manquantes, utiliser une requête plus simple
       if (error.message?.includes('does not exist') || error.code === 'P2021') {
         const sites = await this.prisma.site.findMany({
-          where: { tenantId },
+          where,
           orderBy: { name: 'asc' },
         });
 

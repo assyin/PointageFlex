@@ -9,23 +9,23 @@ export declare class OvertimeController {
     create(user: any, dto: CreateOvertimeDto): Promise<{
         employee: {
             id: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        isNightShift: boolean;
-        type: import(".prisma/client").$Enums.OvertimeType;
         employeeId: string;
+        type: import(".prisma/client").$Enums.OvertimeType;
         approvedBy: string | null;
         approvedAt: Date | null;
         date: Date;
         hours: import("@prisma/client/runtime/library").Decimal;
         approvedHours: import("@prisma/client/runtime/library").Decimal | null;
+        isNightShift: boolean;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string | null;
@@ -52,20 +52,20 @@ export declare class OvertimeController {
             updatedAt: Date;
             employee: {
                 id: string;
+                matricule: string;
                 firstName: string;
                 lastName: string;
-                matricule: string;
                 site: {
                     id: string;
                     name: string;
                     code: string;
                 };
             };
-            isNightShift: boolean;
             type: import(".prisma/client").$Enums.OvertimeType;
             approvedBy: string;
             approvedAt: Date;
             date: Date;
+            isNightShift: boolean;
             convertedToRecovery: boolean;
             recoveryId: string;
             status: import(".prisma/client").$Enums.OvertimeStatus;
@@ -86,19 +86,19 @@ export declare class OvertimeController {
         updatedAt: Date;
         employee: {
             id: string;
-            email: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
+            email: string;
             position: string;
         };
-        isNightShift: boolean;
         type: import(".prisma/client").$Enums.OvertimeType;
         approvedBy: string;
         approvedAt: Date;
         date: Date;
         hours: import("@prisma/client/runtime/library").Decimal;
         approvedHours: import("@prisma/client/runtime/library").Decimal;
+        isNightShift: boolean;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string;
@@ -112,17 +112,17 @@ export declare class OvertimeController {
         updatedAt: Date;
         employee: {
             id: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
         };
-        isNightShift: boolean;
         type: import(".prisma/client").$Enums.OvertimeType;
         approvedBy: string;
         approvedAt: Date;
         date: Date;
         hours: import("@prisma/client/runtime/library").Decimal;
         approvedHours: import("@prisma/client/runtime/library").Decimal;
+        isNightShift: boolean;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string;
@@ -136,17 +136,17 @@ export declare class OvertimeController {
         updatedAt: Date;
         employee: {
             id: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
         };
-        isNightShift: boolean;
         type: import(".prisma/client").$Enums.OvertimeType;
         approvedBy: string;
         approvedAt: Date;
         date: Date;
         hours: import("@prisma/client/runtime/library").Decimal;
         approvedHours: import("@prisma/client/runtime/library").Decimal;
+        isNightShift: boolean;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string;
@@ -181,14 +181,14 @@ export declare class OvertimeController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        isNightShift: boolean;
-        type: import(".prisma/client").$Enums.OvertimeType;
         employeeId: string;
+        type: import(".prisma/client").$Enums.OvertimeType;
         approvedBy: string | null;
         approvedAt: Date | null;
         date: Date;
         hours: import("@prisma/client/runtime/library").Decimal;
         approvedHours: import("@prisma/client/runtime/library").Decimal | null;
+        isNightShift: boolean;
         rate: import("@prisma/client/runtime/library").Decimal;
         convertedToRecovery: boolean;
         recoveryId: string | null;

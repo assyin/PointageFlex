@@ -12,6 +12,7 @@ const leaves_service_1 = require("./leaves.service");
 const leaves_controller_1 = require("./leaves.controller");
 const leave_types_controller_1 = require("./leave-types.controller");
 const prisma_module_1 = require("../../database/prisma.module");
+const file_storage_service_1 = require("./services/file-storage.service");
 let LeavesModule = class LeavesModule {
 };
 exports.LeavesModule = LeavesModule;
@@ -19,7 +20,7 @@ exports.LeavesModule = LeavesModule = __decorate([
     (0, common_1.Module)({
         imports: [prisma_module_1.PrismaModule],
         controllers: [leaves_controller_1.LeavesController, leave_types_controller_1.LeaveTypesController],
-        providers: [leaves_service_1.LeavesService],
+        providers: [leaves_service_1.LeavesService, file_storage_service_1.FileStorageService],
         exports: [leaves_service_1.LeavesService],
     })
 ], LeavesModule);

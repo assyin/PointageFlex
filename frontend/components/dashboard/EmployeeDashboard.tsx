@@ -172,7 +172,7 @@ export function EmployeeDashboard() {
                   </div>
                 </div>
                 <h3 className="text-3xl font-bold text-gray-900 mb-2">
-                  {personal?.overtimeHours || 0}h
+                  {personal?.overtimeHours ? Number(personal.overtimeHours).toFixed(2) : 0}h
                 </h3>
                 <p className="text-xs text-gray-500">Ce mois</p>
               </CardContent>

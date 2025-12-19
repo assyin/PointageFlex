@@ -3,10 +3,13 @@ import { shiftsApi, type CreateShiftDto } from '../api/shifts';
 import { toast } from 'sonner';
 import { translateErrorMessage } from '../utils/errorMessages';
 import { isAuthenticated } from '../utils/auth';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function useShifts() {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: ['shifts'],
+    queryKey: ['shifts', user?.id], // Include user ID to prevent cache sharing
     queryFn: () => shiftsApi.getAll(),
     enabled: isAuthenticated(),
     staleTime: 60000, // 1 minute

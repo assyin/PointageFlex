@@ -38,7 +38,11 @@ export class SitesController {
     if (!user || !user.tenantId) {
       throw new UnauthorizedException('User not authenticated or tenantId missing');
     }
-    return this.sitesService.findAll(user.tenantId);
+    return this.sitesService.findAll(
+      user.tenantId,
+      user.userId,
+      user.permissions,
+    );
   }
 
   @Get(':id')

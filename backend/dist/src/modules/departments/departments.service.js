@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DepartmentsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
+const manager_level_util_1 = require("../../common/utils/manager-level.util");
 let DepartmentsService = class DepartmentsService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -38,9 +39,42 @@ let DepartmentsService = class DepartmentsService {
             },
         });
     }
-    async findAll(tenantId) {
+    async findAll(tenantId, userId, userPermissions) {
+        const where = { tenantId };
+        const hasViewAll = userPermissions?.includes('department.view_all') || false;
+        if (userId) {
+            const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+            if (managerLevel.type === 'DEPARTMENT') {
+                where.id = managerLevel.departmentId;
+            }
+            else if (managerLevel.type === 'SITE') {
+                if (managerLevel.departmentId) {
+                    where.id = managerLevel.departmentId;
+                }
+                else {
+                    return [];
+                }
+            }
+            else if (managerLevel.type === 'TEAM') {
+                const team = await this.prisma.team.findUnique({
+                    where: { id: managerLevel.teamId },
+                    select: {
+                        employees: {
+                            select: { departmentId: true },
+                            take: 1,
+                        },
+                    },
+                });
+                if (team?.employees?.[0]?.departmentId) {
+                    where.id = team.employees[0].departmentId;
+                }
+                else {
+                    return [];
+                }
+            }
+        }
         return this.prisma.department.findMany({
-            where: { tenantId },
+            where,
             include: {
                 _count: {
                     select: {
@@ -126,8 +160,8 @@ let DepartmentsService = class DepartmentsService {
             where: { id: department.id },
         });
     }
-    async getStats(tenantId) {
-        const departments = await this.findAll(tenantId);
+    async getStats(tenantId, userId, userPermissions) {
+        const departments = await this.findAll(tenantId, userId, userPermissions);
         const total = departments.length;
         const totalEmployees = await this.prisma.employee.count({
             where: { tenantId, departmentId: { not: null } },

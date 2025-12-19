@@ -3,18 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, Mail, Lock, Building2, Fingerprint, Calendar, BarChart3 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Fingerprint, Calendar, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { authApi } from '@/lib/api/auth';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setUser } = useAuth();
+  const queryClient = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +40,6 @@ export default function LoginPage() {
   }, [searchParams]);
 
   const [formData, setFormData] = useState({
-    tenantCode: '',
     email: '',
     password: '',
     rememberMe: false,
@@ -59,10 +60,14 @@ export default function LoginPage() {
       localStorage.setItem('accessToken', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
       localStorage.setItem('tenantId', response.user.tenantId);
-      
+
       // Mettre à jour le contexte Auth avec l'utilisateur et ses permissions RBAC
       setUser(response.user);
-      
+
+      // Invalider tout le cache React Query pour éviter les problèmes de cache inter-utilisateurs
+      // Ceci est particulièrement important après avoir corrigé les queryKeys pour inclure user?.id
+      queryClient.clear();
+
       // Réinitialiser les tentatives échouées
       setFailedAttempts(0);
 
@@ -113,25 +118,6 @@ export default function LoginPage() {
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Code entreprise (optionnel) */}
-            <div>
-              <Label htmlFor="tenantCode">Code entreprise (optionnel)</Label>
-              <div className="mt-2 relative">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-text-secondary" />
-                <Input
-                  id="tenantCode"
-                  type="text"
-                  placeholder="Ex: logipoint, acme, mycompany"
-                  value={formData.tenantCode}
-                  onChange={(e) => setFormData({ ...formData, tenantCode: e.target.value })}
-                  className="pl-10"
-                />
-              </div>
-              <p className="text-xs text-text-secondary mt-1">
-                Renseignez votre code si vous ne vous connectez pas via un sous-domaine dédié.
-              </p>
-            </div>
-
             {/* Email */}
             <div>
               <Label htmlFor="email">Email professionnel</Label>
@@ -211,16 +197,6 @@ export default function LoginPage() {
                 </AlertDescription>
               </Alert>
             )}
-
-            {/* Register link */}
-            <div className="text-center pt-4">
-              <p className="text-small text-text-secondary">
-                Pas encore inscrit ?{' '}
-                <Link href="/register" className="text-primary font-semibold hover:underline">
-                  Créer un compte
-                </Link>
-              </p>
-            </div>
           </form>
         </div>
       </div>

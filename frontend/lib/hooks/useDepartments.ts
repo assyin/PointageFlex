@@ -2,10 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { departmentsApi, type CreateDepartmentDto, type UpdateDepartmentDto } from '../api/departments';
 import { toast } from 'sonner';
 import { isAuthenticated } from '../utils/auth';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function useDepartments() {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: ['departments'],
+    queryKey: ['departments', user?.id], // Include user ID to prevent cache sharing
     queryFn: () => departmentsApi.getAll(),
     enabled: isAuthenticated(),
     staleTime: 60000, // 1 minute
@@ -76,8 +79,10 @@ export function useDeleteDepartment() {
 }
 
 export function useDepartmentStats() {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: ['departments', 'stats'],
+    queryKey: ['departments', 'stats', user?.id], // Include user ID to prevent cache sharing
     queryFn: () => departmentsApi.getStats(),
     enabled: isAuthenticated(),
     staleTime: 30000, // 30 seconds

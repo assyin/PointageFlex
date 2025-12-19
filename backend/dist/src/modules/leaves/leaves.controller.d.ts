@@ -1,3 +1,4 @@
+import { Response } from 'express';
 import { LeavesService } from './leaves.service';
 import { CreateLeaveDto } from './dto/create-leave.dto';
 import { UpdateLeaveDto } from './dto/update-leave.dto';
@@ -9,17 +10,17 @@ export declare class LeavesController {
     create(user: any, dto: CreateLeaveDto): Promise<{
         employee: {
             id: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
         };
         leaveType: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
+            tenantId: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -37,6 +38,13 @@ export declare class LeavesController {
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
+        documentName: string | null;
+        documentSize: number | null;
+        documentMimeType: string | null;
+        documentUploadedBy: string | null;
+        documentUploadedAt: Date | null;
+        documentUpdatedBy: string | null;
+        documentUpdatedAt: Date | null;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -48,9 +56,9 @@ export declare class LeavesController {
         data: ({
             employee: {
                 id: string;
+                matricule: string;
                 firstName: string;
                 lastName: string;
-                matricule: string;
                 site: {
                     id: string;
                     name: string;
@@ -61,9 +69,9 @@ export declare class LeavesController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                tenantId: string;
                 name: string;
                 code: string;
+                tenantId: string;
                 isPaid: boolean;
                 requiresDocument: boolean;
                 maxDaysPerYear: number | null;
@@ -81,6 +89,13 @@ export declare class LeavesController {
             days: import("@prisma/client/runtime/library").Decimal;
             reason: string | null;
             document: string | null;
+            documentName: string | null;
+            documentSize: number | null;
+            documentMimeType: string | null;
+            documentUploadedBy: string | null;
+            documentUploadedAt: Date | null;
+            documentUpdatedBy: string | null;
+            documentUpdatedAt: Date | null;
             managerApprovedBy: string | null;
             managerApprovedAt: Date | null;
             managerComment: string | null;
@@ -98,19 +113,19 @@ export declare class LeavesController {
     findOne(user: any, id: string): Promise<{
         employee: {
             id: string;
-            email: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
+            email: string;
             position: string;
         };
         leaveType: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
+            tenantId: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -128,6 +143,13 @@ export declare class LeavesController {
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
+        documentName: string | null;
+        documentSize: number | null;
+        documentMimeType: string | null;
+        documentUploadedBy: string | null;
+        documentUploadedAt: Date | null;
+        documentUpdatedBy: string | null;
+        documentUpdatedAt: Date | null;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -138,17 +160,17 @@ export declare class LeavesController {
     update(user: any, id: string, dto: UpdateLeaveDto): Promise<{
         employee: {
             id: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
         };
         leaveType: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
+            tenantId: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -166,6 +188,13 @@ export declare class LeavesController {
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
+        documentName: string | null;
+        documentSize: number | null;
+        documentMimeType: string | null;
+        documentUploadedBy: string | null;
+        documentUploadedAt: Date | null;
+        documentUpdatedBy: string | null;
+        documentUpdatedAt: Date | null;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -176,17 +205,17 @@ export declare class LeavesController {
     approve(user: any, id: string, dto: ApproveLeaveDto): Promise<{
         employee: {
             id: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
         };
         leaveType: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
+            tenantId: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -204,6 +233,13 @@ export declare class LeavesController {
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
+        documentName: string | null;
+        documentSize: number | null;
+        documentMimeType: string | null;
+        documentUploadedBy: string | null;
+        documentUploadedAt: Date | null;
+        documentUpdatedBy: string | null;
+        documentUpdatedAt: Date | null;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -214,17 +250,17 @@ export declare class LeavesController {
     cancel(user: any, id: string): Promise<{
         employee: {
             id: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
         };
         leaveType: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
+            tenantId: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -242,6 +278,13 @@ export declare class LeavesController {
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
+        documentName: string | null;
+        documentSize: number | null;
+        documentMimeType: string | null;
+        documentUploadedBy: string | null;
+        documentUploadedAt: Date | null;
+        documentUpdatedBy: string | null;
+        documentUpdatedAt: Date | null;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;
@@ -262,6 +305,104 @@ export declare class LeavesController {
         days: import("@prisma/client/runtime/library").Decimal;
         reason: string | null;
         document: string | null;
+        documentName: string | null;
+        documentSize: number | null;
+        documentMimeType: string | null;
+        documentUploadedBy: string | null;
+        documentUploadedAt: Date | null;
+        documentUpdatedBy: string | null;
+        documentUpdatedAt: Date | null;
+        managerApprovedBy: string | null;
+        managerApprovedAt: Date | null;
+        managerComment: string | null;
+        hrApprovedBy: string | null;
+        hrApprovedAt: Date | null;
+        hrComment: string | null;
+    }>;
+    uploadDocument(user: any, id: string, file: Express.Multer.File): Promise<{
+        employee: {
+            id: string;
+            matricule: string;
+            firstName: string;
+            lastName: string;
+        };
+        leaveType: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            tenantId: string;
+            isPaid: boolean;
+            requiresDocument: boolean;
+            maxDaysPerYear: number | null;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        employeeId: string;
+        status: import(".prisma/client").$Enums.LeaveStatus;
+        leaveTypeId: string;
+        startDate: Date;
+        endDate: Date;
+        days: import("@prisma/client/runtime/library").Decimal;
+        reason: string | null;
+        document: string | null;
+        documentName: string | null;
+        documentSize: number | null;
+        documentMimeType: string | null;
+        documentUploadedBy: string | null;
+        documentUploadedAt: Date | null;
+        documentUpdatedBy: string | null;
+        documentUpdatedAt: Date | null;
+        managerApprovedBy: string | null;
+        managerApprovedAt: Date | null;
+        managerComment: string | null;
+        hrApprovedBy: string | null;
+        hrApprovedAt: Date | null;
+        hrComment: string | null;
+    }>;
+    downloadDocument(user: any, id: string, res: Response): Promise<void>;
+    deleteDocument(user: any, id: string): Promise<{
+        employee: {
+            id: string;
+            matricule: string;
+            firstName: string;
+            lastName: string;
+        };
+        leaveType: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            tenantId: string;
+            isPaid: boolean;
+            requiresDocument: boolean;
+            maxDaysPerYear: number | null;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        employeeId: string;
+        status: import(".prisma/client").$Enums.LeaveStatus;
+        leaveTypeId: string;
+        startDate: Date;
+        endDate: Date;
+        days: import("@prisma/client/runtime/library").Decimal;
+        reason: string | null;
+        document: string | null;
+        documentName: string | null;
+        documentSize: number | null;
+        documentMimeType: string | null;
+        documentUploadedBy: string | null;
+        documentUploadedAt: Date | null;
+        documentUpdatedBy: string | null;
+        documentUpdatedAt: Date | null;
         managerApprovedBy: string | null;
         managerApprovedAt: Date | null;
         managerComment: string | null;

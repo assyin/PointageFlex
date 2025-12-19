@@ -2,10 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { employeesApi, type Employee, type CreateEmployeeDto, type UpdateEmployeeDto, type EmployeeFilters } from '../api/employees';
 import { toast } from 'sonner';
 import { isAuthenticated } from '../utils/auth';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function useEmployees(filters?: EmployeeFilters) {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: ['employees', filters],
+    queryKey: ['employees', user?.id, filters], // Include user ID to prevent cache sharing
     queryFn: () => employeesApi.getAll(filters),
     enabled: isAuthenticated(),
     staleTime: 30000, // 30 seconds

@@ -1,10 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sitesApi } from '../api/departments';
 import { toast } from 'sonner';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function useSites() {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: ['sites'],
+    queryKey: ['sites', user?.id], // Include user ID to prevent cache sharing
     queryFn: () => sitesApi.getAll(),
     staleTime: 60000, // 1 minute
   });

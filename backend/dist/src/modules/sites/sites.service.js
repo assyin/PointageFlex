@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SitesService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
+const manager_level_util_1 = require("../../common/utils/manager-level.util");
 let SitesService = class SitesService {
     constructor(prisma) {
         this.prisma = prisma;
@@ -140,10 +141,42 @@ let SitesService = class SitesService {
             throw error;
         }
     }
-    async findAll(tenantId) {
+    async findAll(tenantId, userId, userPermissions) {
+        const where = { tenantId };
+        const hasViewAll = userPermissions?.includes('site.view_all') || false;
+        if (userId) {
+            const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+            if (managerLevel.type === 'DEPARTMENT') {
+            }
+            else if (managerLevel.type === 'SITE') {
+                if (managerLevel.siteIds && managerLevel.siteIds.length > 0) {
+                    where.id = { in: managerLevel.siteIds };
+                }
+                else {
+                    return { data: [], total: 0 };
+                }
+            }
+            else if (managerLevel.type === 'TEAM') {
+                const team = await this.prisma.team.findUnique({
+                    where: { id: managerLevel.teamId },
+                    select: {
+                        employees: {
+                            select: { siteId: true },
+                            take: 1,
+                        },
+                    },
+                });
+                if (team?.employees?.[0]?.siteId) {
+                    where.id = team.employees[0].siteId;
+                }
+                else {
+                    return { data: [], total: 0 };
+                }
+            }
+        }
         try {
             const sites = await this.prisma.site.findMany({
-                where: { tenantId },
+                where,
                 include: {
                     manager: {
                         select: {
@@ -171,7 +204,7 @@ let SitesService = class SitesService {
         catch (error) {
             if (error.message?.includes('does not exist') || error.code === 'P2021') {
                 const sites = await this.prisma.site.findMany({
-                    where: { tenantId },
+                    where,
                     orderBy: { name: 'asc' },
                 });
                 const sitesWithCounts = await Promise.all(sites.map(async (site) => {

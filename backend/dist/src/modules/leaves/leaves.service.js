@@ -14,9 +14,11 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
 const client_1 = require("@prisma/client");
 const manager_level_util_1 = require("../../common/utils/manager-level.util");
+const file_storage_service_1 = require("./services/file-storage.service");
 let LeavesService = class LeavesService {
-    constructor(prisma) {
+    constructor(prisma, fileStorageService) {
         this.prisma = prisma;
+        this.fileStorageService = fileStorageService;
     }
     async create(tenantId, dto) {
         const employee = await this.prisma.employee.findFirst({
@@ -446,10 +448,174 @@ let LeavesService = class LeavesService {
             where: { id },
         });
     }
+    async uploadDocument(tenantId, leaveId, file, userId) {
+        const leave = await this.prisma.leave.findFirst({
+            where: {
+                id: leaveId,
+                tenantId,
+            },
+            include: {
+                employee: true,
+            },
+        });
+        if (!leave) {
+            throw new common_1.NotFoundException('Leave not found');
+        }
+        const employee = await this.prisma.employee.findFirst({
+            where: {
+                userId,
+                tenantId,
+            },
+        });
+        if (employee && employee.id === leave.employeeId) {
+            if (leave.status !== client_1.LeaveStatus.PENDING) {
+                throw new common_1.ForbiddenException('You can only upload documents for pending leave requests');
+            }
+        }
+        if (leave.document) {
+            await this.fileStorageService.deleteFile(leave.document);
+        }
+        const { filePath, fileName } = await this.fileStorageService.saveFile(tenantId, leaveId, file);
+        const now = new Date();
+        const isUpdate = !!leave.document;
+        return this.prisma.leave.update({
+            where: { id: leaveId },
+            data: {
+                document: filePath,
+                documentName: fileName,
+                documentSize: file.size,
+                documentMimeType: file.mimetype,
+                documentUploadedBy: isUpdate ? leave.documentUploadedBy : userId,
+                documentUploadedAt: isUpdate ? leave.documentUploadedAt : now,
+                documentUpdatedBy: userId,
+                documentUpdatedAt: now,
+            },
+            include: {
+                employee: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        matricule: true,
+                    },
+                },
+                leaveType: true,
+            },
+        });
+    }
+    async downloadDocument(tenantId, leaveId, userId, userPermissions) {
+        const leave = await this.prisma.leave.findFirst({
+            where: {
+                id: leaveId,
+                tenantId,
+            },
+            include: {
+                employee: true,
+            },
+        });
+        if (!leave) {
+            throw new common_1.NotFoundException('Leave not found');
+        }
+        if (!leave.document) {
+            throw new common_1.NotFoundException('No document attached to this leave request');
+        }
+        const hasViewAll = userPermissions.includes('leave.view_all');
+        const hasViewOwn = userPermissions.includes('leave.view_own');
+        const hasViewTeam = userPermissions.includes('leave.view_team');
+        if (!hasViewAll) {
+            const employee = await this.prisma.employee.findFirst({
+                where: {
+                    userId,
+                    tenantId,
+                },
+            });
+            if (employee) {
+                if (employee.id === leave.employeeId && !hasViewOwn) {
+                    throw new common_1.ForbiddenException('You do not have permission to view this document');
+                }
+                if (hasViewTeam) {
+                    const managerLevel = await (0, manager_level_util_1.getManagerLevel)(this.prisma, userId, tenantId);
+                    if (managerLevel.type !== null) {
+                        const managedEmployeeIds = await (0, manager_level_util_1.getManagedEmployeeIds)(this.prisma, managerLevel, tenantId);
+                        if (!managedEmployeeIds.includes(leave.employeeId)) {
+                            throw new common_1.ForbiddenException('You do not have permission to view this document');
+                        }
+                    }
+                    else {
+                        throw new common_1.ForbiddenException('You do not have permission to view this document');
+                    }
+                }
+                else if (employee.id !== leave.employeeId) {
+                    throw new common_1.ForbiddenException('You do not have permission to view this document');
+                }
+            }
+            else {
+                throw new common_1.ForbiddenException('You do not have permission to view this document');
+            }
+        }
+        const fileData = await this.fileStorageService.getFile(leave.document);
+        return {
+            buffer: fileData.buffer,
+            fileName: leave.documentName || fileData.fileName,
+            mimeType: leave.documentMimeType || fileData.mimeType,
+        };
+    }
+    async deleteDocument(tenantId, leaveId, userId) {
+        const leave = await this.prisma.leave.findFirst({
+            where: {
+                id: leaveId,
+                tenantId,
+            },
+            include: {
+                employee: true,
+            },
+        });
+        if (!leave) {
+            throw new common_1.NotFoundException('Leave not found');
+        }
+        if (!leave.document) {
+            throw new common_1.NotFoundException('No document attached to this leave request');
+        }
+        const employee = await this.prisma.employee.findFirst({
+            where: {
+                userId,
+                tenantId,
+            },
+        });
+        if (employee && employee.id === leave.employeeId) {
+            if (leave.status !== client_1.LeaveStatus.PENDING) {
+                throw new common_1.ForbiddenException('You can only delete documents for pending leave requests');
+            }
+        }
+        await this.fileStorageService.deleteFile(leave.document);
+        return this.prisma.leave.update({
+            where: { id: leaveId },
+            data: {
+                document: null,
+                documentName: null,
+                documentSize: null,
+                documentMimeType: null,
+                documentUpdatedBy: userId,
+                documentUpdatedAt: new Date(),
+            },
+            include: {
+                employee: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        matricule: true,
+                    },
+                },
+                leaveType: true,
+            },
+        });
+    }
 };
 exports.LeavesService = LeavesService;
 exports.LeavesService = LeavesService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        file_storage_service_1.FileStorageService])
 ], LeavesService);
 //# sourceMappingURL=leaves.service.js.map

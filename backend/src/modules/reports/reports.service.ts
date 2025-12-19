@@ -2063,122 +2063,140 @@ export class ReportsService {
 
     const employeeIds = employees.map(e => e.id);
 
-    // Pour chaque employé, calculer les données de paie
-    const payrollData = await Promise.all(
-      employees.map(async (employee) => {
-        // Heures normales (pointages IN/OUT)
-        const attendanceRecords = await this.prisma.attendance.findMany({
-          where: {
-            tenantId,
-            employeeId: employee.id,
-            timestamp: {
-              gte: startDate,
-              lte: endDate,
-            },
-            type: AttendanceType.IN,
-          },
-        });
+    // OPTIMISATION: Récupérer toutes les données en une seule fois au lieu de requêtes par employé
 
-        // Calculer les heures travaillées (simplifié)
-        const workedDays = attendanceRecords.length;
+    // 1. Tous les pointages d'entrée pour tous les employés
+    const allAttendanceRecords = await this.prisma.attendance.findMany({
+      where: {
+        tenantId,
+        employeeId: { in: employeeIds },
+        timestamp: {
+          gte: startDate,
+          lte: endDate,
+        },
+        type: AttendanceType.IN,
+      },
+      select: {
+        employeeId: true,
+      },
+    });
 
-        // Heures supplémentaires approuvées
-        const overtimeStats = await this.prisma.overtime.aggregate({
-          where: {
-            tenantId,
-            employeeId: employee.id,
-            date: {
-              gte: startDate,
-              lte: endDate,
-            },
-            status: OvertimeStatus.APPROVED,
-          },
-          _sum: {
-            hours: true,
-            approvedHours: true,
-          },
-        });
+    // 2. Toutes les heures supplémentaires approuvées
+    const allOvertimeRecords = await this.prisma.overtime.findMany({
+      where: {
+        tenantId,
+        employeeId: { in: employeeIds },
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        status: OvertimeStatus.APPROVED,
+      },
+      select: {
+        employeeId: true,
+        hours: true,
+        approvedHours: true,
+      },
+    });
 
-        const overtimeHours = overtimeStats._sum.approvedHours || overtimeStats._sum.hours || 0;
+    // 3. Tous les congés approuvés
+    const allLeaveRecords = await this.prisma.leave.findMany({
+      where: {
+        tenantId,
+        employeeId: { in: employeeIds },
+        startDate: {
+          lte: endDate,
+        },
+        endDate: {
+          gte: startDate,
+        },
+        status: {
+          in: [LeaveStatus.APPROVED, LeaveStatus.HR_APPROVED],
+        },
+      },
+      select: {
+        employeeId: true,
+        days: true,
+      },
+    });
 
-        // Jours de congé approuvés
-        const leaveStats = await this.prisma.leave.aggregate({
-          where: {
-            tenantId,
-            employeeId: employee.id,
-            startDate: {
-              lte: endDate,
-            },
-            endDate: {
-              gte: startDate,
-            },
-            status: {
-              in: [LeaveStatus.APPROVED, LeaveStatus.HR_APPROVED],
-            },
-          },
-          _sum: {
-            days: true,
-          },
-        });
+    // 4. Toutes les anomalies d'absences
+    const allAbsenceRecords = await this.prisma.attendance.findMany({
+      where: {
+        tenantId,
+        employeeId: { in: employeeIds },
+        timestamp: {
+          gte: startDate,
+          lte: endDate,
+        },
+        anomalyType: {
+          contains: 'ABSENCE',
+        },
+      },
+      select: {
+        employeeId: true,
+      },
+    });
 
-        const leaveDays = leaveStats._sum.days || 0;
+    // Grouper les données par employé en mémoire
+    const attendanceByEmployee = new Map<string, number>();
+    const overtimeByEmployee = new Map<string, number>();
+    const leaveByEmployee = new Map<string, number>();
+    const absenceByEmployee = new Map<string, number>();
 
-        // Retards (en heures)
-        const lateRecords = await this.prisma.attendance.findMany({
-          where: {
-            tenantId,
-            employeeId: employee.id,
-            timestamp: {
-              gte: startDate,
-              lte: endDate,
-            },
-            hasAnomaly: true,
-            anomalyType: {
-              contains: 'LATE',
-            },
-          },
-        });
+    // Compter les pointages par employé
+    allAttendanceRecords.forEach(record => {
+      attendanceByEmployee.set(record.employeeId, (attendanceByEmployee.get(record.employeeId) || 0) + 1);
+    });
 
-        // Absences
-        const absenceCount = await this.prisma.attendance.count({
-          where: {
-            tenantId,
-            employeeId: employee.id,
-            timestamp: {
-              gte: startDate,
-              lte: endDate,
-            },
-            anomalyType: {
-              contains: 'ABSENCE',
-            },
-          },
-        });
+    // Sommer les heures supplémentaires par employé
+    allOvertimeRecords.forEach(record => {
+      const hours = Number(record.approvedHours || record.hours || 0);
+      overtimeByEmployee.set(record.employeeId, (overtimeByEmployee.get(record.employeeId) || 0) + hours);
+    });
 
-        return {
-          employee: {
-            id: employee.id,
-            matricule: employee.matricule,
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            fullName: `${employee.firstName} ${employee.lastName}`,
-            department: employee.department?.name || '',
-            site: employee.site?.name || '',
-            position: employee.position || '',
-          },
-          period: {
-            startDate: dto.startDate,
-            endDate: dto.endDate,
-          },
-          workedDays,
-          normalHours: workedDays * 8, // Approximation - à améliorer avec calcul réel
-          overtimeHours: typeof overtimeHours === 'number' ? overtimeHours : parseFloat(String(overtimeHours)) || 0,
-          leaveDays,
-          lateHours: 0, // À calculer à partir des retards
-          absenceDays: absenceCount,
-          totalHours: (workedDays * 8) + (typeof overtimeHours === 'number' ? overtimeHours : parseFloat(String(overtimeHours)) || 0),
-        };
-      })
-    );
+    // Sommer les jours de congé par employé
+    allLeaveRecords.forEach(record => {
+      const days = Number(record.days || 0);
+      leaveByEmployee.set(record.employeeId, (leaveByEmployee.get(record.employeeId) || 0) + days);
+    });
+
+    // Compter les absences par employé
+    allAbsenceRecords.forEach(record => {
+      absenceByEmployee.set(record.employeeId, (absenceByEmployee.get(record.employeeId) || 0) + 1);
+    });
+
+    // Construire les données de paie pour chaque employé
+    const payrollData = employees.map(employee => {
+      const workedDays = attendanceByEmployee.get(employee.id) || 0;
+      const overtimeHours = overtimeByEmployee.get(employee.id) || 0;
+      const leaveDays = leaveByEmployee.get(employee.id) || 0;
+      const absenceDays = absenceByEmployee.get(employee.id) || 0;
+
+      return {
+        employee: {
+          id: employee.id,
+          matricule: employee.matricule,
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          fullName: `${employee.firstName} ${employee.lastName}`,
+          department: employee.department?.name || '',
+          site: employee.site?.name || '',
+          position: employee.position || '',
+        },
+        period: {
+          startDate: dto.startDate,
+          endDate: dto.endDate,
+        },
+        workedDays,
+        normalHours: workedDays * 8, // Approximation - à améliorer avec calcul réel
+        overtimeHours,
+        leaveDays,
+        lateHours: 0, // À calculer à partir des retards
+        absenceDays,
+        totalHours: (workedDays * 8) + overtimeHours,
+      };
+    });
 
     // Statistiques globales
     const totalEmployees = payrollData.length;

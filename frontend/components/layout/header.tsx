@@ -14,6 +14,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { authApi } from '@/lib/api/auth';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface HeaderProps {
   title: string;
@@ -23,6 +24,7 @@ interface HeaderProps {
 export function Header({ title, subtitle }: HeaderProps) {
   const router = useRouter();
   const { user, setUser } = useAuth();
+  const queryClient = useQueryClient();
 
   const handleLogout = async () => {
     try {
@@ -36,6 +38,8 @@ export function Header({ title, subtitle }: HeaderProps) {
       // Nettoyer la session locale
       localStorage.clear();
       setUser(null);
+      // Vider tout le cache React Query
+      queryClient.clear();
       // Rediriger vers la page de login
       router.push('/login');
     }
@@ -96,7 +100,7 @@ export function Header({ title, subtitle }: HeaderProps) {
                 Mon profil
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-danger hover:text-danger hover:bg-danger/10 focus:text-danger focus:bg-danger/10">
                 <LogOut className="mr-2 h-4 w-4" />
                 Se déconnecter
               </DropdownMenuItem>

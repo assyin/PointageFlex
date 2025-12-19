@@ -447,7 +447,7 @@ export function DepartmentsTab() {
               Cette action supprimera définitivement le département{' '}
               <strong>{deletingDepartment?.name}</strong>.
               {deletingDepartment?._count?.employees ? (
-                <span className="block mt-2 text-destructive">
+                <span className="block mt-2 text-danger">
                   Attention : {deletingDepartment._count.employees} employé(s) sont
                   actuellement assignés à ce département.
                 </span>
@@ -458,7 +458,7 @@ export function DepartmentsTab() {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-danger text-white hover:bg-danger-hover focus-visible:ring-danger disabled:opacity-50"
             >
               Supprimer
             </AlertDialogAction>

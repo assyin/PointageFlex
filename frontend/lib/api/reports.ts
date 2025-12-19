@@ -130,4 +130,30 @@ export const reportsApi = {
     });
     return response.data;
   },
+
+  getStatsByDepartment: async (filters?: {
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    const response = await apiClient.get('/reports/dashboard', {
+      params: {
+        ...filters,
+        scope: 'department',
+      },
+    });
+    return response.data;
+  },
+
+  getStatsBySite: async (filters?: {
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    const response = await apiClient.get('/reports/dashboard', {
+      params: {
+        ...filters,
+        scope: 'site',
+      },
+    });
+    return response.data;
+  },
 };

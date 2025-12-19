@@ -482,9 +482,9 @@ export declare class ReportsService {
         data: ({
             employee: {
                 id: string;
+                matricule: string;
                 firstName: string;
                 lastName: string;
-                matricule: string;
                 department: {
                     name: string;
                 };
@@ -500,14 +500,14 @@ export declare class ReportsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            employeeId: string;
             siteId: string | null;
+            latitude: import("@prisma/client/runtime/library").Decimal | null;
+            longitude: import("@prisma/client/runtime/library").Decimal | null;
             deviceId: string | null;
+            employeeId: string;
             timestamp: Date;
             type: import(".prisma/client").$Enums.AttendanceType;
             method: import(".prisma/client").$Enums.DeviceType;
-            latitude: import("@prisma/client/runtime/library").Decimal | null;
-            longitude: import("@prisma/client/runtime/library").Decimal | null;
             hasAnomaly: boolean;
             anomalyType: string | null;
             anomalyNote: string | null;
@@ -602,9 +602,9 @@ export declare class ReportsService {
         };
         employees: {
             id: string;
+            matricule: string;
             firstName: string;
             lastName: string;
-            matricule: string;
             position: string;
         }[];
     }>;
@@ -612,13 +612,13 @@ export declare class ReportsService {
         data: ({
             employee: {
                 id: string;
-                site: {
-                    name: string;
-                };
+                matricule: string;
                 firstName: string;
                 lastName: string;
-                matricule: string;
                 department: {
+                    name: string;
+                };
+                site: {
                     name: string;
                 };
                 team: {
@@ -663,13 +663,13 @@ export declare class ReportsService {
                 type: string;
                 employee: {
                     id: string;
-                    site: {
-                        name: string;
-                    };
+                    matricule: string;
                     firstName: string;
                     lastName: string;
-                    matricule: string;
                     department: {
+                        name: string;
+                    };
+                    site: {
                         name: string;
                     };
                 };
@@ -677,13 +677,13 @@ export declare class ReportsService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                employeeId: string;
                 siteId: string | null;
-                deviceId: string | null;
-                timestamp: Date;
-                method: import(".prisma/client").$Enums.DeviceType;
                 latitude: import("@prisma/client/runtime/library").Decimal | null;
                 longitude: import("@prisma/client/runtime/library").Decimal | null;
+                deviceId: string | null;
+                employeeId: string;
+                timestamp: Date;
+                method: import(".prisma/client").$Enums.DeviceType;
                 hasAnomaly: boolean;
                 anomalyType: string | null;
                 anomalyNote: string | null;
@@ -735,7 +735,7 @@ export declare class ReportsService {
             workedDays: number;
             normalHours: number;
             overtimeHours: number;
-            leaveDays: number | import("@prisma/client/runtime/library").Decimal;
+            leaveDays: number;
             lateHours: number;
             absenceDays: number;
             totalHours: number;
@@ -796,9 +796,9 @@ export declare class ReportsService {
         filters: import("@prisma/client/runtime/library").JsonValue;
         user: {
             id: string;
-            email: string;
             firstName: string;
             lastName: string;
+            email: string;
         };
     }[]>;
 }

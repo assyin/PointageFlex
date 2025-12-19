@@ -10,78 +10,76 @@ export declare class EmployeesController {
     private readonly employeesService;
     constructor(employeesService: EmployeesService);
     create(tenantId: string, currentUser: any, createEmployeeDto: CreateEmployeeDto): Promise<{
+        currentShift: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            tenantId: string;
+            isNightShift: boolean;
+            startTime: string;
+            endTime: string;
+            breakDuration: number;
+            color: string | null;
+        };
+        department: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string | null;
+            description: string | null;
+            tenantId: string;
+            managerId: string | null;
+        };
+        site: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string | null;
+            tenantId: string;
+            managerId: string | null;
+            phone: string | null;
+            address: string | null;
+            departmentId: string | null;
+            city: string | null;
+            latitude: import("@prisma/client/runtime/library").Decimal | null;
+            longitude: import("@prisma/client/runtime/library").Decimal | null;
+            timezone: string | null;
+            workingDays: import("@prisma/client/runtime/library").JsonValue | null;
+        };
+        team: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            description: string | null;
+            tenantId: string;
+            managerId: string | null;
+            rotationEnabled: boolean;
+            rotationCycleDays: number | null;
+        };
         user: {
             id: string;
-            email: string;
             firstName: string;
             lastName: string;
+            email: string;
             forcePasswordChange: boolean;
             role: import(".prisma/client").$Enums.LegacyRole;
         };
-        currentShift: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            name: string;
-            code: string;
-            startTime: string;
-            endTime: string;
-            breakDuration: number;
-            isNightShift: boolean;
-            color: string | null;
-        };
-        department: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            name: string;
-            code: string | null;
-            description: string | null;
-            managerId: string | null;
-        };
-        site: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            phone: string | null;
-            name: string;
-            code: string | null;
-            address: string | null;
-            departmentId: string | null;
-            managerId: string | null;
-            city: string | null;
-            latitude: import("@prisma/client/runtime/library").Decimal | null;
-            longitude: import("@prisma/client/runtime/library").Decimal | null;
-            timezone: string | null;
-            workingDays: import("@prisma/client/runtime/library").JsonValue | null;
-        };
-        team: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            name: string;
-            code: string;
-            description: string | null;
-            managerId: string | null;
-            rotationEnabled: boolean;
-            rotationCycleDays: number | null;
-        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        email: string | null;
+        matricule: string;
         firstName: string;
         lastName: string;
+        email: string | null;
         phone: string | null;
-        isActive: boolean;
-        userId: string | null;
-        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -107,49 +105,44 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isActive: boolean;
+        userId: string | null;
     }>;
     findAll(user: any, tenantId: string, siteId?: string, departmentId?: string, teamId?: string, isActive?: string, search?: string): Promise<({
-        user: {
-            id: string;
-            email: string;
-            firstName: string;
-            lastName: string;
-            role: import(".prisma/client").$Enums.LegacyRole;
-        };
         currentShift: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
+            tenantId: string;
+            isNightShift: boolean;
             startTime: string;
             endTime: string;
             breakDuration: number;
-            isNightShift: boolean;
             color: string | null;
         };
         department: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string | null;
             description: string | null;
+            tenantId: string;
             managerId: string | null;
         };
         site: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
-            phone: string | null;
             name: string;
             code: string | null;
+            tenantId: string;
+            managerId: string | null;
+            phone: string | null;
             address: string | null;
             departmentId: string | null;
-            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -160,26 +153,31 @@ export declare class EmployeesController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
             description: string | null;
+            tenantId: string;
             managerId: string | null;
             rotationEnabled: boolean;
             rotationCycleDays: number | null;
+        };
+        user: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.LegacyRole;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        email: string | null;
+        matricule: string;
         firstName: string;
         lastName: string;
+        email: string | null;
         phone: string | null;
-        isActive: boolean;
-        userId: string | null;
-        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -205,6 +203,8 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isActive: boolean;
+        userId: string | null;
     })[]>;
     getStats(tenantId: string): Promise<{
         total: number;
@@ -222,14 +222,6 @@ export declare class EmployeesController {
     }>;
     exportExcel(tenantId: string, res: Response): Promise<void>;
     findOne(tenantId: string, id: string): Promise<{
-        user: {
-            id: string;
-            email: string;
-            firstName: string;
-            lastName: string;
-            isActive: boolean;
-            role: import(".prisma/client").$Enums.LegacyRole;
-        };
         attendance: {
             id: string;
             createdAt: Date;
@@ -238,10 +230,10 @@ export declare class EmployeesController {
             siteId: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
-            type: import(".prisma/client").$Enums.AttendanceType;
-            employeeId: string;
             deviceId: string | null;
+            employeeId: string;
             timestamp: Date;
+            type: import(".prisma/client").$Enums.AttendanceType;
             method: import(".prisma/client").$Enums.DeviceType;
             hasAnomaly: boolean;
             anomalyType: string | null;
@@ -266,36 +258,36 @@ export declare class EmployeesController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
+            tenantId: string;
+            isNightShift: boolean;
             startTime: string;
             endTime: string;
             breakDuration: number;
-            isNightShift: boolean;
             color: string | null;
         };
         department: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string | null;
             description: string | null;
+            tenantId: string;
             managerId: string | null;
         };
         site: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
-            phone: string | null;
             name: string;
             code: string | null;
+            tenantId: string;
+            managerId: string | null;
+            phone: string | null;
             address: string | null;
             departmentId: string | null;
-            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -306,22 +298,30 @@ export declare class EmployeesController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
             description: string | null;
+            tenantId: string;
             managerId: string | null;
             rotationEnabled: boolean;
             rotationCycleDays: number | null;
+        };
+        user: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+            isActive: boolean;
+            role: import(".prisma/client").$Enums.LegacyRole;
         };
         leaves: ({
             leaveType: {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                tenantId: string;
                 name: string;
                 code: string;
+                tenantId: string;
                 isPaid: boolean;
                 requiresDocument: boolean;
                 maxDaysPerYear: number | null;
@@ -339,6 +339,13 @@ export declare class EmployeesController {
             days: import("@prisma/client/runtime/library").Decimal;
             reason: string | null;
             document: string | null;
+            documentName: string | null;
+            documentSize: number | null;
+            documentMimeType: string | null;
+            documentUploadedBy: string | null;
+            documentUploadedAt: Date | null;
+            documentUpdatedBy: string | null;
+            documentUpdatedAt: Date | null;
             managerApprovedBy: string | null;
             managerApprovedAt: Date | null;
             managerComment: string | null;
@@ -351,13 +358,11 @@ export declare class EmployeesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        email: string | null;
+        matricule: string;
         firstName: string;
         lastName: string;
+        email: string | null;
         phone: string | null;
-        isActive: boolean;
-        userId: string | null;
-        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -383,49 +388,44 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isActive: boolean;
+        userId: string | null;
     }>;
     update(tenantId: string, id: string, updateEmployeeDto: UpdateEmployeeDto): Promise<{
-        user: {
-            id: string;
-            email: string;
-            firstName: string;
-            lastName: string;
-            role: import(".prisma/client").$Enums.LegacyRole;
-        };
         currentShift: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
+            tenantId: string;
+            isNightShift: boolean;
             startTime: string;
             endTime: string;
             breakDuration: number;
-            isNightShift: boolean;
             color: string | null;
         };
         department: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string | null;
             description: string | null;
+            tenantId: string;
             managerId: string | null;
         };
         site: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
-            phone: string | null;
             name: string;
             code: string | null;
+            tenantId: string;
+            managerId: string | null;
+            phone: string | null;
             address: string | null;
             departmentId: string | null;
-            managerId: string | null;
             city: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -436,26 +436,31 @@ export declare class EmployeesController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             name: string;
             code: string;
             description: string | null;
+            tenantId: string;
             managerId: string | null;
             rotationEnabled: boolean;
             rotationCycleDays: number | null;
+        };
+        user: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+            role: import(".prisma/client").$Enums.LegacyRole;
         };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        email: string | null;
+        matricule: string;
         firstName: string;
         lastName: string;
+        email: string | null;
         phone: string | null;
-        isActive: boolean;
-        userId: string | null;
-        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -481,37 +486,110 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isActive: boolean;
+        userId: string | null;
     }>;
     createUserAccount(tenantId: string, currentUser: any, id: string, createUserAccountDto: CreateUserAccountDto): Promise<{
+        currentShift: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            tenantId: string;
+            isNightShift: boolean;
+            startTime: string;
+            endTime: string;
+            breakDuration: number;
+            color: string | null;
+        };
+        department: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string | null;
+            description: string | null;
+            tenantId: string;
+            managerId: string | null;
+        };
+        site: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string | null;
+            tenantId: string;
+            managerId: string | null;
+            phone: string | null;
+            address: string | null;
+            departmentId: string | null;
+            city: string | null;
+            latitude: import("@prisma/client/runtime/library").Decimal | null;
+            longitude: import("@prisma/client/runtime/library").Decimal | null;
+            timezone: string | null;
+            workingDays: import("@prisma/client/runtime/library").JsonValue | null;
+        };
+        team: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            name: string;
+            code: string;
+            description: string | null;
+            tenantId: string;
+            managerId: string | null;
+            rotationEnabled: boolean;
+            rotationCycleDays: number | null;
+        };
         user: {
-            [x: string]: {
+            [x: string]: ({
                 id: string;
                 createdAt: Date;
-                updatedAt: Date;
-                isActive: boolean;
+                tenantId: string;
                 userId: string;
-                ipAddress: string | null;
-                userAgent: string | null;
-                tokenId: string;
-                device: string | null;
-                browser: string | null;
-                os: string | null;
-                location: string | null;
-                lastActive: Date;
-                expiresAt: Date;
-            }[] | {
+                reportType: string;
+                format: string;
+                fileName: string;
+                filePath: string | null;
+                fileSize: number | null;
+                filters: import("@prisma/client/runtime/library").JsonValue | null;
+            } | {
+                id: string;
+                createdAt: Date;
+                tenantId: string;
+                userId: string;
+                reportType: string;
+                format: string;
+                fileName: string;
+                filePath: string | null;
+                fileSize: number | null;
+                filters: import("@prisma/client/runtime/library").JsonValue | null;
+            })[] | ({
                 id: string;
                 createdAt: Date;
                 tenantId: string;
                 userId: string | null;
+                ipAddress: string | null;
                 action: string;
                 entity: string;
                 entityId: string | null;
                 oldValues: import("@prisma/client/runtime/library").JsonValue | null;
                 newValues: import("@prisma/client/runtime/library").JsonValue | null;
-                ipAddress: string | null;
                 userAgent: string | null;
-            }[] | ({
+            } | {
+                id: string;
+                createdAt: Date;
+                tenantId: string;
+                userId: string | null;
+                ipAddress: string | null;
+                action: string;
+                entity: string;
+                entityId: string | null;
+                oldValues: import("@prisma/client/runtime/library").JsonValue | null;
+                newValues: import("@prisma/client/runtime/library").JsonValue | null;
+                userAgent: string | null;
+            })[] | ({
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
@@ -534,37 +612,13 @@ export declare class EmployeesController {
             })[] | ({
                 id: string;
                 createdAt: Date;
-                tenantId: string;
-                userId: string | null;
-                action: string;
-                entity: string;
-                entityId: string | null;
-                oldValues: import("@prisma/client/runtime/library").JsonValue | null;
-                newValues: import("@prisma/client/runtime/library").JsonValue | null;
-                ipAddress: string | null;
-                userAgent: string | null;
-            } | {
-                id: string;
-                createdAt: Date;
-                tenantId: string;
-                userId: string | null;
-                action: string;
-                entity: string;
-                entityId: string | null;
-                oldValues: import("@prisma/client/runtime/library").JsonValue | null;
-                newValues: import("@prisma/client/runtime/library").JsonValue | null;
-                ipAddress: string | null;
-                userAgent: string | null;
-            })[] | ({
-                id: string;
-                createdAt: Date;
                 updatedAt: Date;
                 isActive: boolean;
                 userId: string;
                 ipAddress: string | null;
+                device: string | null;
                 userAgent: string | null;
                 tokenId: string;
-                device: string | null;
                 browser: string | null;
                 os: string | null;
                 location: string | null;
@@ -577,39 +631,40 @@ export declare class EmployeesController {
                 isActive: boolean;
                 userId: string;
                 ipAddress: string | null;
+                device: string | null;
                 userAgent: string | null;
                 tokenId: string;
-                device: string | null;
                 browser: string | null;
                 os: string | null;
                 location: string | null;
                 lastActive: Date;
                 expiresAt: Date;
-            })[] | ({
-                id: string;
-                createdAt: Date;
-                tenantId: string;
-                userId: string;
-                format: string;
-                reportType: string;
-                fileName: string;
-                filePath: string | null;
-                fileSize: number | null;
-                filters: import("@prisma/client/runtime/library").JsonValue | null;
-            } | {
-                id: string;
-                createdAt: Date;
-                tenantId: string;
-                userId: string;
-                format: string;
-                reportType: string;
-                fileName: string;
-                filePath: string | null;
-                fileSize: number | null;
-                filters: import("@prisma/client/runtime/library").JsonValue | null;
             })[] | {
                 id: string;
                 createdAt: Date;
+                tenantId: string;
+                userId: string;
+                reportType: string;
+                format: string;
+                fileName: string;
+                filePath: string | null;
+                fileSize: number | null;
+                filters: import("@prisma/client/runtime/library").JsonValue | null;
+            }[] | {
+                id: string;
+                createdAt: Date;
+                tenantId: string;
+                userId: string | null;
+                ipAddress: string | null;
+                action: string;
+                entity: string;
+                entityId: string | null;
+                oldValues: import("@prisma/client/runtime/library").JsonValue | null;
+                newValues: import("@prisma/client/runtime/library").JsonValue | null;
+                userAgent: string | null;
+            }[] | {
+                id: string;
+                createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
                 isActive: boolean;
@@ -620,82 +675,32 @@ export declare class EmployeesController {
             }[] | {
                 id: string;
                 createdAt: Date;
-                tenantId: string;
+                updatedAt: Date;
+                isActive: boolean;
                 userId: string;
-                format: string;
-                reportType: string;
-                fileName: string;
-                filePath: string | null;
-                fileSize: number | null;
-                filters: import("@prisma/client/runtime/library").JsonValue | null;
+                ipAddress: string | null;
+                device: string | null;
+                userAgent: string | null;
+                tokenId: string;
+                browser: string | null;
+                os: string | null;
+                location: string | null;
+                lastActive: Date;
+                expiresAt: Date;
             }[];
             [x: number]: never;
             [x: symbol]: never;
         };
-        currentShift: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            name: string;
-            code: string;
-            startTime: string;
-            endTime: string;
-            breakDuration: number;
-            isNightShift: boolean;
-            color: string | null;
-        };
-        department: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            name: string;
-            code: string | null;
-            description: string | null;
-            managerId: string | null;
-        };
-        site: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            phone: string | null;
-            name: string;
-            code: string | null;
-            address: string | null;
-            departmentId: string | null;
-            managerId: string | null;
-            city: string | null;
-            latitude: import("@prisma/client/runtime/library").Decimal | null;
-            longitude: import("@prisma/client/runtime/library").Decimal | null;
-            timezone: string | null;
-            workingDays: import("@prisma/client/runtime/library").JsonValue | null;
-        };
-        team: {
-            id: string;
-            createdAt: Date;
-            updatedAt: Date;
-            tenantId: string;
-            name: string;
-            code: string;
-            description: string | null;
-            managerId: string | null;
-            rotationEnabled: boolean;
-            rotationCycleDays: number | null;
-        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        email: string | null;
+        matricule: string;
         firstName: string;
         lastName: string;
+        email: string | null;
         phone: string | null;
-        isActive: boolean;
-        userId: string | null;
-        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -721,6 +726,8 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isActive: boolean;
+        userId: string | null;
     }>;
     getCredentials(tenantId: string, id: string): Promise<{
         email: string;
@@ -744,36 +751,36 @@ export declare class EmployeesController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                tenantId: string;
                 name: string;
                 code: string;
+                tenantId: string;
+                isNightShift: boolean;
                 startTime: string;
                 endTime: string;
                 breakDuration: number;
-                isNightShift: boolean;
                 color: string | null;
             };
             department: {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                tenantId: string;
                 name: string;
                 code: string | null;
                 description: string | null;
+                tenantId: string;
                 managerId: string | null;
             };
             site: {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                tenantId: string;
-                phone: string | null;
                 name: string;
                 code: string | null;
+                tenantId: string;
+                managerId: string | null;
+                phone: string | null;
                 address: string | null;
                 departmentId: string | null;
-                managerId: string | null;
                 city: string | null;
                 latitude: import("@prisma/client/runtime/library").Decimal | null;
                 longitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -784,10 +791,10 @@ export declare class EmployeesController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                tenantId: string;
                 name: string;
                 code: string;
                 description: string | null;
+                tenantId: string;
                 managerId: string | null;
                 rotationEnabled: boolean;
                 rotationCycleDays: number | null;
@@ -797,13 +804,11 @@ export declare class EmployeesController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            email: string | null;
+            matricule: string;
             firstName: string;
             lastName: string;
+            email: string | null;
             phone: string | null;
-            isActive: boolean;
-            userId: string | null;
-            matricule: string;
             dateOfBirth: Date | null;
             address: string | null;
             photo: string | null;
@@ -829,6 +834,8 @@ export declare class EmployeesController {
             rfidBadge: string | null;
             qrCode: string | null;
             pinCode: string | null;
+            isActive: boolean;
+            userId: string | null;
         };
     }>;
     remove(tenantId: string, id: string): Promise<{
@@ -836,13 +843,11 @@ export declare class EmployeesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        email: string | null;
+        matricule: string;
         firstName: string;
         lastName: string;
+        email: string | null;
         phone: string | null;
-        isActive: boolean;
-        userId: string | null;
-        matricule: string;
         dateOfBirth: Date | null;
         address: string | null;
         photo: string | null;
@@ -868,6 +873,8 @@ export declare class EmployeesController {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isActive: boolean;
+        userId: string | null;
     }>;
     importExcel(tenantId: string, file: Express.Multer.File): Promise<{
         statusCode: HttpStatus;
@@ -880,9 +887,9 @@ export declare class EmployeesController {
     }>;
     updateBiometric(tenantId: string, id: string, biometricData: BiometricDataDto): Promise<{
         id: string;
+        matricule: string;
         firstName: string;
         lastName: string;
-        matricule: string;
         fingerprintData: string;
         faceData: string;
         rfidBadge: string;

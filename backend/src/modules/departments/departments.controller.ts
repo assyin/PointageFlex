@@ -13,6 +13,7 @@ import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentTenant } from '../../common/decorators/current-tenant.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @Controller('departments')
 @UseGuards(JwtAuthGuard)
@@ -28,13 +29,27 @@ export class DepartmentsController {
   }
 
   @Get()
-  findAll(@CurrentTenant() tenantId: string) {
-    return this.departmentsService.findAll(tenantId);
+  findAll(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.departmentsService.findAll(
+      tenantId,
+      user?.userId,
+      user?.permissions,
+    );
   }
 
   @Get('stats')
-  getStats(@CurrentTenant() tenantId: string) {
-    return this.departmentsService.getStats(tenantId);
+  getStats(
+    @CurrentTenant() tenantId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.departmentsService.getStats(
+      tenantId,
+      user?.userId,
+      user?.permissions,
+    );
   }
 
   @Get(':id')

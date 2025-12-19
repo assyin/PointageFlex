@@ -31,6 +31,8 @@ import {
   Minus,
   BarChart3,
   PieChart as PieChartIcon,
+  Building2,
+  MapPin,
 } from 'lucide-react';
 import { useDashboardStats } from '@/lib/hooks/useDashboardStats';
 import { useDepartments } from '@/lib/hooks/useDepartments';
@@ -144,6 +146,19 @@ export default function DashboardPage() {
   const { data: departments } = useDepartments();
   const { data: sites } = useSites();
   const { data: teams } = useTeams();
+  
+  // Charger TOUS les employés pour les stats par département/site (sans filtres)
+  const { data: allEmployees } = useEmployees({});
+  
+  // Fetch stats by department and site (only for admins and managers)
+  const { data: statsByDepartment } = useDashboardStats({
+    ...dateFilters,
+    scope: 'department' as any,
+  });
+  const { data: statsBySite } = useDashboardStats({
+    ...dateFilters,
+    scope: 'site' as any,
+  });
   const { data: employees } = useEmployees({
     departmentId: selectedDepartment !== 'all' ? selectedDepartment : undefined,
     siteId: selectedSite !== 'all' ? selectedSite : undefined,
@@ -462,7 +477,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <h3 className="text-3xl font-bold text-gray-900 mb-2">
-                    {stats?.overtime?.totalHours || 0}h
+                    {stats?.overtime?.totalHours ? Number(stats.overtime.totalHours).toFixed(2) : 0}h
                   </h3>
                   <div className="flex items-center gap-2">
                     <TrendBadge value={trends.overtimeHours} inverse />
@@ -843,6 +858,300 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Stats by Department and Site - Only for Admins and Managers */}
+            {(isAdminRH || isSuperAdmin || isManager) && (
+              <>
+                {/* Stats by Department */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                  <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-blue-500">
+                    <CardHeader className="border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+                      <CardTitle className="flex items-center gap-2 text-blue-700">
+                        <Building2 className="h-5 w-5" />
+                        Statistiques par Département
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {departments && (departments as any[]).length > 0 ? (
+                        <div className="space-y-4">
+                          {(departments as any[]).slice(0, 5).map((dept: any) => {
+                            // Calculer les stats pour ce département - utiliser allEmployees pour avoir tous les employés
+                            const employeesList = allEmployees?.data || employees?.data || [];
+                            const deptEmployees = employeesList.filter((emp: any) => 
+                              emp.departmentId === dept.id || emp.department?.id === dept.id
+                            );
+                            const activeEmployees = deptEmployees.filter((emp: any) => 
+                              emp.isActive !== false && emp.status !== 'INACTIVE' && emp.status !== 'TERMINATED'
+                            );
+                            const deptStats = {
+                              total: deptEmployees.length,
+                              activeToday: activeEmployees.length,
+                              attendanceRate: deptEmployees.length > 0 
+                                ? ((activeEmployees.length / deptEmployees.length) * 100).toFixed(1)
+                                : 0,
+                            };
+                            
+                            return (
+                              <div
+                                key={dept.id}
+                                className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <Building2 className="h-4 w-4 text-blue-600" />
+                                    <h4 className="font-semibold text-gray-900">{dept.name}</h4>
+                                  </div>
+                                  <Badge variant="default">{deptStats.total} employés</Badge>
+                                </div>
+                                <div className="grid grid-cols-3 gap-4 mt-3">
+                                  <div>
+                                    <p className="text-xs text-gray-500">Taux de présence</p>
+                                    <p className="text-lg font-bold text-blue-600">{deptStats.attendanceRate}%</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Actifs aujourd'hui</p>
+                                    <p className="text-lg font-bold text-green-600">{deptStats.activeToday}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Total</p>
+                                    <p className="text-lg font-bold text-gray-900">{deptStats.total}</p>
+                                  </div>
+                                </div>
+                                <div className="mt-3 h-2 bg-gray-200 rounded-full">
+                                  <div
+                                    className="bg-blue-600 h-2 rounded-full transition-all"
+                                    style={{ width: `${deptStats.attendanceRate}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <Building2 className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                          <p>Aucun département disponible</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Stats by Site */}
+                  <Card className="hover:shadow-lg transition-shadow border-l-4 border-l-green-500">
+                    <CardHeader className="border-b bg-gradient-to-r from-green-50 to-emerald-50">
+                      <CardTitle className="flex items-center gap-2 text-green-700">
+                        <MapPin className="h-5 w-5" />
+                        Statistiques par Site
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {sites && (sites as any[]).length > 0 ? (
+                        <div className="space-y-4">
+                          {(sites as any[]).slice(0, 5).map((site: any) => {
+                            // Calculer les stats pour ce site - utiliser allEmployees pour avoir tous les employés
+                            const employeesList = allEmployees?.data || employees?.data || [];
+                            const siteEmployees = employeesList.filter((emp: any) => 
+                              emp.siteId === site.id || emp.site?.id === site.id
+                            );
+                            const activeEmployees = siteEmployees.filter((emp: any) => 
+                              emp.isActive !== false && emp.status !== 'INACTIVE' && emp.status !== 'TERMINATED'
+                            );
+                            const siteStats = {
+                              total: siteEmployees.length,
+                              activeToday: activeEmployees.length,
+                              attendanceRate: siteEmployees.length > 0 
+                                ? ((activeEmployees.length / siteEmployees.length) * 100).toFixed(1)
+                                : 0,
+                            };
+                            
+                            return (
+                              <div
+                                key={site.id}
+                                className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="h-4 w-4 text-green-600" />
+                                    <h4 className="font-semibold text-gray-900">{site.name}</h4>
+                                  </div>
+                                  <Badge variant="default">{siteStats.total} employés</Badge>
+                                </div>
+                                <div className="grid grid-cols-3 gap-4 mt-3">
+                                  <div>
+                                    <p className="text-xs text-gray-500">Taux de présence</p>
+                                    <p className="text-lg font-bold text-green-600">{siteStats.attendanceRate}%</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Actifs aujourd'hui</p>
+                                    <p className="text-lg font-bold text-blue-600">{siteStats.activeToday}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Total</p>
+                                    <p className="text-lg font-bold text-gray-900">{siteStats.total}</p>
+                                  </div>
+                                </div>
+                                <div className="mt-3 h-2 bg-gray-200 rounded-full">
+                                  <div
+                                    className="bg-green-600 h-2 rounded-full transition-all"
+                                    style={{ width: `${siteStats.attendanceRate}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <MapPin className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                          <p>Aucun site disponible</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Charts for Department and Site Stats */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                  {/* Department Attendance Chart */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="border-b">
+                      <CardTitle className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-blue-600" />
+                        Présence par Département
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {departments && (departments as any[]).length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart
+                            data={(departments as any[]).slice(0, 5).map((dept: any) => {
+                              const employeesList = allEmployees?.data || employees?.data || [];
+                              const deptEmployees = employeesList.filter((emp: any) => 
+                                emp.departmentId === dept.id || emp.department?.id === dept.id
+                              );
+                              const activeEmployees = deptEmployees.filter((emp: any) => 
+                                emp.isActive !== false && emp.status !== 'INACTIVE' && emp.status !== 'TERMINATED'
+                              );
+                              return {
+                                name: dept.name.length > 15 ? dept.name.substring(0, 15) + '...' : dept.name,
+                                'Employés actifs': activeEmployees.length,
+                                'Total employés': deptEmployees.length,
+                              };
+                            })}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis
+                              dataKey="name"
+                              stroke="#6C757D"
+                              style={{ fontSize: '12px' }}
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                            />
+                            <YAxis stroke="#6C757D" style={{ fontSize: '12px' }} />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: '#fff',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: '8px',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                              }}
+                            />
+                            <Legend />
+                            <Bar
+                              dataKey="Employés actifs"
+                              fill={COLORS.success}
+                              radius={[4, 4, 0, 0]}
+                            />
+                            <Bar
+                              dataKey="Total employés"
+                              fill={COLORS.info}
+                              radius={[4, 4, 0, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-[300px] text-gray-500">
+                          <div className="text-center">
+                            <Building2 className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                            <p>Aucune donnée disponible</p>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Site Attendance Chart */}
+                  <Card className="hover:shadow-lg transition-shadow">
+                    <CardHeader className="border-b">
+                      <CardTitle className="flex items-center gap-2">
+                        <MapPin className="h-5 w-5 text-green-600" />
+                        Présence par Site
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      {sites && (sites as any[]).length > 0 ? (
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart
+                            data={(sites as any[]).slice(0, 5).map((site: any) => {
+                              const employeesList = allEmployees?.data || employees?.data || [];
+                              const siteEmployees = employeesList.filter((emp: any) => 
+                                emp.siteId === site.id || emp.site?.id === site.id
+                              );
+                              const activeEmployees = siteEmployees.filter((emp: any) => 
+                                emp.isActive !== false && emp.status !== 'INACTIVE' && emp.status !== 'TERMINATED'
+                              );
+                              return {
+                                name: site.name.length > 15 ? site.name.substring(0, 15) + '...' : site.name,
+                                'Employés actifs': activeEmployees.length,
+                                'Total employés': siteEmployees.length,
+                              };
+                            })}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis
+                              dataKey="name"
+                              stroke="#6C757D"
+                              style={{ fontSize: '12px' }}
+                              angle={-45}
+                              textAnchor="end"
+                              height={80}
+                            />
+                            <YAxis stroke="#6C757D" style={{ fontSize: '12px' }} />
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: '#fff',
+                                border: '1px solid #e0e0e0',
+                                borderRadius: '8px',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                              }}
+                            />
+                            <Legend />
+                            <Bar
+                              dataKey="Employés actifs"
+                              fill={COLORS.success}
+                              radius={[4, 4, 0, 0]}
+                            />
+                            <Bar
+                              dataKey="Total employés"
+                              fill={COLORS.info}
+                              radius={[4, 4, 0, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="flex items-center justify-center h-[300px] text-gray-500">
+                          <div className="text-center">
+                            <MapPin className="h-12 w-12 mx-auto mb-2 text-gray-400" />
+                            <p>Aucune donnée disponible</p>
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
           </TabsContent>
 
           {/* ALERTS TAB */}

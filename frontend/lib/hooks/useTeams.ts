@@ -2,10 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { teamsApi, type CreateTeamDto } from '../api/teams';
 import { toast } from 'sonner';
 import { isAuthenticated } from '../utils/auth';
+import { useAuth } from '../../contexts/AuthContext';
 
 export function useTeams(filters?: any) {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: ['teams', filters],
+    queryKey: ['teams', user?.id, filters], // Include user ID to prevent cache sharing
     queryFn: () => teamsApi.getAll(filters),
     enabled: isAuthenticated(),
     staleTime: 60000, // 1 minute

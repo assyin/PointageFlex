@@ -9,11 +9,21 @@ export interface Leave {
   days: number;
   reason?: string;
   attachment?: string;
+  document?: string;
+  documentName?: string;
+  documentSize?: number;
+  documentMimeType?: string;
+  documentUploadedBy?: string;
+  documentUploadedAt?: string;
+  documentUpdatedBy?: string;
+  documentUpdatedAt?: string;
   status: 'PENDING' | 'MANAGER_APPROVED' | 'HR_APPROVED' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
   managerApprovedBy?: string;
   managerApprovedAt?: string;
+  managerComment?: string;
   hrApprovedBy?: string;
   hrApprovedAt?: string;
+  hrComment?: string;
   rejectionReason?: string;
   tenantId: string;
   createdAt: string;
@@ -112,6 +122,29 @@ export const leavesApi = {
 
   getBalance: async (employeeId: string) => {
     const response = await apiClient.get(`/leaves/balance/${employeeId}`);
+    return response.data;
+  },
+
+  uploadDocument: async (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post(`/leaves/${id}/document`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  downloadDocument: async (id: string) => {
+    const response = await apiClient.get(`/leaves/${id}/document`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+
+  deleteDocument: async (id: string) => {
+    const response = await apiClient.delete(`/leaves/${id}/document`);
     return response.data;
   },
 };

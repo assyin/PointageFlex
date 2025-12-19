@@ -232,10 +232,11 @@ export const SelectItem = React.forwardRef<HTMLDivElement, SelectItemProps>(
         ref={ref}
         onClick={() => context.onValueChange(value)}
         className={cn(
-          'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 px-2 text-sm outline-none',
+          'relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 px-2 text-sm outline-none transition-colors',
+          'hover:bg-gray-100 hover:text-gray-900',
           'focus:bg-gray-100 focus:text-gray-900',
           'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
-          isSelected && 'bg-gray-100 text-gray-900',
+          isSelected && 'bg-gray-100 text-gray-900 font-medium',
           className
         )}
         data-selected={isSelected}

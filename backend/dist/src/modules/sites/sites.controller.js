@@ -33,7 +33,7 @@ let SitesController = class SitesController {
         if (!user || !user.tenantId) {
             throw new common_1.UnauthorizedException('User not authenticated or tenantId missing');
         }
-        return this.sitesService.findAll(user.tenantId);
+        return this.sitesService.findAll(user.tenantId, user.userId, user.permissions);
     }
     findOne(user, id) {
         return this.sitesService.findOne(user.tenantId, id);

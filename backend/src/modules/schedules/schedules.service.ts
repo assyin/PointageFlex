@@ -343,13 +343,14 @@ export class SchedulesService {
     const hasViewDepartment = userPermissions?.includes('schedule.view_department');
     const hasViewSite = userPermissions?.includes('schedule.view_site');
 
-    // IMPORTANT: Détecter si l'utilisateur est un manager, mais seulement s'il n'a pas 'view_all'
-    // Les admins avec 'view_all' doivent voir toutes les données, indépendamment de leur statut de manager
-    // PRIORITÉ: La permission 'view_all' prime sur le statut de manager
-    if (userId && !hasViewAll) {
+    // IMPORTANT: Toujours vérifier le niveau du manager pour appliquer les restrictions appropriées
+    // Même avec 'view_all', un manager régional ne doit voir que son département/site assigné
+    // Seuls les ADMIN_RH et SUPER_ADMIN (qui ne sont pas managers) devraient voir tous les plannings
+    if (userId) {
       const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
 
       // Si l'utilisateur est un manager, appliquer le filtrage selon son niveau hiérarchique
+      // Même avec 'view_all', un manager ne voit que ce qu'il gère
       if (managerLevel.type === 'DEPARTMENT') {
         // Manager de département : filtrer par les employés du département
         const managedEmployeeIds = await getManagedEmployeeIds(this.prisma, managerLevel, tenantId);
@@ -402,8 +403,8 @@ export class SchedulesService {
             },
           };
         }
-      } else if (!hasViewAll && hasViewOwn) {
-        // Si pas manager et a seulement 'view_own', filtrer par son propre ID
+      } else if (hasViewOwn && !hasViewAll) {
+        // Si pas manager, n'a PAS 'view_all', mais a 'view_own', filtrer par son propre ID
         const employee = await this.prisma.employee.findFirst({
           where: { userId, tenantId },
           select: { id: true },
@@ -424,6 +425,7 @@ export class SchedulesService {
           };
         }
       }
+      // Si managerLevel.type === null ET hasViewAll, l'utilisateur voit tout (ADMIN_RH, SUPER_ADMIN)
     }
 
     if (filters?.employeeId) {

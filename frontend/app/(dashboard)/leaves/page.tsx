@@ -34,6 +34,7 @@ import {
   Building2,
   Users,
   Briefcase,
+  Upload,
 } from 'lucide-react';
 import {
   useLeaves,
@@ -45,7 +46,11 @@ import {
   useCreateLeaveType,
   useUpdateLeaveType,
   useDeleteLeaveType,
+  useUploadLeaveDocument,
+  useDownloadLeaveDocument,
+  useDeleteLeaveDocument,
 } from '@/lib/hooks/useLeaves';
+import { FileUpload } from '@/components/leaves/FileUpload';
 import { useEmployees } from '@/lib/hooks/useEmployees';
 import { useDepartments } from '@/lib/hooks/useDepartments';
 import { useSites } from '@/lib/hooks/useSites';
@@ -195,6 +200,7 @@ function CreateLeaveForm({
   onCancel: () => void;
 }) {
   const createMutation = useCreateLeave();
+  const uploadDocumentMutation = useUploadLeaveDocument();
   const { data: employeesData } = useEmployees();
   const employees = Array.isArray(employeesData) ? employeesData : [];
 
@@ -205,6 +211,7 @@ function CreateLeaveForm({
     endDate: '',
     reason: '',
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const calculateDays = (start: string, end: string): number => {
     if (!start || !end) return 0;
@@ -226,13 +233,28 @@ function CreateLeaveForm({
     const days = calculateDays(formData.startDate, formData.endDate);
 
     try {
-      await createMutation.mutateAsync({
+      // Créer la demande de congé
+      const leave = await createMutation.mutateAsync({
         employeeId: formData.employeeId,
         leaveTypeId: formData.leaveTypeId,
         startDate: formData.startDate,
         endDate: formData.endDate,
         reason: formData.reason,
       });
+
+      // Uploader le document si un fichier a été sélectionné
+      if (selectedFile && leave?.id) {
+        try {
+          await uploadDocumentMutation.mutateAsync({
+            id: leave.id,
+            file: selectedFile,
+          });
+        } catch (uploadError) {
+          console.error('Error uploading document:', uploadError);
+          // Ne pas bloquer si l'upload échoue, la demande est déjà créée
+        }
+      }
+
       onSuccess();
     } catch (error) {
       console.error('Error creating leave:', error);
@@ -331,12 +353,18 @@ function CreateLeaveForm({
         />
       </div>
 
+      <FileUpload
+        file={selectedFile}
+        onFileChange={setSelectedFile}
+        disabled={createMutation.isPending || uploadDocumentMutation.isPending}
+      />
+
       <div className="flex gap-2 justify-end pt-4">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={createMutation.isPending}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={createMutation.isPending || uploadDocumentMutation.isPending}>
           Annuler
         </Button>
-        <Button type="submit" variant="primary" disabled={createMutation.isPending}>
-          {createMutation.isPending ? 'Création...' : 'Créer la demande'}
+        <Button type="submit" variant="primary" disabled={createMutation.isPending || uploadDocumentMutation.isPending}>
+          {(createMutation.isPending || uploadDocumentMutation.isPending) ? 'Création...' : 'Créer la demande'}
         </Button>
       </div>
     </form>
@@ -386,6 +414,9 @@ export default function LeavesPage() {
   const approveMutation = useApproveLeave();
   const rejectMutation = useRejectLeave();
   const deleteLeaveTypeMutation = useDeleteLeaveType();
+  const downloadDocumentMutation = useDownloadLeaveDocument();
+  const uploadDocumentMutation = useUploadLeaveDocument();
+  const deleteDocumentMutation = useDeleteLeaveDocument();
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -871,6 +902,7 @@ export default function LeavesPage() {
                       <th className="px-4 py-4">Type de congé</th>
                       <th className="px-4 py-4">Période</th>
                       <th className="px-4 py-4">Durée</th>
+                      <th className="px-4 py-4">Document</th>
                       <th className="px-4 py-4">Statut</th>
                       <th className="px-4 py-4">Workflow</th>
                       <th className="px-4 py-4 text-right">Actions</th>
@@ -907,8 +939,93 @@ export default function LeavesPage() {
                         </td>
                         <td className="px-4 py-4">
                           <span className="font-semibold text-gray-900">
-                            {leave.totalDays} jour{leave.totalDays > 1 ? 's' : ''}
+                            {leave.days || leave.totalDays} jour{(leave.days || leave.totalDays) > 1 ? 's' : ''}
                           </span>
+                        </td>
+                        <td className="px-4 py-4">
+                          {leave.document ? (
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-primary" />
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => downloadDocumentMutation.mutate(leave.id)}
+                                disabled={downloadDocumentMutation.isPending}
+                                className="h-7 text-xs border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                {downloadDocumentMutation.isPending ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <>
+                                    <Download className="h-3 w-3 mr-1" />
+                                    Télécharger
+                                  </>
+                                )}
+                              </Button>
+                              {(isManager || isHRAdmin || (user?.employeeId === leave.employeeId && leave.status === 'PENDING')) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif';
+                                    input.onchange = async (e: any) => {
+                                      const file = e.target.files[0];
+                                      if (file) {
+                                        await uploadDocumentMutation.mutateAsync({ id: leave.id, file });
+                                      }
+                                    };
+                                    input.click();
+                                  }}
+                                  disabled={uploadDocumentMutation.isPending}
+                                  className="h-7 text-xs border-gray-300 text-gray-700 hover:bg-gray-50"
+                                >
+                                  {uploadDocumentMutation.isPending ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Upload className="h-3 w-3 mr-1" />
+                                      Modifier
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-400">Aucun document</span>
+                              {(isManager || isHRAdmin || (user?.employeeId === leave.employeeId && leave.status === 'PENDING')) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const input = document.createElement('input');
+                                    input.type = 'file';
+                                    input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif';
+                                    input.onchange = async (e: any) => {
+                                      const file = e.target.files[0];
+                                      if (file) {
+                                        await uploadDocumentMutation.mutateAsync({ id: leave.id, file });
+                                      }
+                                    };
+                                    input.click();
+                                  }}
+                                  disabled={uploadDocumentMutation.isPending}
+                                  className="h-7 text-xs border-gray-300 text-gray-700 hover:bg-gray-50"
+                                >
+                                  {uploadDocumentMutation.isPending ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <Upload className="h-3 w-3 mr-1" />
+                                      Ajouter
+                                    </>
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-4">
                           {getStatusBadge(leave.status)}
@@ -1328,6 +1445,116 @@ export default function LeavesPage() {
                   <p className="text-sm text-text-secondary">{selectedLeave.reason}</p>
                 </div>
               )}
+
+              {/* Document */}
+              <div className="mt-6 pt-6 border-t border-border">
+                <h3 className="font-semibold text-text-primary mb-3 flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Document attaché
+                </h3>
+                {selectedLeave.document ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {selectedLeave.documentName || 'Document'}
+                          </p>
+                          {selectedLeave.documentSize && (
+                            <p className="text-xs text-gray-500">
+                              {(selectedLeave.documentSize / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          )}
+                          {selectedLeave.documentUploadedAt && (
+                            <p className="text-xs text-gray-500">
+                              Ajouté le {format(new Date(selectedLeave.documentUploadedAt), 'dd/MM/yyyy à HH:mm', { locale: fr })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => downloadDocumentMutation.mutate(selectedLeave.id)}
+                          disabled={downloadDocumentMutation.isPending}
+                          className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                        >
+                          {downloadDocumentMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Download className="h-4 w-4 mr-2" />
+                              Télécharger
+                            </>
+                          )}
+                        </Button>
+                        {(isManager || isHRAdmin || (user?.employeeId === selectedLeave.employeeId && selectedLeave.status === 'PENDING')) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif';
+                              input.onchange = async (e: any) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  await uploadDocumentMutation.mutateAsync({ id: selectedLeave.id, file });
+                                }
+                              };
+                              input.click();
+                            }}
+                            disabled={uploadDocumentMutation.isPending}
+                            className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                          >
+                            {uploadDocumentMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Modifier
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-500 mb-3">Aucun document attaché</p>
+                    {(isManager || isHRAdmin || (user?.employeeId === selectedLeave.employeeId && selectedLeave.status === 'PENDING')) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif';
+                          input.onchange = async (e: any) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              await uploadDocumentMutation.mutateAsync({ id: selectedLeave.id, file });
+                            }
+                          };
+                          input.click();
+                        }}
+                        disabled={uploadDocumentMutation.isPending}
+                        className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                      >
+                        {uploadDocumentMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Upload className="h-4 w-4 mr-2" />
+                        )}
+                        Ajouter un document
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Rejection Reason */}
               {selectedLeave.rejectionReason && (

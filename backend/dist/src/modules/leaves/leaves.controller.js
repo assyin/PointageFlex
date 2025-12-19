@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.LeavesController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
 const leaves_service_1 = require("./leaves.service");
 const create_leave_dto_1 = require("./dto/create-leave.dto");
@@ -53,6 +54,18 @@ let LeavesController = class LeavesController {
     }
     remove(user, id) {
         return this.leavesService.remove(user.tenantId, id);
+    }
+    async uploadDocument(user, id, file) {
+        return this.leavesService.uploadDocument(user.tenantId, id, file, user.userId);
+    }
+    async downloadDocument(user, id, res) {
+        const fileData = await this.leavesService.downloadDocument(user.tenantId, id, user.userId, user.permissions || []);
+        res.setHeader('Content-Type', fileData.mimeType);
+        res.setHeader('Content-Disposition', `attachment; filename="${fileData.fileName}"`);
+        res.send(fileData.buffer);
+    }
+    async deleteDocument(user, id) {
+        return this.leavesService.deleteDocument(user.tenantId, id, user.userId);
     }
 };
 exports.LeavesController = LeavesController;
@@ -133,6 +146,40 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], LeavesController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Post)(':id/document'),
+    (0, permissions_decorator_1.RequirePermissions)('leave.create', 'leave.update'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOperation)({ summary: 'Upload document for leave request' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], LeavesController.prototype, "uploadDocument", null);
+__decorate([
+    (0, common_1.Get)(':id/document'),
+    (0, permissions_decorator_1.RequirePermissions)('leave.view_all', 'leave.view_own', 'leave.view_team'),
+    (0, swagger_1.ApiOperation)({ summary: 'Download document for leave request' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", Promise)
+], LeavesController.prototype, "downloadDocument", null);
+__decorate([
+    (0, common_1.Delete)(':id/document'),
+    (0, permissions_decorator_1.RequirePermissions)('leave.update'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete document for leave request' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], LeavesController.prototype, "deleteDocument", null);
 exports.LeavesController = LeavesController = __decorate([
     (0, swagger_1.ApiTags)('Leaves'),
     (0, common_1.Controller)('leaves'),

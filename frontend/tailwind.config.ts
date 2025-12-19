@@ -36,6 +36,11 @@ const config: Config = {
           DEFAULT: '#DC3545',
           hover: '#B02A37',
         },
+        // Alias pour compatibilité avec shadcn/ui
+        destructive: {
+          DEFAULT: '#DC3545',
+          hover: '#B02A37',
+        },
         info: {
           DEFAULT: '#17A2B8',
         },

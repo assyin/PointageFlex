@@ -1,5 +1,6 @@
-import { IsEnum, IsOptional, IsString, IsDateString, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsDateString, IsUUID, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 export enum ExportFormat {
   PDF = 'PDF',
@@ -52,10 +53,22 @@ export class ExportReportDto {
 
   @ApiPropertyOptional({ description: 'Include summary statistics' })
   @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   includeSummary?: boolean;
 
   @ApiPropertyOptional({ description: 'Include charts (PDF only)' })
   @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  })
   includeCharts?: boolean;
 }
 

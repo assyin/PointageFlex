@@ -5,10 +5,14 @@ import { UpdateLeaveDto } from './dto/update-leave.dto';
 import { ApproveLeaveDto } from './dto/approve-leave.dto';
 import { LeaveStatus, LegacyRole } from '@prisma/client';
 import { getManagerLevel, getManagedEmployeeIds } from '../../common/utils/manager-level.util';
+import { FileStorageService } from './services/file-storage.service';
 
 @Injectable()
 export class LeavesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private fileStorageService: FileStorageService,
+  ) {}
 
   async create(tenantId: string, dto: CreateLeaveDto) {
     // Verify employee belongs to tenant
@@ -537,6 +541,241 @@ export class LeavesService {
 
     return this.prisma.leaveType.delete({
       where: { id },
+    });
+  }
+
+  /**
+   * Upload un document pour un congé
+   */
+  async uploadDocument(
+    tenantId: string,
+    leaveId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ) {
+    // Vérifier que le congé existe
+    const leave = await this.prisma.leave.findFirst({
+      where: {
+        id: leaveId,
+        tenantId,
+      },
+      include: {
+        employee: true,
+      },
+    });
+
+    if (!leave) {
+      throw new NotFoundException('Leave not found');
+    }
+
+    // Vérifier les permissions
+    // L'employé peut uploader seulement pour sa propre demande et si PENDING
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        userId,
+        tenantId,
+      },
+    });
+
+    if (employee && employee.id === leave.employeeId) {
+      if (leave.status !== LeaveStatus.PENDING) {
+        throw new ForbiddenException(
+          'You can only upload documents for pending leave requests',
+        );
+      }
+    }
+
+    // Supprimer l'ancien document s'il existe
+    if (leave.document) {
+      await this.fileStorageService.deleteFile(leave.document);
+    }
+
+    // Sauvegarder le nouveau fichier
+    const { filePath, fileName } = await this.fileStorageService.saveFile(
+      tenantId,
+      leaveId,
+      file,
+    );
+
+    const now = new Date();
+    const isUpdate = !!leave.document;
+
+    // Mettre à jour le congé
+    return this.prisma.leave.update({
+      where: { id: leaveId },
+      data: {
+        document: filePath,
+        documentName: fileName,
+        documentSize: file.size,
+        documentMimeType: file.mimetype,
+        documentUploadedBy: isUpdate ? leave.documentUploadedBy : userId,
+        documentUploadedAt: isUpdate ? leave.documentUploadedAt : now,
+        documentUpdatedBy: userId,
+        documentUpdatedAt: now,
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            matricule: true,
+          },
+        },
+        leaveType: true,
+      },
+    });
+  }
+
+  /**
+   * Télécharge un document de congé
+   */
+  async downloadDocument(
+    tenantId: string,
+    leaveId: string,
+    userId: string,
+    userPermissions: string[],
+  ) {
+    // Vérifier que le congé existe
+    const leave = await this.prisma.leave.findFirst({
+      where: {
+        id: leaveId,
+        tenantId,
+      },
+      include: {
+        employee: true,
+      },
+    });
+
+    if (!leave) {
+      throw new NotFoundException('Leave not found');
+    }
+
+    if (!leave.document) {
+      throw new NotFoundException('No document attached to this leave request');
+    }
+
+    // Vérifier les permissions
+    const hasViewAll = userPermissions.includes('leave.view_all');
+    const hasViewOwn = userPermissions.includes('leave.view_own');
+    const hasViewTeam = userPermissions.includes('leave.view_team');
+
+    if (!hasViewAll) {
+      const employee = await this.prisma.employee.findFirst({
+        where: {
+          userId,
+          tenantId,
+        },
+      });
+
+      if (employee) {
+        // Vérifier si c'est son propre congé
+        if (employee.id === leave.employeeId && !hasViewOwn) {
+          throw new ForbiddenException('You do not have permission to view this document');
+        }
+
+        // Vérifier si c'est un manager qui peut voir l'équipe
+        if (hasViewTeam) {
+          const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
+          if (managerLevel.type !== null) {
+            const managedEmployeeIds = await getManagedEmployeeIds(
+              this.prisma,
+              managerLevel,
+              tenantId,
+            );
+            if (!managedEmployeeIds.includes(leave.employeeId)) {
+              throw new ForbiddenException('You do not have permission to view this document');
+            }
+          } else {
+            throw new ForbiddenException('You do not have permission to view this document');
+          }
+        } else if (employee.id !== leave.employeeId) {
+          throw new ForbiddenException('You do not have permission to view this document');
+        }
+      } else {
+        throw new ForbiddenException('You do not have permission to view this document');
+      }
+    }
+
+    // Récupérer le fichier
+    const fileData = await this.fileStorageService.getFile(leave.document);
+
+    return {
+      buffer: fileData.buffer,
+      fileName: leave.documentName || fileData.fileName,
+      mimeType: leave.documentMimeType || fileData.mimeType,
+    };
+  }
+
+  /**
+   * Supprime un document de congé
+   */
+  async deleteDocument(
+    tenantId: string,
+    leaveId: string,
+    userId: string,
+  ) {
+    // Vérifier que le congé existe
+    const leave = await this.prisma.leave.findFirst({
+      where: {
+        id: leaveId,
+        tenantId,
+      },
+      include: {
+        employee: true,
+      },
+    });
+
+    if (!leave) {
+      throw new NotFoundException('Leave not found');
+    }
+
+    if (!leave.document) {
+      throw new NotFoundException('No document attached to this leave request');
+    }
+
+    // Vérifier les permissions
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        userId,
+        tenantId,
+      },
+    });
+
+    // L'employé peut supprimer seulement si PENDING
+    if (employee && employee.id === leave.employeeId) {
+      if (leave.status !== LeaveStatus.PENDING) {
+        throw new ForbiddenException(
+          'You can only delete documents for pending leave requests',
+        );
+      }
+    }
+
+    // Supprimer le fichier
+    await this.fileStorageService.deleteFile(leave.document);
+
+    // Mettre à jour le congé
+    return this.prisma.leave.update({
+      where: { id: leaveId },
+      data: {
+        document: null,
+        documentName: null,
+        documentSize: null,
+        documentMimeType: null,
+        documentUpdatedBy: userId,
+        documentUpdatedAt: new Date(),
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            matricule: true,
+          },
+        },
+        leaveType: true,
+      },
     });
   }
 }

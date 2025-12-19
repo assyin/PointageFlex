@@ -512,7 +512,7 @@ export function ManagersTab() {
             <AlertDialogCancel>Annuler</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-danger text-white hover:bg-danger-hover focus-visible:ring-danger disabled:opacity-50"
               disabled={deleteMutation.isPending}
             >
               {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

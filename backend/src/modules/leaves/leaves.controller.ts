@@ -8,8 +8,14 @@ import {
   Delete,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  Res,
+  HttpStatus,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { Response } from 'express';
 import { LeavesService } from './leaves.service';
 import { CreateLeaveDto } from './dto/create-leave.dto';
 import { UpdateLeaveDto } from './dto/update-leave.dto';
@@ -109,5 +115,60 @@ export class LeavesController {
   @ApiOperation({ summary: 'Delete leave request' })
   remove(@CurrentUser() user: any, @Param('id') id: string) {
     return this.leavesService.remove(user.tenantId, id);
+  }
+
+  @Post(':id/document')
+  @RequirePermissions('leave.create', 'leave.update')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload document for leave request' })
+  async uploadDocument(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.leavesService.uploadDocument(
+      user.tenantId,
+      id,
+      file,
+      user.userId,
+    );
+  }
+
+  @Get(':id/document')
+  @RequirePermissions('leave.view_all', 'leave.view_own', 'leave.view_team')
+  @ApiOperation({ summary: 'Download document for leave request' })
+  async downloadDocument(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Res() res: Response,
+  ) {
+    const fileData = await this.leavesService.downloadDocument(
+      user.tenantId,
+      id,
+      user.userId,
+      user.permissions || [],
+    );
+
+    res.setHeader('Content-Type', fileData.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileData.fileName}"`,
+    );
+    res.send(fileData.buffer);
+  }
+
+  @Delete(':id/document')
+  @RequirePermissions('leave.update')
+  @ApiOperation({ summary: 'Delete document for leave request' })
+  async deleteDocument(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+  ) {
+    return this.leavesService.deleteDocument(
+      user.tenantId,
+      id,
+      user.userId,
+    );
   }
 }

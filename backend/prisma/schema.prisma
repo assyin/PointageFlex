@@ -442,7 +442,14 @@ model Leave {
   endDate           DateTime    @db.Date
   days              Decimal
   reason            String?
-  document          String?
+  document          String?     // Chemin ou URL du fichier
+  documentName      String?     // Nom original du fichier
+  documentSize      Int?        // Taille en bytes
+  documentMimeType  String?     // Type MIME (application/pdf, etc.)
+  documentUploadedBy String?    // ID de l'utilisateur qui a uploadé
+  documentUploadedAt DateTime?  // Date d'upload
+  documentUpdatedBy  String?    // ID du dernier utilisateur qui a modifié
+  documentUpdatedAt  DateTime?  // Date de dernière modification
   status            LeaveStatus @default(PENDING)
   managerApprovedBy String?
   managerApprovedAt DateTime?

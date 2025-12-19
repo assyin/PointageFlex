@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { getManagerLevel } from '../../common/utils/manager-level.util';
 
 @Injectable()
 export class DepartmentsService {
@@ -30,9 +31,57 @@ export class DepartmentsService {
     });
   }
 
-  async findAll(tenantId: string) {
+  async findAll(tenantId: string, userId?: string, userPermissions?: string[]) {
+    const where: any = { tenantId };
+
+    // Vérifier si l'utilisateur a la permission de voir tous les départements
+    const hasViewAll = userPermissions?.includes('department.view_all') || false;
+
+    // IMPORTANT: Même avec 'view_all', un manager régional ne doit voir que son département/site assigné
+    // Seuls les ADMIN_RH et SUPER_ADMIN devraient voir tous les départements
+    // Toujours vérifier le niveau du manager pour appliquer les restrictions appropriées
+    if (userId) {
+      const managerLevel = await getManagerLevel(this.prisma, userId, tenantId);
+
+      // Si l'utilisateur est un manager, appliquer le filtrage selon son niveau
+      // Même avec 'view_all', un manager ne voit que ce qu'il gère
+      if (managerLevel.type === 'DEPARTMENT') {
+        // Manager de département : voir uniquement son département
+        where.id = managerLevel.departmentId;
+      } else if (managerLevel.type === 'SITE') {
+        // Manager régional : voir uniquement son département
+        if (managerLevel.departmentId) {
+          where.id = managerLevel.departmentId;
+        } else {
+          // Si pas de département, retourner vide
+          return [];
+        }
+      } else if (managerLevel.type === 'TEAM') {
+        // Manager d'équipe : récupérer le département de son équipe
+        const team = await this.prisma.team.findUnique({
+          where: { id: managerLevel.teamId },
+          select: { 
+            employees: {
+              select: { departmentId: true },
+              take: 1,
+            },
+          },
+        });
+        
+        if (team?.employees?.[0]?.departmentId) {
+          where.id = team.employees[0].departmentId;
+        } else {
+          // Si pas de département dans l'équipe, retourner vide
+          return [];
+        }
+      }
+      // Si managerLevel.type === null, l'utilisateur n'est pas manager
+      // Dans ce cas, si il a 'view_all', il voit tout (ADMIN_RH, SUPER_ADMIN)
+      // Sinon, il ne voit rien (ou seulement son propre département si applicable)
+    }
+    
     return this.prisma.department.findMany({
-      where: { tenantId },
+      where,
       include: {
         _count: {
           select: {
@@ -131,8 +180,8 @@ export class DepartmentsService {
     });
   }
 
-  async getStats(tenantId: string) {
-    const departments = await this.findAll(tenantId);
+  async getStats(tenantId: string, userId?: string, userPermissions?: string[]) {
+    const departments = await this.findAll(tenantId, userId, userPermissions);
 
     const total = departments.length;
     const totalEmployees = await this.prisma.employee.count({

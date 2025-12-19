@@ -194,3 +194,69 @@ export function useDeleteLeaveType() {
     },
   });
 }
+
+// Upload document for leave
+export function useUploadLeaveDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, file }: { id: string; file: File }) =>
+      leavesApi.uploadDocument(id, file),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
+      queryClient.invalidateQueries({ queryKey: ['leaves', variables.id] });
+      toast.success('Document uploadé avec succès');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'Erreur lors de l\'upload du document'
+      );
+    },
+  });
+}
+
+// Download document for leave
+export function useDownloadLeaveDocument() {
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const blob = await leavesApi.downloadDocument(id);
+      return blob;
+    },
+    onSuccess: (blob, id) => {
+      // Créer un lien de téléchargement
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `document-conge-${id}.pdf`; // Le nom sera corrigé par le backend
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success('Document téléchargé avec succès');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'Erreur lors du téléchargement du document'
+      );
+    },
+  });
+}
+
+// Delete document for leave
+export function useDeleteLeaveDocument() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => leavesApi.deleteDocument(id),
+    onSuccess: (_, id) => {
+      queryClient.invalidateQueries({ queryKey: ['leaves'] });
+      queryClient.invalidateQueries({ queryKey: ['leaves', id] });
+      toast.success('Document supprimé avec succès');
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'Erreur lors de la suppression du document'
+      );
+    },
+  });
+}

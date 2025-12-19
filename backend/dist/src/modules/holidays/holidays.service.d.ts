@@ -10,9 +10,9 @@ export declare class HolidaysService {
         updatedAt: Date;
         tenantId: string;
         name: string;
-        type: import(".prisma/client").$Enums.HolidayType;
         date: Date;
         isRecurring: boolean;
+        type: import(".prisma/client").$Enums.HolidayType;
     }>;
     findAll(tenantId: string, year?: string): Promise<{
         data: {
@@ -32,9 +32,9 @@ export declare class HolidaysService {
         updatedAt: Date;
         tenantId: string;
         name: string;
-        type: import(".prisma/client").$Enums.HolidayType;
         date: Date;
         isRecurring: boolean;
+        type: import(".prisma/client").$Enums.HolidayType;
     }>;
     update(tenantId: string, id: string, dto: UpdateHolidayDto): Promise<{
         id: string;
@@ -42,9 +42,9 @@ export declare class HolidaysService {
         updatedAt: Date;
         tenantId: string;
         name: string;
-        type: import(".prisma/client").$Enums.HolidayType;
         date: Date;
         isRecurring: boolean;
+        type: import(".prisma/client").$Enums.HolidayType;
     }>;
     remove(tenantId: string, id: string): Promise<{
         message: string;
