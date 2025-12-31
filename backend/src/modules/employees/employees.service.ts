@@ -19,6 +19,7 @@ import * as XLSX from 'xlsx';
 @Injectable()
 export class EmployeesService {
   private readonly logger = new Logger(EmployeesService.name);
+  private cacheKeys = new Set<string>();
 
   constructor(
     private prisma: PrismaService,
@@ -30,13 +31,27 @@ export class EmployeesService {
 
   /**
    * Invalide le cache des employés pour un tenant
-   * Note: cache-manager in-memory ne supporte pas les wildcards ni reset()
+   * Note: cache-manager in-memory ne supporte pas les wildcards
    * Pour une vraie implémentation Redis, utiliser del avec pattern matching
    */
   private async invalidateEmployeesCache(tenantId: string) {
-    // Pour l'instant, on ne peut pas invalider sélectivement avec cache-manager in-memory
-    // Les clés expireront automatiquement après le TTL (2 minutes)
-    // TODO: Implémenter avec Redis pour une meilleure gestion du cache
+    try {
+      // Supprimer toutes les clés trackées pour ce tenant
+      const keysToDelete = Array.from(this.cacheKeys).filter(key =>
+        key.startsWith(`employees:${tenantId}:`)
+      );
+
+      for (const key of keysToDelete) {
+        await this.cacheManager.del(key);
+        this.cacheKeys.delete(key);
+      }
+
+      this.logger.debug(`${keysToDelete.length} clé(s) de cache invalidée(s) pour le tenant ${tenantId}`);
+    } catch (error) {
+      // En cas d'erreur, continuer sans bloquer
+      // Les clés expireront automatiquement après le TTL (2 minutes)
+      this.logger.warn('Erreur lors de l\'invalidation du cache, les données seront mises à jour après expiration du TTL');
+    }
   }
 
   /**
@@ -735,6 +750,7 @@ export class EmployeesService {
 
     // Mettre en cache (2 minutes pour les listes d'employés car elles changent moins fréquemment)
     await this.cacheManager.set(cacheKey, result, 120000);
+    this.cacheKeys.add(cacheKey);
 
     return result;
   }

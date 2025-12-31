@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HolidaysService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../../database/prisma.service");
+const morocco_holidays_1 = require("../data-generator/utils/morocco-holidays");
 const XLSX = require("xlsx");
 let HolidaysService = class HolidaysService {
     constructor(prisma) {
@@ -184,6 +185,109 @@ let HolidaysService = class HolidaysService {
         catch (error) {
             throw new Error(`Erreur lors de l'import CSV: ${error.message}`);
         }
+    }
+    async generateYearHolidays(tenantId, dto) {
+        const tenant = await this.prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { country: true },
+        });
+        if (!tenant) {
+            throw new common_1.NotFoundException('Tenant non trouvé');
+        }
+        const country = tenant.country || 'MA';
+        const year = dto.year;
+        const includeReligious = dto.includeReligious !== false;
+        const mode = dto.mode || 'add';
+        if (year < 2000 || year > 2100) {
+            throw new common_1.BadRequestException('L\'année doit être entre 2000 et 2100');
+        }
+        if (mode === 'replace') {
+            const yearStart = new Date(`${year}-01-01`);
+            const yearEnd = new Date(`${year}-12-31`);
+            yearEnd.setHours(23, 59, 59, 999);
+            await this.prisma.holiday.deleteMany({
+                where: {
+                    tenantId,
+                    date: {
+                        gte: yearStart,
+                        lte: yearEnd,
+                    },
+                },
+            });
+        }
+        let holidays = [];
+        if (country === 'MA' || country === 'MAR' || country === 'Morocco' || country === 'Maroc') {
+            const moroccoHolidays = (0, morocco_holidays_1.generateMoroccoHolidays)(year, year);
+            if (includeReligious) {
+                holidays = moroccoHolidays;
+            }
+            else {
+                holidays = moroccoHolidays.filter(h => h.type !== 'RELIGIOUS');
+            }
+        }
+        else {
+            throw new common_1.BadRequestException(`La génération automatique des jours fériés n'est pas encore supportée pour le pays "${country}". Veuillez utiliser l'import CSV ou la création manuelle.`);
+        }
+        const stats = {
+            total: holidays.length,
+            created: 0,
+            skipped: 0,
+            errors: [],
+        };
+        const holidaysToCreate = [];
+        for (const holiday of holidays) {
+            const normalizedDate = new Date(holiday.date);
+            normalizedDate.setUTCHours(0, 0, 0, 0);
+            const existing = await this.prisma.holiday.findFirst({
+                where: {
+                    tenantId,
+                    date: normalizedDate,
+                    name: holiday.name,
+                },
+            });
+            if (existing) {
+                stats.skipped++;
+                continue;
+            }
+            holidaysToCreate.push({
+                tenantId,
+                name: holiday.name,
+                date: normalizedDate,
+                isRecurring: holiday.isRecurring,
+                type: holiday.type,
+            });
+        }
+        if (holidaysToCreate.length > 0) {
+            try {
+                await this.prisma.holiday.createMany({
+                    data: holidaysToCreate,
+                    skipDuplicates: true,
+                });
+                stats.created = holidaysToCreate.length;
+            }
+            catch (error) {
+                for (const holiday of holidaysToCreate) {
+                    try {
+                        await this.prisma.holiday.create({
+                            data: holiday,
+                        });
+                        stats.created++;
+                    }
+                    catch (err) {
+                        stats.skipped++;
+                        stats.errors.push(`${holiday.name} (${holiday.date.toISOString().split('T')[0]}): ${err.message}`);
+                    }
+                }
+            }
+        }
+        return {
+            success: true,
+            year,
+            country,
+            mode,
+            ...stats,
+            message: `${stats.created} jour(s) férié(s) créé(s) pour l'année ${year}${stats.skipped > 0 ? `, ${stats.skipped} ignoré(s) (déjà existants)` : ''}`,
+        };
     }
 };
 exports.HolidaysService = HolidaysService;

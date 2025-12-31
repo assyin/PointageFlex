@@ -274,9 +274,10 @@ export declare class ReportsService {
             siteId: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
-            type: import(".prisma/client").$Enums.AttendanceType;
             employeeId: string;
+            deviceId: string | null;
             timestamp: Date;
+            type: import(".prisma/client").$Enums.AttendanceType;
             method: import(".prisma/client").$Enums.DeviceType;
             hasAnomaly: boolean;
             anomalyType: string | null;
@@ -296,7 +297,6 @@ export declare class ReportsService {
             rawData: import("@prisma/client/runtime/library").JsonValue | null;
             generatedBy: string | null;
             isGenerated: boolean;
-            deviceId: string | null;
         })[];
         recoveryDays: ({
             employee: {
@@ -310,11 +310,11 @@ export declare class ReportsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            notes: string | null;
             employeeId: string;
+            notes: string | null;
+            status: import(".prisma/client").$Enums.RecoveryDayStatus;
             approvedBy: string | null;
             approvedAt: Date | null;
-            status: import(".prisma/client").$Enums.RecoveryDayStatus;
             startDate: Date;
             endDate: Date;
             days: import("@prisma/client/runtime/library").Decimal;
@@ -426,10 +426,11 @@ export declare class ReportsService {
             updatedAt: Date;
             tenantId: string;
             isNightShift: boolean;
-            date: Date;
-            type: import(".prisma/client").$Enums.OvertimeType;
-            notes: string | null;
             employeeId: string;
+            date: Date;
+            notes: string | null;
+            status: import(".prisma/client").$Enums.OvertimeStatus;
+            type: import(".prisma/client").$Enums.OvertimeType;
             approvedBy: string | null;
             approvedAt: Date | null;
             hours: import("@prisma/client/runtime/library").Decimal;
@@ -440,7 +441,6 @@ export declare class ReportsService {
             convertedHoursToRecovery: import("@prisma/client/runtime/library").Decimal;
             convertedToRecoveryDays: boolean;
             convertedHoursToRecoveryDays: import("@prisma/client/runtime/library").Decimal;
-            status: import(".prisma/client").$Enums.OvertimeStatus;
             rejectionReason: string | null;
         })[];
         recoveryDays: ({
@@ -469,11 +469,11 @@ export declare class ReportsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            notes: string | null;
             employeeId: string;
+            notes: string | null;
+            status: import(".prisma/client").$Enums.RecoveryDayStatus;
             approvedBy: string | null;
             approvedAt: Date | null;
-            status: import(".prisma/client").$Enums.RecoveryDayStatus;
             startDate: Date;
             endDate: Date;
             days: import("@prisma/client/runtime/library").Decimal;
@@ -518,6 +518,7 @@ export declare class ReportsService {
                 latitude: import("@prisma/client/runtime/library").Decimal | null;
                 longitude: import("@prisma/client/runtime/library").Decimal | null;
                 employeeId: string;
+                deviceId: string | null;
                 timestamp: Date;
                 method: import(".prisma/client").$Enums.DeviceType;
                 hasAnomaly: boolean;
@@ -538,7 +539,6 @@ export declare class ReportsService {
                 rawData: import("@prisma/client/runtime/library").JsonValue | null;
                 generatedBy: string | null;
                 isGenerated: boolean;
-                deviceId: string | null;
             }[];
             absences: any[];
             recoveryDays: {
@@ -546,11 +546,11 @@ export declare class ReportsService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                notes: string | null;
                 employeeId: string;
+                notes: string | null;
+                status: import(".prisma/client").$Enums.RecoveryDayStatus;
                 approvedBy: string | null;
                 approvedAt: Date | null;
-                status: import(".prisma/client").$Enums.RecoveryDayStatus;
                 startDate: Date;
                 endDate: Date;
                 days: import("@prisma/client/runtime/library").Decimal;
@@ -736,17 +736,21 @@ export declare class ReportsService {
                     rfidBadge: string | null;
                     qrCode: string | null;
                     pinCode: string | null;
+                    isEligibleForOvertime: boolean;
+                    maxOvertimeHoursPerMonth: import("@prisma/client/runtime/library").Decimal | null;
+                    maxOvertimeHoursPerWeek: import("@prisma/client/runtime/library").Decimal | null;
+                    overtimeEligibilityNotes: string | null;
                 };
             } & {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                notes: string | null;
                 employeeId: string;
+                notes: string | null;
+                status: import(".prisma/client").$Enums.RecoveryDayStatus;
                 approvedBy: string | null;
                 approvedAt: Date | null;
-                status: import(".prisma/client").$Enums.RecoveryDayStatus;
                 startDate: Date;
                 endDate: Date;
                 days: import("@prisma/client/runtime/library").Decimal;

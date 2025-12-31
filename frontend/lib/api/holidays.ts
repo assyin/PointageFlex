@@ -98,4 +98,26 @@ export const HolidaysAPI = {
     });
     return response.data;
   },
+
+  /**
+   * Générer automatiquement les jours fériés d'une année complète
+   */
+  generateYear: async (data: {
+    year: number;
+    includeReligious?: boolean;
+    mode?: 'add' | 'replace';
+  }): Promise<{
+    success: boolean;
+    year: number;
+    country: string;
+    mode: string;
+    total: number;
+    created: number;
+    skipped: number;
+    errors: string[];
+    message: string;
+  }> => {
+    const response = await apiClient.post('/holidays/generate-year', data);
+    return response.data;
+  },
 };

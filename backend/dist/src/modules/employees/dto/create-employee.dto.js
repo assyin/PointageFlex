@@ -156,4 +156,28 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
 ], CreateEmployeeDto.prototype, "userEmail", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Éligible aux heures supplémentaires', default: true }),
+    (0, class_validator_1.IsBoolean)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Boolean)
+], CreateEmployeeDto.prototype, "isEligibleForOvertime", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Nombre maximum d\'heures supplémentaires par mois' }),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], CreateEmployeeDto.prototype, "maxOvertimeHoursPerMonth", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Nombre maximum d\'heures supplémentaires par semaine' }),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Number)
+], CreateEmployeeDto.prototype, "maxOvertimeHoursPerWeek", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ description: 'Notes concernant l\'éligibilité aux heures supplémentaires' }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateEmployeeDto.prototype, "overtimeEligibilityNotes", void 0);
 //# sourceMappingURL=create-employee.dto.js.map

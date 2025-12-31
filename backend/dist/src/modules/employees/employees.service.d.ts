@@ -14,6 +14,7 @@ export declare class EmployeesService {
     private terminalMatriculeMappingService;
     private cacheManager;
     private readonly logger;
+    private cacheKeys;
     constructor(prisma: PrismaService, userTenantRolesService: UserTenantRolesService, rolesService: RolesService, terminalMatriculeMappingService: TerminalMatriculeMappingService, cacheManager: Cache);
     private invalidateEmployeesCache;
     private generateTemporaryMatricule;
@@ -115,6 +116,10 @@ export declare class EmployeesService {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isEligibleForOvertime: boolean;
+        maxOvertimeHoursPerMonth: import("@prisma/client/runtime/library").Decimal | null;
+        maxOvertimeHoursPerWeek: import("@prisma/client/runtime/library").Decimal | null;
+        overtimeEligibilityNotes: string | null;
     }>;
     createUserAccount(tenantId: string, employeeId: string, createUserAccountDto: {
         userEmail?: string;
@@ -126,8 +131,8 @@ export declare class EmployeesService {
                 updatedAt: Date;
                 isActive: boolean;
                 userId: string;
-                tokenId: string;
                 device: string | null;
+                tokenId: string;
                 browser: string | null;
                 os: string | null;
                 location: string | null;
@@ -197,8 +202,8 @@ export declare class EmployeesService {
                 updatedAt: Date;
                 isActive: boolean;
                 userId: string;
-                tokenId: string;
                 device: string | null;
+                tokenId: string;
                 browser: string | null;
                 os: string | null;
                 location: string | null;
@@ -212,8 +217,8 @@ export declare class EmployeesService {
                 updatedAt: Date;
                 isActive: boolean;
                 userId: string;
-                tokenId: string;
                 device: string | null;
+                tokenId: string;
                 browser: string | null;
                 os: string | null;
                 location: string | null;
@@ -357,6 +362,10 @@ export declare class EmployeesService {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isEligibleForOvertime: boolean;
+        maxOvertimeHoursPerMonth: import("@prisma/client/runtime/library").Decimal | null;
+        maxOvertimeHoursPerWeek: import("@prisma/client/runtime/library").Decimal | null;
+        overtimeEligibilityNotes: string | null;
     }>;
     findAll(tenantId: string, filters?: {
         siteId?: string;
@@ -384,9 +393,10 @@ export declare class EmployeesService {
             siteId: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
             longitude: import("@prisma/client/runtime/library").Decimal | null;
-            type: import(".prisma/client").$Enums.AttendanceType;
             employeeId: string;
+            deviceId: string | null;
             timestamp: Date;
+            type: import(".prisma/client").$Enums.AttendanceType;
             method: import(".prisma/client").$Enums.DeviceType;
             hasAnomaly: boolean;
             anomalyType: string | null;
@@ -406,7 +416,6 @@ export declare class EmployeesService {
             rawData: import("@prisma/client/runtime/library").JsonValue | null;
             generatedBy: string | null;
             isGenerated: boolean;
-            deviceId: string | null;
         }[];
         leaves: ({
             leaveType: {
@@ -536,6 +545,10 @@ export declare class EmployeesService {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isEligibleForOvertime: boolean;
+        maxOvertimeHoursPerMonth: import("@prisma/client/runtime/library").Decimal | null;
+        maxOvertimeHoursPerWeek: import("@prisma/client/runtime/library").Decimal | null;
+        overtimeEligibilityNotes: string | null;
     }>;
     getCredentials(tenantId: string, employeeId: string): Promise<{
         email: string;
@@ -636,6 +649,10 @@ export declare class EmployeesService {
             rfidBadge: string | null;
             qrCode: string | null;
             pinCode: string | null;
+            isEligibleForOvertime: boolean;
+            maxOvertimeHoursPerMonth: import("@prisma/client/runtime/library").Decimal | null;
+            maxOvertimeHoursPerWeek: import("@prisma/client/runtime/library").Decimal | null;
+            overtimeEligibilityNotes: string | null;
         };
     }>;
     update(tenantId: string, id: string, updateEmployeeDto: UpdateEmployeeDto): Promise<{
@@ -735,6 +752,10 @@ export declare class EmployeesService {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isEligibleForOvertime: boolean;
+        maxOvertimeHoursPerMonth: import("@prisma/client/runtime/library").Decimal | null;
+        maxOvertimeHoursPerWeek: import("@prisma/client/runtime/library").Decimal | null;
+        overtimeEligibilityNotes: string | null;
     }>;
     remove(tenantId: string, id: string): Promise<{
         id: string;
@@ -773,6 +794,10 @@ export declare class EmployeesService {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isEligibleForOvertime: boolean;
+        maxOvertimeHoursPerMonth: import("@prisma/client/runtime/library").Decimal | null;
+        maxOvertimeHoursPerWeek: import("@prisma/client/runtime/library").Decimal | null;
+        overtimeEligibilityNotes: string | null;
     }>;
     updateBiometricData(tenantId: string, id: string, biometricData: BiometricDataDto): Promise<{
         id: string;

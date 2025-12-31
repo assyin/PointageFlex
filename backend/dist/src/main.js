@@ -1,9 +1,22 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const crypto = require("crypto");
 const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const app_module_1 = require("./app.module");
+if (typeof globalThis.crypto === 'undefined') {
+    globalThis.crypto = {
+        ...crypto,
+        randomUUID: crypto.randomUUID.bind(crypto),
+    };
+}
+if (typeof global.crypto === 'undefined') {
+    global.crypto = {
+        ...crypto,
+        randomUUID: crypto.randomUUID.bind(crypto),
+    };
+}
 async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.setGlobalPrefix('api/v1');

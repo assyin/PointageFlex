@@ -128,6 +128,23 @@ export class AlertsService {
   ): Promise<LegalAlert[]> {
     const alerts: LegalAlert[] = [];
 
+    // Récupérer les paramètres du tenant pour la détection de repos insuffisant
+    const settings = await this.prisma.tenantSettings.findUnique({
+      where: { tenantId },
+      select: {
+        enableInsufficientRestDetection: true,
+        minimumRestHours: true,
+        minimumRestHoursNightShift: true,
+        nightShiftStart: true,
+        nightShiftEnd: true,
+      },
+    });
+
+    // Si la détection est désactivée, ne pas générer d'alertes
+    if (settings?.enableInsufficientRestDetection === false) {
+      return alerts;
+    }
+
     const employees = await this.prisma.employee.findMany({
       where: { tenantId },
       include: {
@@ -145,6 +162,9 @@ export class AlertsService {
         },
       },
     });
+
+    // Repos minimum configuré (défaut: 11h)
+    const defaultMinimumRestHours = Number(settings?.minimumRestHours || 11);
 
     for (const employee of employees) {
       for (let i = 0; i < employee.schedules.length - 1; i++) {
@@ -171,15 +191,38 @@ export class AlertsService {
             nextStartTime,
           );
 
-          if (restHours < 11) {
+          // Déterminer si le prochain shift est un shift de nuit
+          let isNightShift = false;
+          if (nextSchedule.shift) {
+            const shiftStartTime = this.parseTimeString(nextStartTime);
+            const nightStartTime = this.parseTimeString(settings?.nightShiftStart || '21:00');
+            const nightEndTime = this.parseTimeString(settings?.nightShiftEnd || '06:00');
+            
+            const shiftStartMinutes = shiftStartTime.hours * 60 + shiftStartTime.minutes;
+            const nightStartMinutes = nightStartTime.hours * 60 + nightStartTime.minutes;
+            const nightEndMinutes = nightEndTime.hours * 60 + nightEndTime.minutes;
+            
+            if (nightStartMinutes > nightEndMinutes) {
+              isNightShift = shiftStartMinutes >= nightStartMinutes || shiftStartMinutes <= nightEndMinutes;
+            } else {
+              isNightShift = shiftStartMinutes >= nightStartMinutes && shiftStartMinutes <= nightEndMinutes;
+            }
+          }
+
+          // Utiliser le repos minimum configuré (avec option pour shift de nuit)
+          const minimumRestHours = isNightShift && settings?.minimumRestHoursNightShift
+            ? Number(settings.minimumRestHoursNightShift)
+            : defaultMinimumRestHours;
+
+          if (restHours < minimumRestHours) {
             alerts.push({
               id: `rest-period-${employee.id}-${currentSchedule.id}-${nextSchedule.id}`,
-              type: restHours < 9 ? 'CRITICAL' : 'WARNING',
-              message: `Période de repos insuffisante: ${restHours.toFixed(1)}h (minimum: 11h)`,
+              type: restHours < (minimumRestHours - 2) ? 'CRITICAL' : 'WARNING',
+              message: `Période de repos insuffisante: ${restHours.toFixed(1)}h (minimum: ${minimumRestHours}h)`,
               employeeId: employee.id,
               employeeName: `${employee.firstName} ${employee.lastName}`,
               date: currentDate.toISOString().split('T')[0],
-              details: { restHours, minimum: 11 },
+              details: { restHours, minimum: minimumRestHours },
             });
           }
         }
@@ -343,6 +386,14 @@ export class AlertsService {
 
     const totalMinutes = endMinutes - startMinutes - breakDuration;
     return totalMinutes / 60;
+  }
+
+  /**
+   * Parse une chaîne de temps (HH:mm) en objet {hours, minutes}
+   */
+  private parseTimeString(timeString: string): { hours: number; minutes: number } {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return { hours: hours || 0, minutes: minutes || 0 };
   }
 
   private calculateRestHours(

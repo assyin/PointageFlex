@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   Dialog,
   DialogContent,
@@ -61,7 +62,6 @@ export default function OvertimePage() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedSite, setSelectedSite] = useState<string>('all');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
-  const [employeeSearchQuery, setEmployeeSearchQuery] = useState(''); // Search query for employee filter
   // Par défaut, afficher les données d'aujourd'hui
   const today = format(new Date(), 'yyyy-MM-dd');
   const [startDate, setStartDate] = useState(today);
@@ -384,13 +384,12 @@ export default function OvertimePage() {
     setStartDate(today);
     setEndDate(today);
     setSearchQuery('');
-    setEmployeeSearchQuery('');
     setCurrentPage(1);
   };
 
   const hasActiveFilters = selectedStatus !== 'all' || selectedEmployee !== 'all' || 
     selectedType !== 'all' || selectedSite !== 'all' || selectedDepartment !== 'all' ||
-    searchQuery !== '' || employeeSearchQuery !== '';
+    searchQuery !== '';
 
   return (
     <ProtectedRoute permissions={['overtime.view_all', 'overtime.view_own']}>
@@ -411,7 +410,6 @@ export default function OvertimePage() {
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
-                    setEmployeeSearchQuery(e.target.value); // Synchroniser avec la recherche des filtres avancés
                     setCurrentPage(1); // Réinitialiser la pagination
                   }}
                   className="pl-10"
@@ -485,51 +483,30 @@ export default function OvertimePage() {
             <Card>
               <CardContent className="p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="employee-filter">Employé</Label>
-                    <div className="space-y-2">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
-                        <Input
-                          id="employee-search"
-                          type="text"
-                          placeholder="Rechercher par nom, prénom ou matricule..."
-                          value={employeeSearchQuery}
-                          onChange={(e) => {
-                            setEmployeeSearchQuery(e.target.value);
-                            setSearchQuery(e.target.value); // Synchroniser avec la recherche principale
-                            setCurrentPage(1); // Réinitialiser la pagination
-                          }}
-                          className="pl-10"
-                        />
-                      </div>
-                      <Select value={selectedEmployee} onValueChange={(value) => {
-                        setSelectedEmployee(value);
-                        setCurrentPage(1); // Réinitialiser la pagination
-                      }}>
-                        <SelectTrigger id="employee-filter">
-                          <SelectValue placeholder="Tous les employés" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Tous les employés</SelectItem>
-                          {employeesData?.data
-                            ?.filter((emp: any) => {
-                              if (!employeeSearchQuery) return true;
-                              const query = employeeSearchQuery.toLowerCase();
-                              const firstName = emp.firstName?.toLowerCase() || '';
-                              const lastName = emp.lastName?.toLowerCase() || '';
-                              const matricule = emp.matricule?.toLowerCase() || '';
-                              return firstName.includes(query) || lastName.includes(query) || matricule.includes(query);
-                            })
-                            .map((emp: any) => (
-                              <SelectItem key={emp.id} value={emp.id}>
-                                {emp.firstName} {emp.lastName} ({emp.matricule})
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  {(() => {
+                    const employees = employeesData?.data || [];
+                    const employeeOptions = [
+                      { value: 'all', label: 'Tous les employés' },
+                      ...employees.map((emp: any) => ({
+                        value: emp.id,
+                        label: `${emp.firstName} ${emp.lastName} (${emp.matricule})`,
+                        searchText: `${emp.firstName} ${emp.lastName} ${emp.matricule}`.toLowerCase()
+                      }))
+                    ];
+                    return (
+                      <SearchableSelect
+                        value={selectedEmployee}
+                        onChange={(value) => {
+                          setSelectedEmployee(value);
+                          setCurrentPage(1);
+                        }}
+                        options={employeeOptions}
+                        placeholder="Tous les employés"
+                        label="Employé"
+                        searchPlaceholder="Rechercher par nom, prénom ou matricule..."
+                      />
+                    );
+                  })()}
 
                   <div className="space-y-2">
                     <Label htmlFor="site-filter">Site</Label>

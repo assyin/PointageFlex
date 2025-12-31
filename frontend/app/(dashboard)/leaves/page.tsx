@@ -287,20 +287,28 @@ function CreateLeaveForm({
         <label htmlFor="leaveTypeId" className="block text-sm font-medium text-text-primary mb-2">
           Type de congé *
         </label>
-        <select
-          id="leaveTypeId"
-          required
-          value={formData.leaveTypeId}
-          onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
-          className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="">Sélectionner un type</option>
-          {leaveTypes.map((type: any) => (
-            <option key={type.id} value={type.id}>
-              {type.name}
-            </option>
-          ))}
-        </select>
+        {leaveTypes.length === 0 ? (
+          <div className="w-full px-3 py-2 border border-yellow-300 bg-yellow-50 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              ⚠️ Aucun type de congé configuré. Veuillez créer des types de congé dans la section "Types de congé" ci-dessous avant de créer une demande.
+            </p>
+          </div>
+        ) : (
+          <select
+            id="leaveTypeId"
+            required
+            value={formData.leaveTypeId}
+            onChange={(e) => setFormData({ ...formData, leaveTypeId: e.target.value })}
+            className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">Sélectionner un type</option>
+            {leaveTypes.map((type: any) => (
+              <option key={type.id} value={type.id}>
+                {type.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -409,6 +417,7 @@ export default function LeavesPage() {
   // Normalize data structures - handle both array and object with data property
   const sites = Array.isArray(sitesData) ? sitesData : (sitesData?.data || sitesData || []);
   const departments = Array.isArray(departmentsData) ? departmentsData : (departmentsData?.data || departmentsData || []);
+  const leaveTypes = Array.isArray(leaveTypesData) ? leaveTypesData : (leaveTypesData?.data || leaveTypesData || []);
 
   // Mutations
   const approveMutation = useApproveLeave();
@@ -667,7 +676,7 @@ export default function LeavesPage() {
                   className="h-11 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
                 >
                   <option value="all">Tous les types de congé</option>
-                  {leaveTypesData?.map((type: any) => (
+                  {leaveTypes?.map((type: any) => (
                     <option key={type.id} value={type.id}>
                       {type.name}
                     </option>
@@ -1219,7 +1228,7 @@ export default function LeavesPage() {
             </div>
             <div className="p-6">
               <CreateLeaveForm
-                leaveTypes={leaveTypesData || []}
+                leaveTypes={leaveTypes || []}
                 onSuccess={() => {
                   setShowCreateModal(false);
                 }}
@@ -1654,7 +1663,7 @@ export default function LeavesPage() {
                 </Button>
               </div>
 
-              {leaveTypesData?.length === 0 ? (
+              {leaveTypes?.length === 0 ? (
                 <div className="text-center py-12 text-text-secondary">
                   <Settings className="h-12 w-12 mx-auto mb-3 opacity-20" />
                   <p>Aucun type de congé configuré.</p>
@@ -1673,7 +1682,7 @@ export default function LeavesPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-table-border">
-                      {leaveTypesData?.map((leaveType: any) => (
+                      {leaveTypes?.map((leaveType: any) => (
                         <tr key={leaveType.id} className="hover:bg-table-hover transition-colors">
                           <td className="p-3 font-medium text-text-primary">{leaveType.name}</td>
                           <td className="p-3">

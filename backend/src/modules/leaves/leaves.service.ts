@@ -14,6 +14,131 @@ export class LeavesService {
     private fileStorageService: FileStorageService,
   ) {}
 
+  /**
+   * Suspend les plannings existants pour la période du congé
+   */
+  private async suspendSchedulesForLeave(
+    tenantId: string,
+    employeeId: string,
+    leaveId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    console.log(`[suspendSchedulesForLeave] Suspension des plannings pour le congé ${leaveId}`);
+    console.log(`[suspendSchedulesForLeave] Période: ${startDate.toISOString()} - ${endDate.toISOString()}`);
+
+    // Trouver tous les plannings PUBLISHED dans la période du congé
+    const affectedSchedules = await this.prisma.schedule.findMany({
+      where: {
+        tenantId,
+        employeeId,
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        status: 'PUBLISHED', // Suspendre uniquement les plannings publiés
+      },
+      select: {
+        id: true,
+        date: true,
+      },
+    });
+
+    if (affectedSchedules.length === 0) {
+      console.log(`[suspendSchedulesForLeave] Aucun planning à suspendre`);
+      return 0;
+    }
+
+    console.log(`[suspendSchedulesForLeave] ${affectedSchedules.length} planning(s) trouvé(s) à suspendre`);
+
+    // Suspendre tous les plannings trouvés
+    const result = await this.prisma.schedule.updateMany({
+      where: {
+        id: {
+          in: affectedSchedules.map((s) => s.id),
+        },
+      },
+      data: {
+        status: 'SUSPENDED_BY_LEAVE',
+        suspendedByLeaveId: leaveId,
+        suspendedAt: new Date(),
+      },
+    });
+
+    console.log(`[suspendSchedulesForLeave] ${result.count} planning(s) suspendu(s)`);
+    return result.count;
+  }
+
+  /**
+   * Réactive les plannings qui étaient suspendus par ce congé
+   */
+  private async reactivateSchedulesForLeave(
+    tenantId: string,
+    leaveId: string,
+  ): Promise<number> {
+    console.log(`[reactivateSchedulesForLeave] Réactivation des plannings pour le congé ${leaveId}`);
+
+    // Trouver tous les plannings suspendus par ce congé
+    const suspendedSchedules = await this.prisma.schedule.findMany({
+      where: {
+        tenantId,
+        suspendedByLeaveId: leaveId,
+        status: 'SUSPENDED_BY_LEAVE',
+      },
+      select: {
+        id: true,
+        date: true,
+      },
+    });
+
+    if (suspendedSchedules.length === 0) {
+      console.log(`[reactivateSchedulesForLeave] Aucun planning à réactiver`);
+      return 0;
+    }
+
+    console.log(`[reactivateSchedulesForLeave] ${suspendedSchedules.length} planning(s) à réactiver`);
+
+    // Réactiver tous les plannings
+    const result = await this.prisma.schedule.updateMany({
+      where: {
+        id: {
+          in: suspendedSchedules.map((s) => s.id),
+        },
+      },
+      data: {
+        status: 'PUBLISHED',
+        suspendedByLeaveId: null,
+        suspendedAt: null,
+      },
+    });
+
+    console.log(`[reactivateSchedulesForLeave] ${result.count} planning(s) réactivé(s)`);
+    return result.count;
+  }
+
+  /**
+   * Ajuste les suspensions lors de la modification des dates d'un congé
+   */
+  private async adjustScheduleSuspensionsForLeaveUpdate(
+    tenantId: string,
+    employeeId: string,
+    leaveId: string,
+    oldStartDate: Date,
+    oldEndDate: Date,
+    newStartDate: Date,
+    newEndDate: Date,
+  ): Promise<void> {
+    console.log(`[adjustScheduleSuspensionsForLeaveUpdate] Ajustement pour le congé ${leaveId}`);
+    console.log(`[adjustScheduleSuspensionsForLeaveUpdate] Anciennes dates: ${oldStartDate.toISOString()} - ${oldEndDate.toISOString()}`);
+    console.log(`[adjustScheduleSuspensionsForLeaveUpdate] Nouvelles dates: ${newStartDate.toISOString()} - ${newEndDate.toISOString()}`);
+
+    // Étape 1: Réactiver tous les plannings qui étaient suspendus par ce congé
+    await this.reactivateSchedulesForLeave(tenantId, leaveId);
+
+    // Étape 2: Suspendre les plannings dans la nouvelle période
+    await this.suspendSchedulesForLeave(tenantId, employeeId, leaveId, newStartDate, newEndDate);
+  }
+
   async create(tenantId: string, dto: CreateLeaveDto) {
     // Verify employee belongs to tenant
     const employee = await this.prisma.employee.findFirst({
@@ -336,9 +461,11 @@ export class LeavesService {
   async update(tenantId: string, id: string, dto: UpdateLeaveDto) {
     const leave = await this.findOne(tenantId, id);
 
-    // Only allow updates if leave is still pending
-    if (leave.status !== LeaveStatus.PENDING) {
-      throw new BadRequestException('Cannot update leave that is not pending');
+    // Only allow updates if leave is still pending or approved
+    // Les congés approuvés peuvent être modifiés (ex: ajustement de dates)
+    const allowedStatuses: LeaveStatus[] = [LeaveStatus.PENDING, LeaveStatus.APPROVED, LeaveStatus.MANAGER_APPROVED];
+    if (!allowedStatuses.includes(leave.status)) {
+      throw new BadRequestException('Cannot update leave that is rejected or cancelled');
     }
 
     // Verify leave type belongs to tenant (if provided)
@@ -356,6 +483,10 @@ export class LeavesService {
     }
 
     // Validate dates if provided
+    const oldStartDate = leave.startDate;
+    const oldEndDate = leave.endDate;
+    let datesChanged = false;
+
     if (dto.startDate || dto.endDate) {
       const startDate = dto.startDate ? new Date(dto.startDate) : leave.startDate;
       const endDate = dto.endDate ? new Date(dto.endDate) : leave.endDate;
@@ -363,9 +494,14 @@ export class LeavesService {
       if (endDate < startDate) {
         throw new BadRequestException('End date must be after start date');
       }
+
+      // Vérifier si les dates ont changé
+      datesChanged =
+        (dto.startDate && new Date(dto.startDate).getTime() !== oldStartDate.getTime()) ||
+        (dto.endDate && new Date(dto.endDate).getTime() !== oldEndDate.getTime());
     }
 
-    return this.prisma.leave.update({
+    const updatedLeave = await this.prisma.leave.update({
       where: { id },
       data: {
         ...(dto.leaveTypeId && { leaveTypeId: dto.leaveTypeId }),
@@ -387,6 +523,22 @@ export class LeavesService {
         leaveType: true,
       },
     });
+
+    // Si le congé est approuvé ET que les dates ont changé, ajuster les suspensions
+    if (leave.status === LeaveStatus.APPROVED && datesChanged) {
+      console.log(`[update] Dates modifiées pour un congé approuvé → Ajustement des suspensions`);
+      await this.adjustScheduleSuspensionsForLeaveUpdate(
+        tenantId,
+        updatedLeave.employeeId,
+        updatedLeave.id,
+        oldStartDate,
+        oldEndDate,
+        updatedLeave.startDate,
+        updatedLeave.endDate,
+      );
+    }
+
+    return updatedLeave;
   }
 
   async approve(
@@ -462,7 +614,7 @@ export class LeavesService {
       throw new BadRequestException('Invalid status transition');
     }
 
-    return this.prisma.leave.update({
+    const updatedLeave = await this.prisma.leave.update({
       where: { id },
       data: updateData,
       include: {
@@ -477,6 +629,20 @@ export class LeavesService {
         leaveType: true,
       },
     });
+
+    // Si le congé est approuvé (statut final), suspendre les plannings
+    if (updateData.status === LeaveStatus.APPROVED) {
+      console.log(`[approve] Congé approuvé → Suspension des plannings`);
+      await this.suspendSchedulesForLeave(
+        tenantId,
+        updatedLeave.employeeId,
+        updatedLeave.id,
+        updatedLeave.startDate,
+        updatedLeave.endDate,
+      );
+    }
+
+    return updatedLeave;
   }
 
   async cancel(tenantId: string, id: string, userId: string) {
@@ -488,7 +654,7 @@ export class LeavesService {
       throw new BadRequestException('Leave is already rejected or cancelled');
     }
 
-    return this.prisma.leave.update({
+    const cancelledLeave = await this.prisma.leave.update({
       where: { id },
       data: {
         status: LeaveStatus.CANCELLED,
@@ -505,10 +671,24 @@ export class LeavesService {
         leaveType: true,
       },
     });
+
+    // Si le congé était approuvé, réactiver les plannings suspendus
+    if (leave.status === LeaveStatus.APPROVED) {
+      console.log(`[cancel] Congé annulé → Réactivation des plannings`);
+      await this.reactivateSchedulesForLeave(tenantId, id);
+    }
+
+    return cancelledLeave;
   }
 
   async remove(tenantId: string, id: string) {
-    await this.findOne(tenantId, id);
+    const leave = await this.findOne(tenantId, id);
+
+    // Réactiver les plannings suspendus avant de supprimer le congé
+    if (leave.status === LeaveStatus.APPROVED) {
+      console.log(`[remove] Congé supprimé → Réactivation des plannings`);
+      await this.reactivateSchedulesForLeave(tenantId, id);
+    }
 
     return this.prisma.leave.delete({
       where: { id },

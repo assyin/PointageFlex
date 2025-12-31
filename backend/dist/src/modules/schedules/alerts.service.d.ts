@@ -18,6 +18,7 @@ export declare class AlertsService {
     private checkMinimumStaff;
     private getWeekKey;
     private calculateHours;
+    private parseTimeString;
     private calculateRestHours;
     private getDatesBetween;
 }

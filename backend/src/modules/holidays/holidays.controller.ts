@@ -18,6 +18,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiQuery } from '@ne
 import { HolidaysService } from './holidays.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 import { UpdateHolidayDto } from './dto/update-holiday.dto';
+import { GenerateYearHolidaysDto } from './dto/generate-year-holidays.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -47,30 +48,7 @@ export class HolidaysController {
     return this.holidaysService.findAll(user.tenantId, year);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Récupérer un jour férié par ID' })
-  findOne(@CurrentUser() user: any, @Param('id') id: string) {
-    return this.holidaysService.findOne(user.tenantId, id);
-  }
-
-  @Patch(':id')
-  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Mettre à jour un jour férié' })
-  update(
-    @CurrentUser() user: any,
-    @Param('id') id: string,
-    @Body() dto: UpdateHolidayDto,
-  ) {
-    return this.holidaysService.update(user.tenantId, id, dto);
-  }
-
-  @Delete(':id')
-  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Supprimer un jour férié' })
-  remove(@CurrentUser() user: any, @Param('id') id: string) {
-    return this.holidaysService.remove(user.tenantId, id);
-  }
-
+  // Routes spécifiques AVANT les routes paramétrées (:id)
   @Post('import-csv')
   @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
   @UseInterceptors(FileInterceptor('file'))
@@ -101,5 +79,40 @@ export class HolidaysController {
       message: `Import terminé: ${result.success} jour(s) férié(s) importé(s), ${result.skipped} ignoré(s)`,
       data: result,
     };
+  }
+
+  @Post('generate-year')
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Générer automatiquement les jours fériés d\'une année complète' })
+  async generateYearHolidays(
+    @CurrentUser() user: any,
+    @Body() dto: GenerateYearHolidaysDto,
+  ) {
+    return this.holidaysService.generateYearHolidays(user.tenantId, dto);
+  }
+
+  // Routes paramétrées APRÈS les routes spécifiques
+  @Get(':id')
+  @ApiOperation({ summary: 'Récupérer un jour férié par ID' })
+  findOne(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.holidaysService.findOne(user.tenantId, id);
+  }
+
+  @Patch(':id')
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Mettre à jour un jour férié' })
+  update(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() dto: UpdateHolidayDto,
+  ) {
+    return this.holidaysService.update(user.tenantId, id, dto);
+  }
+
+  @Delete(':id')
+  @Roles(LegacyRole.ADMIN_RH, LegacyRole.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Supprimer un jour férié' })
+  remove(@CurrentUser() user: any, @Param('id') id: string) {
+    return this.holidaysService.remove(user.tenantId, id);
   }
 }

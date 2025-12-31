@@ -1247,7 +1247,9 @@ let ReportsService = class ReportsService {
     }
     async getAttendanceReport(tenantId, dto) {
         const startDate = new Date(dto.startDate);
+        startDate.setHours(0, 0, 0, 0);
         const endDate = new Date(dto.endDate);
+        endDate.setHours(23, 59, 59, 999);
         const where = {
             tenantId,
             timestamp: {
@@ -1258,22 +1260,18 @@ let ReportsService = class ReportsService {
         if (dto.employeeId) {
             where.employeeId = dto.employeeId;
         }
+        const employeeFilters = {};
         if (dto.departmentId) {
-            where.employee = {
-                departmentId: dto.departmentId,
-            };
+            employeeFilters.departmentId = dto.departmentId;
         }
         if (dto.teamId) {
-            where.employee = {
-                ...where.employee,
-                teamId: dto.teamId,
-            };
+            employeeFilters.teamId = dto.teamId;
         }
         if (dto.siteId) {
-            where.employee = {
-                ...where.employee,
-                siteId: dto.siteId,
-            };
+            employeeFilters.siteId = dto.siteId;
+        }
+        if (Object.keys(employeeFilters).length > 0) {
+            where.employee = employeeFilters;
         }
         const attendance = await this.prisma.attendance.findMany({
             where,

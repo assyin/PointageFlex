@@ -33,8 +33,20 @@ let EmployeesService = EmployeesService_1 = class EmployeesService {
         this.terminalMatriculeMappingService = terminalMatriculeMappingService;
         this.cacheManager = cacheManager;
         this.logger = new common_1.Logger(EmployeesService_1.name);
+        this.cacheKeys = new Set();
     }
     async invalidateEmployeesCache(tenantId) {
+        try {
+            const keysToDelete = Array.from(this.cacheKeys).filter(key => key.startsWith(`employees:${tenantId}:`));
+            for (const key of keysToDelete) {
+                await this.cacheManager.del(key);
+                this.cacheKeys.delete(key);
+            }
+            this.logger.debug(`${keysToDelete.length} clé(s) de cache invalidée(s) pour le tenant ${tenantId}`);
+        }
+        catch (error) {
+            this.logger.warn('Erreur lors de l\'invalidation du cache, les données seront mises à jour après expiration du TTL');
+        }
     }
     async generateTemporaryMatricule(tenantId) {
         const lastTemp = await this.prisma.employee.findFirst({
@@ -564,6 +576,7 @@ let EmployeesService = EmployeesService_1 = class EmployeesService {
             result = data;
         }
         await this.cacheManager.set(cacheKey, result, 120000);
+        this.cacheKeys.add(cacheKey);
         return result;
     }
     async findOne(tenantId, id) {

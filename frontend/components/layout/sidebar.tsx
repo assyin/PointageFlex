@@ -44,19 +44,19 @@ const menuItems: MenuItem[] = [
     label: 'Employés',
     href: '/employees',
     icon: Users,
-    permissions: ['employee.view_all', 'employee.view_own', 'employee.view_team'],
+    permissions: ['employee.view_all', 'employee.view_own', 'employee.view_team', 'employee.view_department', 'employee.view_site'],
   },
   {
     label: 'Pointages',
     href: '/attendance',
     icon: Clock,
-    permissions: ['attendance.view_all', 'attendance.view_own', 'attendance.view_team'],
+    permissions: ['attendance.view_all', 'attendance.view_own', 'attendance.view_team', 'attendance.view_department', 'attendance.view_site'],
   },
   {
     label: 'Shifts & Planning',
     href: '/shifts-planning',
     icon: Calendar,
-    permissions: ['schedule.view_all', 'schedule.view_own', 'schedule.view_team'],
+    permissions: ['schedule.view_all', 'schedule.view_own', 'schedule.view_team', 'schedule.view_department', 'schedule.view_site'],
   },
   {
     label: 'Alertes de Conformité',
@@ -80,13 +80,13 @@ const menuItems: MenuItem[] = [
     label: 'Congés & Absences',
     href: '/leaves',
     icon: Briefcase,
-    permissions: ['leave.view_all', 'leave.view_own', 'leave.view_team'],
+    permissions: ['leave.view_all', 'leave.view_own', 'leave.view_team', 'leave.view_department', 'leave.view_site'],
   },
   {
     label: 'Heures supplémentaires',
     href: '/overtime',
     icon: TrendingUp,
-    permissions: ['overtime.view_all', 'overtime.view_own'],
+    permissions: ['overtime.view_all', 'overtime.view_own', 'overtime.view_department', 'overtime.view_site'],
   },
   {
     label: 'Terminaux',

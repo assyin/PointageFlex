@@ -24,8 +24,13 @@ export function useLeaveDetail(id: string) {
 export function useLeaveTypes() {
   return useQuery({
     queryKey: ['leaveTypes'],
-    queryFn: () => leavesApi.getLeaveTypes(),
+    queryFn: async () => {
+      const data = await leavesApi.getLeaveTypes();
+      // Ensure we always return an array
+      return Array.isArray(data) ? data : (data?.data || []);
+    },
     staleTime: 300000, // 5 minutes - types don't change often
+    retry: 2,
   });
 }
 

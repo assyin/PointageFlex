@@ -1,6 +1,7 @@
 import { PrismaService } from '../../database/prisma.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 import { UpdateHolidayDto } from './dto/update-holiday.dto';
+import { GenerateYearHolidaysDto } from './dto/generate-year-holidays.dto';
 export declare class HolidaysService {
     private prisma;
     constructor(prisma: PrismaService);
@@ -11,8 +12,8 @@ export declare class HolidaysService {
         tenantId: string;
         name: string;
         date: Date;
-        isRecurring: boolean;
         type: import(".prisma/client").$Enums.HolidayType;
+        isRecurring: boolean;
     }>;
     findAll(tenantId: string, year?: string): Promise<{
         data: {
@@ -33,8 +34,8 @@ export declare class HolidaysService {
         tenantId: string;
         name: string;
         date: Date;
-        isRecurring: boolean;
         type: import(".prisma/client").$Enums.HolidayType;
+        isRecurring: boolean;
     }>;
     update(tenantId: string, id: string, dto: UpdateHolidayDto): Promise<{
         id: string;
@@ -43,8 +44,8 @@ export declare class HolidaysService {
         tenantId: string;
         name: string;
         date: Date;
-        isRecurring: boolean;
         type: import(".prisma/client").$Enums.HolidayType;
+        isRecurring: boolean;
     }>;
     remove(tenantId: string, id: string): Promise<{
         message: string;
@@ -54,5 +55,16 @@ export declare class HolidaysService {
         skipped: number;
         errors: string[];
         total: number;
+    }>;
+    generateYearHolidays(tenantId: string, dto: GenerateYearHolidaysDto): Promise<{
+        message: string;
+        total: number;
+        created: number;
+        skipped: number;
+        errors: string[];
+        success: boolean;
+        year: number;
+        country: string;
+        mode: "replace" | "add";
     }>;
 }

@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Patch,
+  Delete,
   Param,
   Query,
   UseGuards,
@@ -249,6 +250,28 @@ export class AttendanceController {
     return this.attendanceService.findOne(tenantId, id);
   }
 
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @RequirePermissions('attendance.delete', 'attendance.edit')
+  @ApiOperation({ summary: 'Delete manual attendance record' })
+  @ApiResponse({ status: 200, description: 'Attendance deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Attendance not found' })
+  @ApiResponse({ status: 400, description: 'Only manual attendance records can be deleted' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Cannot delete attendance outside your scope' })
+  delete(
+    @CurrentUser() user: any,
+    @CurrentTenant() tenantId: string,
+    @Param('id') id: string,
+  ) {
+    return this.attendanceService.remove(
+      tenantId,
+      id,
+      user.userId,
+      user.permissions || [],
+    );
+  }
+
   @Patch(':id/correct')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
@@ -256,13 +279,20 @@ export class AttendanceController {
   @ApiOperation({ summary: 'Correct attendance record' })
   @ApiResponse({ status: 200, description: 'Attendance corrected successfully' })
   @ApiResponse({ status: 404, description: 'Attendance not found' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Cannot correct attendance outside your scope' })
   correctAttendance(
     @CurrentUser() user: any,
     @CurrentTenant() tenantId: string,
     @Param('id') id: string,
     @Body() correctionDto: CorrectAttendanceDto,
   ) {
-    return this.attendanceService.correctAttendance(tenantId, id, correctionDto);
+    return this.attendanceService.correctAttendance(
+      tenantId,
+      id,
+      correctionDto,
+      user.userId,
+      user.permissions || [],
+    );
   }
 
   @Patch(':id/approve-correction')
@@ -453,6 +483,65 @@ export class AttendanceController {
       new Date(endDate),
       user.userId,
       user.permissions || [],
+    );
+  }
+
+  @Get('analytics/anomalies')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @RequirePermissions('attendance.view_all', 'attendance.view_anomalies')
+  @ApiOperation({ summary: 'Get comprehensive anomalies analytics' })
+  @ApiResponse({ status: 200, description: 'Anomalies analytics data' })
+  getAnomaliesAnalytics(
+    @CurrentTenant() tenantId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Query('employeeId') employeeId?: string,
+    @Query('departmentId') departmentId?: string,
+    @Query('siteId') siteId?: string,
+    @Query('anomalyType') anomalyType?: string,
+  ) {
+    return this.attendanceService.getAnomaliesAnalytics(tenantId, startDate, endDate, {
+      employeeId,
+      departmentId,
+      siteId,
+      anomalyType,
+    });
+  }
+
+  @Get('reports/monthly-anomalies')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @RequirePermissions('attendance.view_all', 'attendance.view_anomalies')
+  @ApiOperation({ summary: 'Get monthly anomalies report by department' })
+  @ApiResponse({ status: 200, description: 'Monthly anomalies report' })
+  getMonthlyAnomaliesReport(
+    @CurrentTenant() tenantId: string,
+    @Query('year') year: string,
+    @Query('month') month: string,
+  ) {
+    return this.attendanceService.getMonthlyAnomaliesReport(
+      tenantId,
+      parseInt(year, 10),
+      parseInt(month, 10),
+    );
+  }
+
+  @Get('alerts/high-anomaly-rate')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @ApiBearerAuth()
+  @RequirePermissions('attendance.view_all', 'attendance.view_anomalies')
+  @ApiOperation({ summary: 'Get employees with high anomaly rate' })
+  @ApiResponse({ status: 200, description: 'List of employees with high anomaly rate' })
+  getHighAnomalyRateEmployees(
+    @CurrentTenant() tenantId: string,
+    @Query('threshold') threshold?: string,
+    @Query('days') days?: string,
+  ) {
+    return this.attendanceService.getHighAnomalyRateEmployees(
+      tenantId,
+      threshold ? parseInt(threshold, 10) : 5,
+      days ? parseInt(days, 10) : 30,
     );
   }
 }

@@ -33,6 +33,7 @@ import { useShifts, useCreateShift, useUpdateShift, useDeleteShift } from '@/lib
 import { useTeams } from '@/lib/hooks/useTeams';
 import { useEmployees } from '@/lib/hooks/useEmployees';
 import { useSites } from '@/lib/hooks/useSites';
+import { useHolidays } from '@/lib/hooks/useHolidays';
 import { ImportSchedulesModal } from '@/components/schedules/ImportSchedulesModal';
 import { SearchableEmployeeSelect } from '@/components/schedules/SearchableEmployeeSelect';
 import { formatErrorAlert } from '@/lib/utils/errorMessages';
@@ -62,8 +63,10 @@ interface GroupedSchedule {
     schedules: Array<{
       id: string;
       date: string;
+      status?: 'PUBLISHED' | 'DRAFT' | 'CANCELLED' | 'SUSPENDED_BY_LEAVE';
       customStartTime?: string;
       customEndTime?: string;
+      notes?: string;
     }>;
   }>;
 }
@@ -95,6 +98,14 @@ export default function ShiftsPlanningPage() {
   // Selection
   const [selectedSchedules, setSelectedSchedules] = useState<Set<string>>(new Set());
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
+  
+  // Modal pour afficher les dates exclues
+  const [showExcludedDatesModal, setShowExcludedDatesModal] = useState(false);
+  const [excludedDatesData, setExcludedDatesData] = useState<{
+    excludedDates?: Array<{ date: string; reason: string; details?: string }>;
+    conflictingDates?: Array<{ date: string; shift: string; reason?: string; details?: string }>;
+    summary?: any;
+  } | null>(null);
 
   // Pagination for detailed view
   const [currentPage, setCurrentPage] = useState(1);
@@ -138,6 +149,7 @@ export default function ShiftsPlanningPage() {
         );
         // L'API retourne { data: [...], meta: {...} }
         const schedules = Array.isArray(response) ? response : (response?.data || []);
+
         setSchedulesData(schedules);
       } catch (error: any) {
         console.error('Error fetching schedules:', error);
@@ -181,7 +193,8 @@ export default function ShiftsPlanningPage() {
   const { data: teamsData } = useTeams();
   const { data: employeesData, isLoading: employeesLoading } = useEmployees();
   const { data: sitesResponse, isLoading: sitesLoading } = useSites();
-  
+  const { data: holidaysData } = useHolidays(); // Récupérer les jours fériés
+
   // Debug: Log employeesData structure (moved to avoid setState during render)
   useEffect(() => {
     if (process.env.NODE_ENV === 'development' && employeesData) {
@@ -189,13 +202,25 @@ export default function ShiftsPlanningPage() {
       console.log('Employees Loading:', employeesLoading);
     }
   }, [employeesData, employeesLoading]);
-  
+
   // Extract sites from response
   const sitesData = sitesResponse?.data || sitesResponse || [];
   const { data: alertsData } = useScheduleAlerts(
     filterDateStart,
     filterDateEnd
   );
+
+  // Créer une Map des jours fériés pour un accès rapide
+  const holidaysMap = useMemo(() => {
+    const map = new Map<string, { name: string; date: string }>();
+    if (holidaysData?.data) {
+      holidaysData.data.forEach((holiday: any) => {
+        const dateKey = format(parseISO(holiday.date), 'yyyy-MM-dd');
+        map.set(dateKey, { name: holiday.name, date: holiday.date });
+      });
+    }
+    return map;
+  }, [holidaysData]);
 
   const deleteScheduleMutation = useDeleteSchedule();
   const bulkDeleteMutation = useBulkDeleteSchedules();
@@ -293,8 +318,10 @@ export default function ShiftsPlanningPage() {
       emp.schedules.push({
         id: schedule.id,
         date: schedule.date,
+        status: schedule.status,
         customStartTime: schedule.customStartTime,
         customEndTime: schedule.customEndTime,
+        notes: schedule.notes,
       });
     });
 
@@ -1003,34 +1030,92 @@ export default function ShiftsPlanningPage() {
                                 end: endOfDay(day),
                               });
                             });
+                            const isSuspended = schedule?.status === 'SUSPENDED_BY_LEAVE';
+
+                            // Déterminer les informations spéciales du jour
+                            const dayOfWeek = day.getDay();
+                            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+                            // Vérifier si c'est un jour férié
+                            const dayKey = format(day, 'yyyy-MM-dd');
+                            const holiday = holidaysMap.get(dayKey);
+                            const isHoliday = !!holiday;
+                            const holidayName = holiday?.name || '';
+
+                            // Construire le message du tooltip
+                            let tooltipMessages: string[] = [];
+                            if (isSuspended) tooltipMessages.push('🏖️ Planning suspendu par un congé approuvé');
+                            if (isHoliday) tooltipMessages.push(`🎉 Jour férié: ${holidayName}`);
+                            if (isWeekend && !isHoliday) tooltipMessages.push('📅 Weekend');
+                            if (schedule?.notes) tooltipMessages.push(`📝 Note: ${schedule.notes}`);
+
+                            const hasSpecialInfo = tooltipMessages.length > 0;
+
                             return (
                               <td key={day.toISOString()} className="px-3 py-3 border text-center">
                                 {schedule ? (
-                                  <div className="flex flex-col items-center gap-1">
+                                  <div className="flex flex-col items-center gap-1 relative group">
                                     <div
-                                      className="px-2 py-1 rounded text-xs font-medium text-white"
+                                      className={`px-2 py-1 rounded text-xs font-medium ${
+                                        isSuspended
+                                          ? 'bg-gray-300 text-gray-600 opacity-60'
+                                          : 'text-white'
+                                      }`}
                                       style={{
-                                        backgroundColor: selectedShiftDetails.color || '#3B82F6',
+                                        backgroundColor: isSuspended ? undefined : (selectedShiftDetails.color || '#3B82F6'),
                                       }}
                                     >
                                       {schedule.customStartTime || selectedShiftDetails.startTime}
+                                      {isSuspended && (
+                                        <span className="ml-1 text-base" title="Suspendu par congé">🏖️</span>
+                                      )}
+                                      {isHoliday && !isSuspended && (
+                                        <span className="ml-1 text-base" title="Jour férié">🎉</span>
+                                      )}
+                                      {isWeekend && !isSuspended && !isHoliday && (
+                                        <span className="ml-1 text-base" title="Weekend">📅</span>
+                                      )}
                                     </div>
-                                    <div className="text-xs text-text-secondary">
+                                    <div className={`text-xs ${isSuspended ? 'text-gray-500' : 'text-text-secondary'}`}>
                                       {schedule.customEndTime || selectedShiftDetails.endTime}
                                     </div>
+                                    {hasSpecialInfo && (
+                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 w-56 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                        <div className="space-y-1">
+                                          {tooltipMessages.map((msg, idx) => (
+                                            <div key={idx}>{msg}</div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
                                     <PermissionGate permissions={['schedule.delete', 'schedule.manage_team']}>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="mt-1 h-6 px-2 text-xs"
-                                        onClick={() => handleDeleteSchedule(schedule.id)}
-                                      >
-                                        <X className="h-3 w-3" />
-                                      </Button>
+                                      {!isSuspended && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="mt-1 h-6 px-2 text-xs"
+                                          onClick={() => handleDeleteSchedule(schedule.id)}
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      )}
                                     </PermissionGate>
                                   </div>
                                 ) : (
-                                  <span className="text-text-secondary text-xs">-</span>
+                                  // Pas de planning : afficher "-" avec tooltip si jour spécial
+                                  <div className="relative group inline-block">
+                                    <span className="text-text-secondary text-xs">
+                                      -
+                                      {isHoliday && <span className="ml-1">🎉</span>}
+                                      {isWeekend && !isHoliday && <span className="ml-1">📅</span>}
+                                    </span>
+                                    {(isHoliday || isWeekend) && (
+                                      <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-1 w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap">
+                                        {isHoliday && `🎉 Jour férié: ${holidayName}`}
+                                        {isWeekend && !isHoliday && '📅 Weekend'}
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </td>
                             );
@@ -1124,8 +1209,12 @@ export default function ShiftsPlanningPage() {
         {showCreateModal && (
           <CreateScheduleModalComponent
             onClose={() => setShowCreateModal(false)}
-            onSuccess={() => {
+            onSuccess={(excludedData?: any) => {
               setShowCreateModal(false);
+              if (excludedData && (excludedData.excludedDates?.length > 0 || excludedData.conflictingDates?.length > 0)) {
+                setExcludedDatesData(excludedData);
+                setShowExcludedDatesModal(true);
+              }
               refetch();
             }}
             shiftsData={shiftsData}
@@ -1134,6 +1223,141 @@ export default function ShiftsPlanningPage() {
             teamsData={teamsData}
             createScheduleMutation={createScheduleMutation}
           />
+        )}
+
+        {/* Excluded Dates Modal */}
+        {showExcludedDatesModal && excludedDatesData && (
+          <Dialog open={showExcludedDatesModal} onOpenChange={setShowExcludedDatesModal}>
+            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                  Jours exclus lors de la création du planning
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                {/* Dates exclues */}
+                {excludedDatesData.excludedDates && excludedDatesData.excludedDates.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                      Dates exclues ({excludedDatesData.excludedDates.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {excludedDatesData.excludedDates.map((excluded: any, index: number) => {
+                        const reasonLabels: Record<string, { label: string; color: string; icon: string }> = {
+                          NON_OUVRABLE: { label: 'Jour non ouvrable', color: 'bg-gray-100 text-gray-800', icon: '📅' },
+                          JOUR_FERIE: { label: 'Jour férié', color: 'bg-blue-100 text-blue-800', icon: '🎉' },
+                          CONGE: { label: 'Congé approuvé', color: 'bg-purple-100 text-purple-800', icon: '🏖️' },
+                          RECUPERATION: { label: 'Jour de récupération', color: 'bg-orange-100 text-orange-800', icon: '🔄' },
+                        };
+                        
+                        const reasonInfo = reasonLabels[excluded.reason] || { 
+                          label: excluded.reason, 
+                          color: 'bg-gray-100 text-gray-800',
+                          icon: '❓'
+                        };
+                        
+                        return (
+                          <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <span className="text-lg">{reasonInfo.icon}</span>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-medium text-gray-900">
+                                  {new Date(excluded.date).toLocaleDateString('fr-FR', { 
+                                    weekday: 'long', 
+                                    year: 'numeric', 
+                                    month: 'long', 
+                                    day: 'numeric' 
+                                  })}
+                                </span>
+                                <Badge className={reasonInfo.color}>
+                                  {reasonInfo.label}
+                                </Badge>
+                              </div>
+                              {excluded.details && (
+                                <p className="text-sm text-gray-600 mt-1">{excluded.details}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dates en conflit */}
+                {excludedDatesData.conflictingDates && excludedDatesData.conflictingDates.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                      Dates avec planning existant ({excludedDatesData.conflictingDates.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {excludedDatesData.conflictingDates.map((conflict: any, index: number) => (
+                        <div key={index} className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                          <span className="text-lg">⚠️</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-gray-900">
+                                {new Date(conflict.date).toLocaleDateString('fr-FR', { 
+                                  weekday: 'long', 
+                                  year: 'numeric', 
+                                  month: 'long', 
+                                  day: 'numeric' 
+                                })}
+                              </span>
+                              <Badge className="bg-yellow-100 text-yellow-800">
+                                Planning existant
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">
+                              Shift: <strong>{conflict.shift}</strong>
+                            </p>
+                            {conflict.details && (
+                              <p className="text-sm text-gray-600 mt-1">{conflict.details}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Résumé */}
+                {excludedDatesData.summary && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="text-sm font-semibold text-blue-900 mb-2">📊 Résumé</h3>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-blue-700">Total dates dans la plage:</span>
+                        <span className="ml-2 font-semibold">{excludedDatesData.summary.totalDatesInRange}</span>
+                      </div>
+                      <div>
+                        <span className="text-blue-700">Dates valides:</span>
+                        <span className="ml-2 font-semibold">{excludedDatesData.summary.validDates}</span>
+                      </div>
+                      <div>
+                        <span className="text-blue-700">Plannings créés:</span>
+                        <span className="ml-2 font-semibold text-green-600">{excludedDatesData.summary.created}</span>
+                      </div>
+                      <div>
+                        <span className="text-blue-700">Dates exclues:</span>
+                        <span className="ml-2 font-semibold text-orange-600">
+                          {(excludedDatesData.excludedDates?.length || 0) + (excludedDatesData.conflictingDates?.length || 0)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button onClick={() => setShowExcludedDatesModal(false)}>
+                  Fermer
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
 
         {/* Import Modal */}
@@ -1384,7 +1608,7 @@ function CreateScheduleModalComponent({
   createScheduleMutation,
 }: {
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (excludedData?: any) => void;
   shiftsData: any;
   employeesData: any;
   employeesLoading?: boolean;
@@ -1493,10 +1717,21 @@ function CreateScheduleModalComponent({
         ...(formData.customEndTime ? { customEndTime: formData.customEndTime } : {}),
         ...(formData.notes ? { notes: formData.notes } : {}),
       };
-      await createScheduleMutation.mutateAsync(data);
-      onSuccess();
+      const result = await createScheduleMutation.mutateAsync(data);
+      
+      // Passer les données des dates exclues à onSuccess
+      if (result && (result.excludedDates?.length > 0 || result.conflictingDates?.length > 0)) {
+        onSuccess({
+          excludedDates: result.excludedDates || [],
+          conflictingDates: result.conflictingDates || [],
+          summary: result.summary,
+        });
+      } else {
+        onSuccess();
+      }
     } catch (error) {
       // Error handled by mutation
+      onSuccess();
     }
   };
 

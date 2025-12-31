@@ -8,6 +8,9 @@ export declare class LeavesService {
     private prisma;
     private fileStorageService;
     constructor(prisma: PrismaService, fileStorageService: FileStorageService);
+    private suspendSchedulesForLeave;
+    private reactivateSchedulesForLeave;
+    private adjustScheduleSuspensionsForLeaveUpdate;
     create(tenantId: string, dto: CreateLeaveDto): Promise<{
         employee: {
             id: string;

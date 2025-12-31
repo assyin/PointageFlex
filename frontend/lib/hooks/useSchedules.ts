@@ -44,14 +44,79 @@ export function useCreateSchedule() {
       queryClient.invalidateQueries({ queryKey: ['schedules', 'week'] });
       queryClient.invalidateQueries({ queryKey: ['schedules', 'month'] });
       
-      // Show success message with count if available
+      // Show success message with count and excluded dates if available
       if (data?.count !== undefined) {
-        const message = data.conflictingDates && data.conflictingDates.length > 0
-          ? `${data.count} planning(s) créé(s) avec succès. ${data.conflictingDates.length} date(s) ignorée(s) car déjà planifiée(s).`
-          : `${data.count} planning(s) créé(s) avec succès${data.skipped > 0 ? ` (${data.skipped} ignoré(s))` : ''}`;
-        toast.success(message, {
-          duration: data.conflictingDates && data.conflictingDates.length > 0 ? 7000 : 5000,
-        });
+        const totalExcluded = (data.excludedDates?.length || 0) + (data.conflictingDates?.length || 0);
+        
+        if (totalExcluded > 0) {
+          // Construire le message détaillé avec les raisons
+          const reasons: string[] = [];
+          
+          if (data.summary?.excludedByReason) {
+            const reasonsMap: Record<string, string> = {
+              nonOuvrable: 'jours non ouvrables',
+              jourFerie: 'jours fériés',
+              conge: 'jours en congé',
+              recuperation: 'jours de récupération',
+              dejaExistant: 'jours avec planning existant',
+            };
+            
+            Object.entries(data.summary.excludedByReason).forEach(([key, count]: [string, any]) => {
+              if (count > 0 && reasonsMap[key]) {
+                reasons.push(`${count} ${reasonsMap[key]}`);
+              }
+            });
+          }
+          
+          const reasonsText = reasons.length > 0 ? reasons.join(', ') : 'dates exclues';
+          
+          // Stocker les données dans sessionStorage pour affichage dans une modal si nécessaire
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('scheduleCreationDetails', JSON.stringify({
+              excludedDates: data.excludedDates || [],
+              conflictingDates: data.conflictingDates || [],
+              summary: data.summary,
+            }));
+          }
+          
+          toast.success(
+            `${data.count} planning(s) créé(s) avec succès`,
+            {
+              description: `${totalExcluded} jour(s) exclu(s) : ${reasonsText}. Consultez la console pour plus de détails.`,
+              duration: 10000,
+            }
+          );
+          
+          // Log détaillé dans la console
+          console.group('📅 Détails de la création de planning');
+          console.log(`✅ ${data.count} planning(s) créé(s)`);
+          if (data.excludedDates && data.excludedDates.length > 0) {
+            console.group('📋 Dates exclues:');
+            data.excludedDates.forEach((excluded: any) => {
+              const reasonLabels: Record<string, string> = {
+                NON_OUVRABLE: '❌ Jour non ouvrable',
+                JOUR_FERIE: '🎉 Jour férié',
+                CONGE: '🏖️ Congé approuvé',
+                RECUPERATION: '🔄 Jour de récupération',
+              };
+              console.log(`${excluded.date}: ${reasonLabels[excluded.reason] || excluded.reason} - ${excluded.details || ''}`);
+            });
+            console.groupEnd();
+          }
+          if (data.conflictingDates && data.conflictingDates.length > 0) {
+            console.group('⚠️ Dates avec planning existant:');
+            data.conflictingDates.forEach((conflict: any) => {
+              console.log(`${conflict.date}: Planning existant pour le shift "${conflict.shift}"`);
+            });
+            console.groupEnd();
+          }
+          if (data.summary) {
+            console.log('📊 Résumé:', data.summary);
+          }
+          console.groupEnd();
+        } else {
+          toast.success(`${data.count} planning(s) créé(s) avec succès`);
+        }
       } else {
         toast.success('Planning créé avec succès');
       }

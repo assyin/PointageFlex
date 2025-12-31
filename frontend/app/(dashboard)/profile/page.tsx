@@ -24,6 +24,8 @@ import {
   useUploadAvatar,
   useRemoveAvatar,
 } from '@/lib/hooks/useProfile';
+import { useOvertimeSummary, useOvertimeRecords } from '@/lib/hooks/useOvertime';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format as formatDate } from 'date-fns';
 import {
   User,
   Mail,
@@ -46,6 +48,7 @@ import {
   Building2,
   Users,
   Calendar,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -60,6 +63,38 @@ export default function ProfilePage() {
   const { data: preferences, isLoading: preferencesLoading } = usePreferences();
   const { data: sessions, isLoading: sessionsLoading } = useSessions();
   const { data: stats, isLoading: statsLoading } = useProfileStats();
+  
+  // Calculate monthly and weekly totals from overtime records
+  const now = new Date();
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+  
+  const { data: overtimeData } = useOvertimeRecords({
+    employeeId: profile?.employee?.id,
+    startDate: formatDate(monthStart, 'yyyy-MM-dd'),
+    endDate: formatDate(monthEnd, 'yyyy-MM-dd'),
+  });
+  
+  // Calculate monthly and weekly totals
+  const monthlyTotal = overtimeData?.data?.reduce((sum: number, record: any) => {
+    const recordDate = new Date(record.date);
+    if (recordDate >= monthStart && recordDate <= monthEnd && record.status === 'APPROVED') {
+      const hours = record.approvedHours || record.hours || 0;
+      return sum + (typeof hours === 'string' ? parseFloat(hours) : hours);
+    }
+    return sum;
+  }, 0) || 0;
+  
+  const weeklyTotal = overtimeData?.data?.reduce((sum: number, record: any) => {
+    const recordDate = new Date(record.date);
+    if (recordDate >= weekStart && recordDate <= weekEnd && record.status === 'APPROVED') {
+      const hours = record.approvedHours || record.hours || 0;
+      return sum + (typeof hours === 'string' ? parseFloat(hours) : hours);
+    }
+    return sum;
+  }, 0) || 0;
 
   // Mutations
   const updateProfileMutation = useUpdateProfile();
@@ -507,6 +542,120 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Heures Supplémentaires - Éligibilité et Plafonds */}
+                  {profile?.employee && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        Heures Supplémentaires
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Éligibilité</Label>
+                          <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm flex items-center gap-2">
+                            {profile.employee.isEligibleForOvertime !== false ? (
+                              <>
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span className="text-green-700 font-medium">Éligible</span>
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="h-4 w-4 text-red-600" />
+                                <span className="text-red-700 font-medium">Non éligible</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {profile.employee.isEligibleForOvertime !== false && (
+                          <>
+                            {profile.employee.maxOvertimeHoursPerMonth && (
+                              <div>
+                                <Label>Plafond mensuel</Label>
+                                <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm font-medium">
+                                  {profile.employee.maxOvertimeHoursPerMonth}h
+                                </div>
+                              </div>
+                            )}
+                            {profile.employee.maxOvertimeHoursPerWeek && (
+                              <div>
+                                <Label>Plafond hebdomadaire</Label>
+                                <div className="px-3 py-2 bg-gray-50 border rounded-lg text-sm font-medium">
+                                  {profile.employee.maxOvertimeHoursPerWeek}h
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Cumul et Alertes */}
+                      {profile.employee.isEligibleForOvertime !== false && (
+                        <div className="mt-4 space-y-3">
+                          {/* Cumul Mensuel */}
+                          {profile.employee.maxOvertimeHoursPerMonth && (
+                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-medium text-blue-900">Cumul mensuel (mois en cours)</p>
+                                  <p className="text-lg font-bold text-blue-700 mt-1">
+                                    {monthlyTotal.toFixed(1)}h / {profile.employee.maxOvertimeHoursPerMonth}h
+                                  </p>
+                                </div>
+                                {monthlyTotal >= profile.employee.maxOvertimeHoursPerMonth * 0.9 && (
+                                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                                )}
+                              </div>
+                              {monthlyTotal >= profile.employee.maxOvertimeHoursPerMonth && (
+                                <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs text-red-800">
+                                  ⚠️ Plafond mensuel atteint ! Aucune nouvelle heure supplémentaire ne sera acceptée ce mois.
+                                </div>
+                              )}
+                              {monthlyTotal >= profile.employee.maxOvertimeHoursPerMonth * 0.9 &&
+                               monthlyTotal < profile.employee.maxOvertimeHoursPerMonth && (
+                                <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded text-xs text-orange-800">
+                                  ⚠️ Attention : Vous approchez du plafond mensuel ({((monthlyTotal / profile.employee.maxOvertimeHoursPerMonth) * 100).toFixed(0)}% utilisé).
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Cumul Hebdomadaire */}
+                          {profile.employee.maxOvertimeHoursPerWeek && (
+                            <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs font-medium text-purple-900">Cumul hebdomadaire (semaine en cours)</p>
+                                  <p className="text-lg font-bold text-purple-700 mt-1">
+                                    {weeklyTotal.toFixed(1)}h / {profile.employee.maxOvertimeHoursPerWeek}h
+                                  </p>
+                                </div>
+                                {weeklyTotal >= profile.employee.maxOvertimeHoursPerWeek * 0.9 && (
+                                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                                )}
+                              </div>
+                              {weeklyTotal >= profile.employee.maxOvertimeHoursPerWeek && (
+                                <div className="mt-2 p-2 bg-red-100 border border-red-300 rounded text-xs text-red-800">
+                                  ⚠️ Plafond hebdomadaire atteint ! Aucune nouvelle heure supplémentaire ne sera acceptée cette semaine.
+                                </div>
+                              )}
+                              {weeklyTotal >= profile.employee.maxOvertimeHoursPerWeek * 0.9 &&
+                               weeklyTotal < profile.employee.maxOvertimeHoursPerWeek && (
+                                <div className="mt-2 p-2 bg-orange-100 border border-orange-300 rounded text-xs text-orange-800">
+                                  ⚠️ Attention : Vous approchez du plafond hebdomadaire ({((weeklyTotal / profile.employee.maxOvertimeHoursPerWeek) * 100).toFixed(0)}% utilisé).
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-text-secondary mt-4">
+                        Ces informations sont modifiables uniquement par la RH
+                      </p>
+                    </div>
+                  )}
+                  
                   <p className="text-xs text-text-secondary mt-4">
                     Ces informations sont modifiables uniquement par la RH
                   </p>

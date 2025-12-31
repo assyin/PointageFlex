@@ -8,17 +8,27 @@ export declare class UpdateTenantSettingsDto {
     timezone?: string;
     language?: string;
     firstDayOfWeek?: string;
-    workingDays?: string[];
+    workingDays?: number[];
     lateToleranceEntry?: number;
     earlyToleranceExit?: number;
     overtimeRounding?: number;
+    overtimeMinimumThreshold?: number;
     twoLevelWorkflow?: boolean;
     anticipatedLeave?: boolean;
     monthlyPayrollEmail?: boolean;
     sfptExport?: boolean;
     requireBreakPunch?: boolean;
+    requireScheduleForAttendance?: boolean;
+    absencePartialThreshold?: number;
+    absenceDetectionTime?: string;
+    enableInsufficientRestDetection?: boolean;
+    minimumRestHours?: number;
+    minimumRestHoursNightShift?: number;
     temporaryMatriculeExpiryDays?: number;
     recoveryConversionRate?: number;
     recoveryExpiryDays?: number;
     dailyWorkingHours?: number;
+    holidayOvertimeEnabled?: boolean;
+    holidayOvertimeRate?: number;
+    holidayOvertimeAsNormalHours?: boolean;
 }

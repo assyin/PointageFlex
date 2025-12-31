@@ -52,6 +52,43 @@ export function Header({ title, subtitle }: HeaderProps) {
     return `${firstInitial}${lastInitial}`.toUpperCase();
   };
 
+  /**
+   * Convertit un rôle en label français lisible
+   */
+  const getRoleLabel = (): string => {
+    if (!user) return 'Utilisateur';
+    
+    // Priorité aux rôles RBAC (roles array)
+    const roles = user.roles || [];
+    
+    // Vérifier les rôles RBAC d'abord
+    if (roles.includes('SUPER_ADMIN') || user.role === 'SUPER_ADMIN') {
+      return 'Super Administrateur';
+    }
+    if (roles.includes('ADMIN_RH') || user.role === 'ADMIN_RH') {
+      return 'Administrateur RH';
+    }
+    if (roles.includes('MANAGER') || user.role === 'MANAGER') {
+      return 'Manager';
+    }
+    if (roles.includes('EMPLOYEE') || user.role === 'EMPLOYEE') {
+      return 'Employé';
+    }
+    
+    // Si aucun rôle trouvé, utiliser le role legacy avec mapping
+    if (user.role) {
+      const roleMap: { [key: string]: string } = {
+        'SUPER_ADMIN': 'Super Administrateur',
+        'ADMIN_RH': 'Administrateur RH',
+        'MANAGER': 'Manager',
+        'EMPLOYEE': 'Employé',
+      };
+      return roleMap[user.role] || user.role;
+    }
+    
+    return 'Utilisateur';
+  };
+
   return (
     <header className="h-header bg-background-card border-b border-border-light px-8 flex items-center justify-between sticky top-0 z-10">
       {/* Titre de la page */}
@@ -78,7 +115,7 @@ export function Header({ title, subtitle }: HeaderProps) {
                     {user?.firstName} {user?.lastName}
                   </p>
                   <p className="text-xs text-text-secondary">
-                    {user?.role || 'Utilisateur'}
+                    {getRoleLabel()}
                   </p>
                 </div>
                 {user?.avatar ? (

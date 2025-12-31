@@ -27,6 +27,7 @@ import {
   Filter,
   Plus,
   UserPlus,
+  Trash2,
 } from 'lucide-react';
 import {
   useAttendance,
@@ -35,14 +36,23 @@ import {
   useCorrectAttendance,
   useApproveAttendanceCorrection,
   useCreateAttendance,
+  useDeleteAttendance,
 } from '@/lib/hooks/useAttendance';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmployees } from '@/lib/hooks/useEmployees';
 import { useSites } from '@/lib/hooks/useSites';
 import { useDepartments } from '@/lib/hooks/useDepartments';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { SearchableEmployeeSelect } from '@/components/schedules/SearchableEmployeeSelect';
 import { ChevronDown, ChevronUp, X, Calendar } from 'lucide-react';
+
+// Helper pour formater les heures décimales en format "Xh Ymin"
+const formatHoursToHM = (decimalHours: number): string => {
+  const hours = Math.floor(decimalHours);
+  const minutes = Math.round((decimalHours - hours) * 60);
+  return `${hours}h${minutes.toString().padStart(2, '0')}min`;
+};
 
 export default function AttendancePage() {
   const { user, hasPermission, hasRole } = useAuth();
@@ -61,7 +71,6 @@ export default function AttendancePage() {
   
   // Modal création pointage manuel
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createEmployeeSearchQuery, setCreateEmployeeSearchQuery] = useState('');
   const [createFormData, setCreateFormData] = useState({
     employeeId: '',
     type: 'IN' as 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END',
@@ -79,11 +88,11 @@ export default function AttendancePage() {
   const [selectedAnomalyType, setSelectedAnomalyType] = useState<string>('all');
   const [selectedSource, setSelectedSource] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
   const correctMutation = useCorrectAttendance();
   const approveMutation = useApproveAttendanceCorrection();
   const createMutation = useCreateAttendance();
+  const deleteMutation = useDeleteAttendance();
 
   // Fetch data for filters
   // Charger tous les employés actifs pour le modal de création (sans pagination)
@@ -142,6 +151,18 @@ export default function AttendancePage() {
     if (selectedType !== 'all') filters.type = selectedType;
     return filters;
   }, [startDate, endDate, selectedEmployee, selectedSite, showAnomaliesOnly, selectedType]);
+
+  // Helper function to convert Decimal values to numbers
+  const toNumber = (value: any): number => {
+    if (value == null || value === undefined) return 0;
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') return parseFloat(value) || 0;
+    // Handle Prisma Decimal objects
+    if (typeof value === 'object' && 'toNumber' in value) {
+      return (value as any).toNumber();
+    }
+    return Number(value) || 0;
+  };
 
   // Fetch attendance data with auto-refresh
   const { data: attendanceData, isLoading, error, refetch, dataUpdatedAt } = useAttendance(apiFilters);
@@ -242,6 +263,11 @@ export default function AttendancePage() {
     );
   };
 
+  // Helper pour vérifier si c'est une vraie anomalie (pas une alerte informative)
+  const isRealAnomaly = (record: any) => {
+    return record.hasAnomaly && record.anomalyType !== 'JOUR_FERIE_TRAVAILLE';
+  };
+
   const getAnomalyTypeBadge = (type?: string) => {
     if (!type) return null;
     const anomalyLabels: Record<string, { label: string; color: string }> = {
@@ -251,6 +277,12 @@ export default function AttendancePage() {
       LATE: { label: 'Retard', color: 'bg-purple-100 text-purple-800' },
       EARLY_LEAVE: { label: 'Départ anticipé', color: 'bg-pink-100 text-pink-800' },
       ABSENCE: { label: 'Absence', color: 'bg-red-100 text-red-800' },
+      ABSENCE_PARTIAL: { label: 'Absence partielle', color: 'bg-orange-100 text-orange-800' },
+      ABSENCE_TECHNICAL: { label: 'Absence technique', color: 'bg-blue-100 text-blue-800' },
+      INSUFFICIENT_REST: { label: 'Repos insuffisant', color: 'bg-amber-100 text-amber-800' },
+      JOUR_FERIE_TRAVAILLE: { label: 'Jour férié travaillé', color: 'bg-blue-100 text-blue-800' },
+      WEEKEND_WORK_UNAUTHORIZED: { label: 'Travail weekend non autorisé', color: 'bg-red-100 text-red-800' },
+      LEAVE_CONFLICT: { label: 'Pointage pendant congé', color: 'bg-red-100 text-red-800' },
     };
     const anomalyInfo = anomalyLabels[type] || { label: type, color: 'bg-gray-100 text-gray-800' };
     return (
@@ -314,7 +346,6 @@ export default function AttendancePage() {
             siteId: '',
             notes: '',
           });
-          setEmployeeSearchQuery('');
           refetch();
         },
       }
@@ -370,7 +401,6 @@ export default function AttendancePage() {
     setSelectedSource('all');
     setSelectedStatus('all');
     setSearchQuery('');
-    setEmployeeSearchQuery('');
     setShowAnomaliesOnly(false);
     const today = format(new Date(), 'yyyy-MM-dd');
     setStartDate(today);
@@ -380,7 +410,7 @@ export default function AttendancePage() {
   const hasActiveFilters = selectedEmployee !== 'all' || selectedSite !== 'all' ||
     selectedDepartment !== 'all' || selectedType !== 'all' || selectedAnomalyType !== 'all' ||
     selectedSource !== 'all' || selectedStatus !== 'all' || searchQuery !== '' ||
-    employeeSearchQuery !== '' || showAnomaliesOnly;
+    showAnomaliesOnly;
 
   return (
     <ProtectedRoute permissions={['attendance.view_all', 'attendance.view_own', 'attendance.view_team']}>
@@ -502,7 +532,7 @@ export default function AttendancePage() {
                     Anomalies uniquement
                     {showAnomaliesOnly && (
                       <Badge variant="danger" className="ml-2">
-                        {filteredRecords.filter((r: any) => r.hasAnomaly).length}
+                        {filteredRecords.filter((r: any) => isRealAnomaly(r)).length}
                       </Badge>
                     )}
                   </Button>
@@ -570,47 +600,28 @@ export default function AttendancePage() {
               {showAdvancedFilters && (
                 <div className="mt-4 pt-4 border-t border-border-light">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="employee-filter">Employé</Label>
-                      <div className="space-y-2">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
-                          <Input
-                            id="employee-search"
-                            type="text"
-                            placeholder="Rechercher un employé..."
-                            value={employeeSearchQuery}
-                            onChange={(e) => {
-                              setEmployeeSearchQuery(e.target.value);
-                              setSearchQuery(e.target.value);
-                            }}
-                            className="pl-10"
-                          />
-                        </div>
-                        <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-                          <SelectTrigger id="employee-filter">
-                            <SelectValue placeholder="Tous les employés" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Tous les employés</SelectItem>
-                            {employeesData?.data
-                              ?.filter((emp: any) => {
-                                if (!employeeSearchQuery) return true;
-                                const query = employeeSearchQuery.toLowerCase();
-                                const firstName = emp.firstName?.toLowerCase() || '';
-                                const lastName = emp.lastName?.toLowerCase() || '';
-                                const matricule = emp.matricule?.toLowerCase() || '';
-                                return firstName.includes(query) || lastName.includes(query) || matricule.includes(query);
-                              })
-                              .map((emp: any) => (
-                                <SelectItem key={emp.id} value={emp.id}>
-                                  {emp.firstName} {emp.lastName} ({emp.matricule})
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                    {(() => {
+                      const employeeOptions = [
+                        { value: 'all', label: 'Tous les employés' },
+                        ...availableEmployees.map((emp: any) => ({
+                          value: emp.id,
+                          label: `${emp.firstName} ${emp.lastName} (${emp.matricule})`,
+                          searchText: `${emp.firstName} ${emp.lastName} ${emp.matricule}`.toLowerCase()
+                        }))
+                      ];
+                      return (
+                        <SearchableSelect
+                          value={selectedEmployee}
+                          onChange={(value) => {
+                            setSelectedEmployee(value);
+                          }}
+                          options={employeeOptions}
+                          placeholder="Tous les employés"
+                          label="Employé"
+                          searchPlaceholder="Rechercher un employé..."
+                        />
+                      );
+                    })()}
 
                     <div className="space-y-2">
                       <Label htmlFor="site-filter">Site</Label>
@@ -676,6 +687,9 @@ export default function AttendancePage() {
                           <SelectItem value="LATE">Retard</SelectItem>
                           <SelectItem value="EARLY_LEAVE">Départ anticipé</SelectItem>
                           <SelectItem value="ABSENCE">Absence</SelectItem>
+                          <SelectItem value="ABSENCE_PARTIAL">Absence partielle</SelectItem>
+                          <SelectItem value="ABSENCE_TECHNICAL">Absence technique</SelectItem>
+                          <SelectItem value="INSUFFICIENT_REST">Repos insuffisant</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -821,10 +835,10 @@ export default function AttendancePage() {
                 <div>
                   <p className="text-sm font-medium text-text-secondary">Anomalies</p>
                   <p className="text-3xl font-bold text-danger mt-1">
-                    {filteredRecords.filter((r: any) => r.hasAnomaly).length}
+                    {filteredRecords.filter((r: any) => isRealAnomaly(r)).length}
                   </p>
                   <p className="text-xs text-text-secondary mt-1">
-                    {anomaliesData?.length || 0} non résolues
+                    {anomaliesData?.filter((a: any) => a.anomalyType !== 'JOUR_FERIE_TRAVAILLE').length || 0} non résolues
                   </p>
                 </div>
                 <AlertTriangle className="h-12 w-12 text-danger opacity-20" />
@@ -909,7 +923,7 @@ export default function AttendancePage() {
                           <div className="space-y-1">
                             {record.hoursWorked && (
                               <div className="text-xs text-text-secondary">
-                                <span className="font-medium">Heures:</span> {record.hoursWorked.toFixed(2)}h
+                                <span className="font-medium">Heures:</span> {formatHoursToHM(toNumber(record.hoursWorked))}
                               </div>
                             )}
                             {record.lateMinutes && record.lateMinutes > 0 && (
@@ -946,10 +960,17 @@ export default function AttendancePage() {
                           <div className="space-y-1">
                             {record.hasAnomaly ? (
                               <>
-                                <Badge variant="danger" className="flex items-center gap-1 w-fit">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  Anomalie
-                                </Badge>
+                                {record.anomalyType === 'JOUR_FERIE_TRAVAILLE' ? (
+                                  <Badge variant="info" className="flex items-center gap-1 w-fit">
+                                    <AlertCircle className="h-3 w-3" />
+                                    Info
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="danger" className="flex items-center gap-1 w-fit">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Anomalie
+                                  </Badge>
+                                )}
                                 {record.anomalyType && (
                                   <div className="mt-1">
                                     {getAnomalyTypeBadge(record.anomalyType)}
@@ -995,7 +1016,11 @@ export default function AttendancePage() {
                         </td>
                         <td className="p-4">
                           <div className="flex gap-2">
-                            {record.hasAnomaly && !record.isCorrected && !record.needsApproval && (
+                            {/* Bouton Corriger : Afficher si anomalie (sauf alerte info), pas encore corrigé, et pas en attente d'approbation */}
+                            {record.hasAnomaly &&
+                             record.anomalyType !== 'JOUR_FERIE_TRAVAILLE' &&
+                             !record.isCorrected &&
+                             (!record.needsApproval || record.approvalStatus !== 'PENDING_APPROVAL') && (
                               <PermissionGate permissions={['attendance.correct']}>
                                 <Button
                                   variant="outline"
@@ -1007,8 +1032,9 @@ export default function AttendancePage() {
                                 </Button>
                               </PermissionGate>
                             )}
+                            {/* Bouton Approuver : Afficher si correction en attente d'approbation */}
                             {record.needsApproval && record.approvalStatus === 'PENDING_APPROVAL' && (
-                              <PermissionGate permissions={['attendance.approve_correction']}>
+                              <PermissionGate permissions={['attendance.approve_correction', 'attendance.correct']}>
                                 <Button
                                   variant="primary"
                                   size="sm"
@@ -1026,6 +1052,35 @@ export default function AttendancePage() {
                                   Approuver
                                 </Button>
                               </PermissionGate>
+                            )}
+                            {/* Bouton Supprimer : Afficher uniquement pour les pointages manuels */}
+                            {(record.method === 'MANUAL' || record.source === 'MANUAL') && (
+                              <PermissionGate permissions={['attendance.delete', 'attendance.edit']}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (confirm(
+                                      `Êtes-vous sûr de vouloir supprimer ce pointage manuel ?\n\n` +
+                                      `Employé: ${record.employee?.firstName} ${record.employee?.lastName}\n` +
+                                      `Date: ${format(new Date(record.timestamp), 'dd/MM/yyyy HH:mm', { locale: fr })}\n` +
+                                      `Type: ${record.type}\n\n` +
+                                      `Cette action est irréversible.`
+                                    )) {
+                                      deleteMutation.mutate(record.id);
+                                    }
+                                  }}
+                                  disabled={deleteMutation.isPending}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Supprimer
+                                </Button>
+                              </PermissionGate>
+                            )}
+                            {/* Afficher si déjà corrigé */}
+                            {record.isCorrected && !record.needsApproval && (
+                              <span className="text-xs text-gray-500 italic">Corrigé</span>
                             )}
                           </div>
                         </td>
@@ -1046,73 +1101,31 @@ export default function AttendancePage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="create-employee">Employé *</Label>
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
-                      <Input
-                        type="text"
-                        placeholder="Rechercher un employé..."
-                        value={createEmployeeSearchQuery}
-                        onChange={(e) => setCreateEmployeeSearchQuery(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    <Select
+                {(() => {
+                  const employeeOptions = availableEmployees.map((emp: any) => ({
+                    value: emp.id,
+                    label: `${emp.firstName} ${emp.lastName} (${emp.matricule || 'N/A'})`,
+                    searchText: `${emp.firstName} ${emp.lastName} ${emp.matricule || ''}`.toLowerCase()
+                  }));
+
+                  return (
+                    <SearchableSelect
                       value={createFormData.employeeId}
-                      onValueChange={(value) => setCreateFormData({ ...createFormData, employeeId: value })}
-                    >
-                      <SelectTrigger id="create-employee">
-                        <SelectValue placeholder={
-                          availableEmployees.length === 0 
+                      onChange={(value) => setCreateFormData({ ...createFormData, employeeId: value })}
+                      options={employeeOptions}
+                      placeholder={
+                        isLoadingEmployees 
+                          ? "Chargement..." 
+                          : availableEmployees.length === 0 
                             ? "Aucun employé disponible" 
                             : "Sélectionner un employé"
-                        } />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {isLoadingEmployees ? (
-                          <div className="px-2 py-6 text-center text-sm text-text-secondary">
-                            <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-2" />
-                            Chargement des employés...
-                          </div>
-                        ) : availableEmployees.length === 0 ? (
-                          <div className="px-2 py-6 text-center text-sm text-text-secondary">
-                            <AlertCircle className="h-4 w-4 mx-auto mb-2" />
-                            {employeesData 
-                              ? "Aucun employé actif disponible dans votre périmètre" 
-                              : "Aucune donnée disponible"}
-                          </div>
-                        ) : (
-                          (() => {
-                            const filtered = availableEmployees.filter((emp: any) => {
-                              if (!createEmployeeSearchQuery || !createEmployeeSearchQuery.trim()) return true;
-                              const query = createEmployeeSearchQuery.toLowerCase().trim();
-                              const firstName = (emp.firstName || '').toLowerCase();
-                              const lastName = (emp.lastName || '').toLowerCase();
-                              const matricule = (emp.matricule || '').toLowerCase();
-                              return firstName.includes(query) || lastName.includes(query) || matricule.includes(query);
-                            });
-                            
-                            if (filtered.length === 0 && createEmployeeSearchQuery) {
-                              return (
-                                <div className="px-2 py-4 text-center text-sm text-text-secondary">
-                                  Aucun employé trouvé pour "{createEmployeeSearchQuery}"
-                                </div>
-                              );
-                            }
-                            
-                            return filtered.map((emp: any) => (
-                              <SelectItem key={emp.id} value={emp.id}>
-                                {emp.firstName} {emp.lastName} ({emp.matricule || 'N/A'})
-                              </SelectItem>
-                            ));
-                          })()
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                      }
+                      label="Employé *"
+                      searchPlaceholder="Rechercher un employé..."
+                      disabled={isLoadingEmployees || availableEmployees.length === 0}
+                    />
+                  );
+                })()}
 
                 <div className="space-y-2">
                   <Label htmlFor="create-type">Type de pointage *</Label>
@@ -1123,7 +1136,12 @@ export default function AttendancePage() {
                     }
                   >
                     <SelectTrigger id="create-type">
-                      <SelectValue />
+                      <SelectValue placeholder="Sélectionner un type">
+                        {createFormData.type === 'IN' && 'Entrée'}
+                        {createFormData.type === 'OUT' && 'Sortie'}
+                        {createFormData.type === 'BREAK_START' && 'Début pause'}
+                        {createFormData.type === 'BREAK_END' && 'Fin pause'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="IN">Entrée</SelectItem>
@@ -1197,7 +1215,6 @@ export default function AttendancePage() {
                     siteId: '',
                     notes: '',
                   });
-                  setCreateEmployeeSearchQuery('');
                 }}
               >
                 Annuler

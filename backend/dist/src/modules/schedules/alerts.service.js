@@ -77,6 +77,19 @@ let AlertsService = class AlertsService {
     }
     async checkRestPeriods(tenantId, startDate, endDate) {
         const alerts = [];
+        const settings = await this.prisma.tenantSettings.findUnique({
+            where: { tenantId },
+            select: {
+                enableInsufficientRestDetection: true,
+                minimumRestHours: true,
+                minimumRestHoursNightShift: true,
+                nightShiftStart: true,
+                nightShiftEnd: true,
+            },
+        });
+        if (settings?.enableInsufficientRestDetection === false) {
+            return alerts;
+        }
         const employees = await this.prisma.employee.findMany({
             where: { tenantId },
             include: {
@@ -94,6 +107,7 @@ let AlertsService = class AlertsService {
                 },
             },
         });
+        const defaultMinimumRestHours = Number(settings?.minimumRestHours || 11);
         for (const employee of employees) {
             for (let i = 0; i < employee.schedules.length - 1; i++) {
                 const currentSchedule = employee.schedules[i];
@@ -105,15 +119,33 @@ let AlertsService = class AlertsService {
                     const currentEndTime = currentSchedule.customEndTime || currentSchedule.shift.endTime;
                     const nextStartTime = nextSchedule.customStartTime || nextSchedule.shift.startTime;
                     const restHours = this.calculateRestHours(currentDate, currentEndTime, nextDate, nextStartTime);
-                    if (restHours < 11) {
+                    let isNightShift = false;
+                    if (nextSchedule.shift) {
+                        const shiftStartTime = this.parseTimeString(nextStartTime);
+                        const nightStartTime = this.parseTimeString(settings?.nightShiftStart || '21:00');
+                        const nightEndTime = this.parseTimeString(settings?.nightShiftEnd || '06:00');
+                        const shiftStartMinutes = shiftStartTime.hours * 60 + shiftStartTime.minutes;
+                        const nightStartMinutes = nightStartTime.hours * 60 + nightStartTime.minutes;
+                        const nightEndMinutes = nightEndTime.hours * 60 + nightEndTime.minutes;
+                        if (nightStartMinutes > nightEndMinutes) {
+                            isNightShift = shiftStartMinutes >= nightStartMinutes || shiftStartMinutes <= nightEndMinutes;
+                        }
+                        else {
+                            isNightShift = shiftStartMinutes >= nightStartMinutes && shiftStartMinutes <= nightEndMinutes;
+                        }
+                    }
+                    const minimumRestHours = isNightShift && settings?.minimumRestHoursNightShift
+                        ? Number(settings.minimumRestHoursNightShift)
+                        : defaultMinimumRestHours;
+                    if (restHours < minimumRestHours) {
                         alerts.push({
                             id: `rest-period-${employee.id}-${currentSchedule.id}-${nextSchedule.id}`,
-                            type: restHours < 9 ? 'CRITICAL' : 'WARNING',
-                            message: `Période de repos insuffisante: ${restHours.toFixed(1)}h (minimum: 11h)`,
+                            type: restHours < (minimumRestHours - 2) ? 'CRITICAL' : 'WARNING',
+                            message: `Période de repos insuffisante: ${restHours.toFixed(1)}h (minimum: ${minimumRestHours}h)`,
                             employeeId: employee.id,
                             employeeName: `${employee.firstName} ${employee.lastName}`,
                             date: currentDate.toISOString().split('T')[0],
-                            details: { restHours, minimum: 11 },
+                            details: { restHours, minimum: minimumRestHours },
                         });
                     }
                 }
@@ -236,6 +268,10 @@ let AlertsService = class AlertsService {
         }
         const totalMinutes = endMinutes - startMinutes - breakDuration;
         return totalMinutes / 60;
+    }
+    parseTimeString(timeString) {
+        const [hours, minutes] = timeString.split(':').map(Number);
+        return { hours: hours || 0, minutes: minutes || 0 };
     }
     calculateRestHours(currentDate, currentEndTime, nextDate, nextStartTime) {
         const [endHour, endMin] = currentEndTime.split(':').map(Number);

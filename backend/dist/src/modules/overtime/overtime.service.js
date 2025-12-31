@@ -25,15 +25,121 @@ let OvertimeService = class OvertimeService {
         const roundedMinutes = Math.round(totalMinutes / roundingMinutes) * roundingMinutes;
         return roundedMinutes / 60;
     }
+    async checkOvertimeLimits(tenantId, employeeId, newHours, date) {
+        const employee = await this.prisma.employee.findUnique({
+            where: { id: employeeId },
+            select: {
+                maxOvertimeHoursPerMonth: true,
+                maxOvertimeHoursPerWeek: true,
+            },
+        });
+        if (!employee) {
+            throw new common_1.NotFoundException('Employee not found');
+        }
+        const result = {
+            exceedsLimit: false,
+        };
+        if (employee.maxOvertimeHoursPerMonth) {
+            const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+            const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+            const monthlyOvertime = await this.prisma.overtime.aggregate({
+                where: {
+                    tenantId,
+                    employeeId,
+                    date: {
+                        gte: monthStart,
+                        lte: monthEnd,
+                    },
+                    status: {
+                        in: ['APPROVED', 'PAID', 'RECOVERED'],
+                    },
+                },
+                _sum: {
+                    approvedHours: true,
+                    hours: true,
+                },
+            });
+            const monthlyUsed = monthlyOvertime._sum.approvedHours?.toNumber() ||
+                monthlyOvertime._sum.hours?.toNumber() ||
+                0;
+            const monthlyLimit = employee.maxOvertimeHoursPerMonth.toNumber();
+            result.monthlyUsed = monthlyUsed;
+            result.monthlyLimit = monthlyLimit;
+            if (monthlyUsed + newHours > monthlyLimit) {
+                const remaining = monthlyLimit - monthlyUsed;
+                if (remaining <= 0) {
+                    result.exceedsLimit = true;
+                    result.message = `Plafond mensuel atteint (${monthlyUsed.toFixed(2)}h / ${monthlyLimit.toFixed(2)}h)`;
+                }
+                else {
+                    result.adjustedHours = remaining;
+                    result.message = `Plafond mensuel partiellement atteint. ${remaining.toFixed(2)}h acceptées, ${(newHours - remaining).toFixed(2)}h rejetées`;
+                }
+            }
+        }
+        if (employee.maxOvertimeHoursPerWeek) {
+            const weekStart = new Date(date);
+            weekStart.setDate(date.getDate() - date.getDay());
+            weekStart.setHours(0, 0, 0, 0);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            weekEnd.setHours(23, 59, 59, 999);
+            const weeklyOvertime = await this.prisma.overtime.aggregate({
+                where: {
+                    tenantId,
+                    employeeId,
+                    date: {
+                        gte: weekStart,
+                        lte: weekEnd,
+                    },
+                    status: {
+                        in: ['APPROVED', 'PAID', 'RECOVERED'],
+                    },
+                },
+                _sum: {
+                    approvedHours: true,
+                    hours: true,
+                },
+            });
+            const weeklyUsed = weeklyOvertime._sum.approvedHours?.toNumber() ||
+                weeklyOvertime._sum.hours?.toNumber() ||
+                0;
+            const weeklyLimit = employee.maxOvertimeHoursPerWeek.toNumber();
+            result.weeklyUsed = weeklyUsed;
+            result.weeklyLimit = weeklyLimit;
+            const adjustedHours = result.adjustedHours ?? newHours;
+            if (weeklyUsed + adjustedHours > weeklyLimit) {
+                const remaining = weeklyLimit - weeklyUsed;
+                if (remaining <= 0) {
+                    result.exceedsLimit = true;
+                    result.message = `Plafond hebdomadaire atteint (${weeklyUsed.toFixed(2)}h / ${weeklyLimit.toFixed(2)}h)`;
+                }
+                else {
+                    result.adjustedHours = Math.min(remaining, result.adjustedHours ?? newHours);
+                    result.message = `Plafond hebdomadaire partiellement atteint. ${result.adjustedHours.toFixed(2)}h acceptées, ${(adjustedHours - result.adjustedHours).toFixed(2)}h rejetées`;
+                }
+            }
+        }
+        return result;
+    }
     async create(tenantId, dto) {
         const employee = await this.prisma.employee.findFirst({
             where: {
                 id: dto.employeeId,
                 tenantId,
             },
+            select: {
+                id: true,
+                isEligibleForOvertime: true,
+                maxOvertimeHoursPerMonth: true,
+                maxOvertimeHoursPerWeek: true,
+            },
         });
         if (!employee) {
             throw new common_1.NotFoundException('Employee not found');
+        }
+        if (employee.isEligibleForOvertime === false) {
+            throw new common_1.BadRequestException('Cet employé n\'est pas éligible aux heures supplémentaires');
         }
         const settings = await this.prisma.tenantSettings.findUnique({
             where: { tenantId },
@@ -54,8 +160,18 @@ let OvertimeService = class OvertimeService {
                 rate = Number(settings?.overtimeRate || 1.25);
             }
         }
+        let hoursToCreate = dto.hours;
+        if (employee.maxOvertimeHoursPerMonth || employee.maxOvertimeHoursPerWeek) {
+            const limitsCheck = await this.checkOvertimeLimits(tenantId, dto.employeeId, dto.hours, new Date(dto.date));
+            if (limitsCheck.exceedsLimit) {
+                throw new common_1.BadRequestException(limitsCheck.message || 'Plafond d\'heures supplémentaires atteint');
+            }
+            if (limitsCheck.adjustedHours !== undefined && limitsCheck.adjustedHours < dto.hours) {
+                hoursToCreate = limitsCheck.adjustedHours;
+            }
+        }
         const roundingMinutes = settings?.overtimeRounding || 15;
-        const roundedHours = this.roundOvertimeHours(dto.hours, roundingMinutes);
+        const roundedHours = this.roundOvertimeHours(hoursToCreate, roundingMinutes);
         return this.prisma.overtime.create({
             data: {
                 tenantId,

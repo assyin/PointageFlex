@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Button } from '@/components/ui/button';
 import { Calendar, Search, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -15,14 +16,12 @@ interface ReportFiltersPanelProps {
   selectedSite: string;
   selectedDepartment: string;
   selectedTeam: string;
-  employeeSearchQuery: string;
   onStartDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
   onEmployeeChange: (employeeId: string) => void;
   onSiteChange: (siteId: string) => void;
   onDepartmentChange: (departmentId: string) => void;
   onTeamChange: (teamId: string) => void;
-  onEmployeeSearchChange: (query: string) => void;
   onReset: () => void;
   employees: any[];
   sites: any[];
@@ -38,14 +37,12 @@ export function ReportFiltersPanel({
   selectedSite,
   selectedDepartment,
   selectedTeam,
-  employeeSearchQuery,
   onStartDateChange,
   onEndDateChange,
   onEmployeeChange,
   onSiteChange,
   onDepartmentChange,
   onTeamChange,
-  onEmployeeSearchChange,
   onReset,
   employees,
   sites,
@@ -54,40 +51,35 @@ export function ReportFiltersPanel({
   filteredEmployees,
 }: ReportFiltersPanelProps) {
   const hasActiveFilters = selectedEmployee !== 'all' || selectedSite !== 'all' ||
-    selectedDepartment !== 'all' || selectedTeam !== 'all' || employeeSearchQuery !== '';
+    selectedDepartment !== 'all' || selectedTeam !== 'all';
+
+  // Préparer les options pour le SearchableSelect
+  const employeeOptions = useMemo(() => {
+    const options = [
+      { value: 'all', label: 'Tous les employés' }
+    ];
+    filteredEmployees.slice(0, 50).forEach((emp: any) => {
+      const label = `${emp.firstName} ${emp.lastName} (${emp.matricule})`;
+      options.push({
+        value: emp.id,
+        label,
+        searchText: `${emp.firstName} ${emp.lastName} ${emp.matricule}`.toLowerCase()
+      });
+    });
+    return options;
+  }, [filteredEmployees]);
 
   return (
     <div className="pt-4 border-t border-border-light space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="employee-filter">Employé</Label>
-          <div className="space-y-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-secondary" />
-              <Input
-                id="employee-search"
-                type="text"
-                placeholder="Rechercher un employé..."
-                value={employeeSearchQuery}
-                onChange={(e) => onEmployeeSearchChange(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={selectedEmployee} onValueChange={onEmployeeChange}>
-              <SelectTrigger id="employee-filter">
-                <SelectValue placeholder="Tous les employés" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tous les employés</SelectItem>
-                {filteredEmployees.slice(0, 50).map((emp: any) => (
-                  <SelectItem key={emp.id} value={emp.id}>
-                    {emp.firstName} {emp.lastName} ({emp.matricule})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+        <SearchableSelect
+          value={selectedEmployee}
+          onChange={onEmployeeChange}
+          options={employeeOptions}
+          placeholder="Tous les employés"
+          label="Employé"
+          searchPlaceholder="Rechercher un employé..."
+        />
 
         <div className="space-y-2">
           <Label htmlFor="site-filter">Site</Label>

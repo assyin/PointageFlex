@@ -236,11 +236,14 @@ export class TenantsService {
       const validSettingsFields = [
         'firstDayOfWeek', 'workingDays', 'workDaysPerWeek', 'maxWeeklyHours',
         'lateToleranceEntry', 'earlyToleranceExit', 'breakDuration',
-        'overtimeRounding', 'overtimeRate', 'nightShiftRate',
+        'overtimeRounding', 'overtimeMinimumThreshold', 'overtimeRate', 'nightShiftRate',
         'alertWeeklyHoursExceeded', 'alertInsufficientRest', 'alertNightWorkRepetitive', 'alertMinimumStaffing',
         'annualLeaveDays', 'leaveApprovalLevels', 'twoLevelWorkflow', 'anticipatedLeave',
-        'monthlyPayrollEmail', 'sfptExport', 'requireBreakPunch', 'temporaryMatriculeExpiryDays',
-        'recoveryConversionRate', 'recoveryExpiryDays', 'dailyWorkingHours'
+        'monthlyPayrollEmail', 'sfptExport', 'requireBreakPunch', 'requireScheduleForAttendance',
+        'temporaryMatriculeExpiryDays', 'recoveryConversionRate', 'recoveryExpiryDays', 'dailyWorkingHours',
+        'absencePartialThreshold', 'absenceDetectionTime',
+        'enableInsufficientRestDetection', 'minimumRestHours', 'minimumRestHoursNightShift',
+        'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours'
       ];
 
       for (const [key, value] of Object.entries(settingsData)) {
@@ -309,11 +312,13 @@ export class TenantsService {
         const filteredSettingsData: any = {};
         const validSettingsFields = [
           'firstDayOfWeek', 'workingDays', 'workDaysPerWeek', 'maxWeeklyHours',
+          'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours',
           'lateToleranceEntry', 'earlyToleranceExit', 'breakDuration',
           'overtimeRounding', 'overtimeRate', 'nightShiftRate',
           'alertWeeklyHoursExceeded', 'alertInsufficientRest', 'alertNightWorkRepetitive', 'alertMinimumStaffing',
           'annualLeaveDays', 'leaveApprovalLevels', 'twoLevelWorkflow', 'anticipatedLeave',
-          'monthlyPayrollEmail', 'sfptExport'
+          'monthlyPayrollEmail', 'sfptExport',
+          'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours'
         ];
 
         for (const [key, value] of Object.entries(settingsData)) {
@@ -360,7 +365,8 @@ export class TenantsService {
               'overtimeRounding', 'overtimeRate', 'nightShiftStart', 'nightShiftEnd', 'nightShiftRate',
               'alertWeeklyHoursExceeded', 'alertInsufficientRest', 'alertNightWorkRepetitive', 'alertMinimumStaffing',
               'annualLeaveDays', 'leaveApprovalLevels', 'twoLevelWorkflow', 'anticipatedLeave',
-              'monthlyPayrollEmail', 'sfptExport'
+              'monthlyPayrollEmail', 'sfptExport',
+              'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours'
             ];
 
             for (const [key, value] of Object.entries(settingsData)) {

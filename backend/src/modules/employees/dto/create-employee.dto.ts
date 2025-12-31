@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsDateString, IsBoolean, IsUUID } from 'class-validator';
+import { IsString, IsEmail, IsOptional, IsDateString, IsBoolean, IsUUID, IsNumber } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateEmployeeDto {
@@ -118,4 +118,24 @@ export class CreateEmployeeDto {
   @IsEmail()
   @IsOptional()
   userEmail?: string;
+
+  @ApiPropertyOptional({ description: 'Éligible aux heures supplémentaires', default: true })
+  @IsBoolean()
+  @IsOptional()
+  isEligibleForOvertime?: boolean;
+
+  @ApiPropertyOptional({ description: 'Nombre maximum d\'heures supplémentaires par mois' })
+  @IsNumber()
+  @IsOptional()
+  maxOvertimeHoursPerMonth?: number;
+
+  @ApiPropertyOptional({ description: 'Nombre maximum d\'heures supplémentaires par semaine' })
+  @IsNumber()
+  @IsOptional()
+  maxOvertimeHoursPerWeek?: number;
+
+  @ApiPropertyOptional({ description: 'Notes concernant l\'éligibilité aux heures supplémentaires' })
+  @IsString()
+  @IsOptional()
+  overtimeEligibilityNotes?: string;
 }

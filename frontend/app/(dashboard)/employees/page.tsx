@@ -51,6 +51,10 @@ export default function EmployeesPage() {
     hireDate: new Date().toISOString().split('T')[0],
     createUserAccount: false,
     userEmail: '',
+    isEligibleForOvertime: true,
+    maxOvertimeHoursPerMonth: '',
+    maxOvertimeHoursPerWeek: '',
+    overtimeEligibilityNotes: '',
   });
 
   // Construire les filtres pour l'API
@@ -155,6 +159,10 @@ export default function EmployeesPage() {
       departmentId: formData.departmentId || undefined,
       currentShiftId: formData.currentShiftId || undefined,
       hireDate: formData.hireDate,
+      isEligibleForOvertime: formData.isEligibleForOvertime,
+      ...(formData.maxOvertimeHoursPerMonth && { maxOvertimeHoursPerMonth: parseFloat(formData.maxOvertimeHoursPerMonth) }),
+      ...(formData.maxOvertimeHoursPerWeek && { maxOvertimeHoursPerWeek: parseFloat(formData.maxOvertimeHoursPerWeek) }),
+      ...(formData.overtimeEligibilityNotes && { overtimeEligibilityNotes: formData.overtimeEligibilityNotes }),
     };
 
     await createMutation.mutateAsync(createData);
@@ -181,6 +189,10 @@ export default function EmployeesPage() {
       hireDate: new Date().toISOString().split('T')[0],
       createUserAccount: false,
       userEmail: '',
+      isEligibleForOvertime: true,
+      maxOvertimeHoursPerMonth: '',
+      maxOvertimeHoursPerWeek: '',
+      overtimeEligibilityNotes: '',
     });
   };
 
@@ -216,6 +228,10 @@ export default function EmployeesPage() {
         hireDate: employeeData.hireDate ? new Date(employeeData.hireDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         createUserAccount: false,
         userEmail: '',
+        isEligibleForOvertime: employeeData.isEligibleForOvertime ?? true,
+        maxOvertimeHoursPerMonth: employeeData.maxOvertimeHoursPerMonth ? String(employeeData.maxOvertimeHoursPerMonth) : '',
+        maxOvertimeHoursPerWeek: employeeData.maxOvertimeHoursPerWeek ? String(employeeData.maxOvertimeHoursPerWeek) : '',
+        overtimeEligibilityNotes: employeeData.overtimeEligibilityNotes || '',
       });
       setShowEditModal(true);
     } catch (error) {
@@ -244,6 +260,10 @@ export default function EmployeesPage() {
         hireDate: employee.hireDate ? new Date(employee.hireDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         createUserAccount: false,
         userEmail: '',
+        isEligibleForOvertime: employee.isEligibleForOvertime ?? true,
+        maxOvertimeHoursPerMonth: employee.maxOvertimeHoursPerMonth ? String(employee.maxOvertimeHoursPerMonth) : '',
+        maxOvertimeHoursPerWeek: employee.maxOvertimeHoursPerWeek ? String(employee.maxOvertimeHoursPerWeek) : '',
+        overtimeEligibilityNotes: employee.overtimeEligibilityNotes || '',
       });
       setShowEditModal(true);
     }
@@ -271,6 +291,10 @@ export default function EmployeesPage() {
       departmentId: formData.departmentId || undefined,
       currentShiftId: formData.currentShiftId || undefined,
       hireDate: formData.hireDate,
+      isEligibleForOvertime: formData.isEligibleForOvertime,
+      ...(formData.maxOvertimeHoursPerMonth && { maxOvertimeHoursPerMonth: parseFloat(formData.maxOvertimeHoursPerMonth) }),
+      ...(formData.maxOvertimeHoursPerWeek && { maxOvertimeHoursPerWeek: parseFloat(formData.maxOvertimeHoursPerWeek) }),
+      ...(formData.overtimeEligibilityNotes && { overtimeEligibilityNotes: formData.overtimeEligibilityNotes }),
     };
 
     await updateMutation.mutateAsync({ id: editingEmployee.id, data: updateData });
@@ -1073,7 +1097,86 @@ export default function EmployeesPage() {
                     </div>
                   </div>
 
-                  {/* Section 5: Compte d'Accès */}
+                  {/* Section 5: Heures Supplémentaires */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                      <Clock className="h-5 w-5 text-gray-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Heures Supplémentaires</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="isEligibleForOvertime"
+                          checked={formData.isEligibleForOvertime}
+                          onChange={(e) => setFormData({ ...formData, isEligibleForOvertime: e.target.checked })}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="isEligibleForOvertime" className="text-sm font-medium text-gray-700 cursor-pointer">
+                          Éligible aux heures supplémentaires
+                        </label>
+                      </div>
+                      {formData.isEligibleForOvertime && (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                Plafond mensuel (heures)
+                              </label>
+                              <Input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                value={formData.maxOvertimeHoursPerMonth}
+                                onChange={(e) => setFormData({ ...formData, maxOvertimeHoursPerMonth: e.target.value })}
+                                placeholder="Ex: 10 (optionnel)"
+                                className="w-full"
+                              />
+                              <p className="text-xs text-gray-500 mt-1.5">
+                                Limite d'heures supplémentaires par mois (laisser vide pour illimité)
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                Plafond hebdomadaire (heures)
+                              </label>
+                              <Input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                value={formData.maxOvertimeHoursPerWeek}
+                                onChange={(e) => setFormData({ ...formData, maxOvertimeHoursPerWeek: e.target.value })}
+                                placeholder="Ex: 5 (optionnel)"
+                                className="w-full"
+                              />
+                              <p className="text-xs text-gray-500 mt-1.5">
+                                Limite d'heures supplémentaires par semaine (laisser vide pour illimité)
+                              </p>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                              Notes sur l'éligibilité
+                            </label>
+                            <textarea
+                              value={formData.overtimeEligibilityNotes}
+                              onChange={(e) => setFormData({ ...formData, overtimeEligibilityNotes: e.target.value })}
+                              placeholder="Notes ou justification sur l'éligibilité aux heures supplémentaires..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                              rows={3}
+                            />
+                          </div>
+                        </>
+                      )}
+                      {!formData.isEligibleForOvertime && (
+                        <p className="text-sm text-gray-500 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                          ⚠️ Cet employé ne sera pas éligible aux heures supplémentaires. Aucun calcul d'heures sup ne sera effectué.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Section 6: Compte d'Accès */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
                       <UserCircle className="h-5 w-5 text-gray-600" />
@@ -1489,7 +1592,7 @@ export default function EmployeesPage() {
                   {/* Section 4: Shift par défaut */}
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
-                      <Clock className="h-5 w-5 text-gray-600" />
+                      <Calendar className="h-5 w-5 text-gray-600" />
                       <h3 className="text-lg font-semibold text-gray-900">Shift par défaut</h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1513,6 +1616,85 @@ export default function EmployeesPage() {
                           Heures de travail par défaut pour cet employé
                         </p>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Section 5: Heures Supplémentaires */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                      <Clock className="h-5 w-5 text-gray-600" />
+                      <h3 className="text-lg font-semibold text-gray-900">Heures Supplémentaires</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          id="edit-isEligibleForOvertime"
+                          checked={formData.isEligibleForOvertime}
+                          onChange={(e) => setFormData({ ...formData, isEligibleForOvertime: e.target.checked })}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="edit-isEligibleForOvertime" className="text-sm font-medium text-gray-700 cursor-pointer">
+                          Éligible aux heures supplémentaires
+                        </label>
+                      </div>
+                      {formData.isEligibleForOvertime && (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                Plafond mensuel (heures)
+                              </label>
+                              <Input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                value={formData.maxOvertimeHoursPerMonth}
+                                onChange={(e) => setFormData({ ...formData, maxOvertimeHoursPerMonth: e.target.value })}
+                                placeholder="Ex: 10 (optionnel)"
+                                className="w-full"
+                              />
+                              <p className="text-xs text-gray-500 mt-1.5">
+                                Limite d'heures supplémentaires par mois (laisser vide pour illimité)
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                                Plafond hebdomadaire (heures)
+                              </label>
+                              <Input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                value={formData.maxOvertimeHoursPerWeek}
+                                onChange={(e) => setFormData({ ...formData, maxOvertimeHoursPerWeek: e.target.value })}
+                                placeholder="Ex: 5 (optionnel)"
+                                className="w-full"
+                              />
+                              <p className="text-xs text-gray-500 mt-1.5">
+                                Limite d'heures supplémentaires par semaine (laisser vide pour illimité)
+                              </p>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                              Notes sur l'éligibilité
+                            </label>
+                            <textarea
+                              value={formData.overtimeEligibilityNotes}
+                              onChange={(e) => setFormData({ ...formData, overtimeEligibilityNotes: e.target.value })}
+                              placeholder="Notes ou justification sur l'éligibilité aux heures supplémentaires..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                              rows={3}
+                            />
+                          </div>
+                        </>
+                      )}
+                      {!formData.isEligibleForOvertime && (
+                        <p className="text-sm text-gray-500 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                          ⚠️ Cet employé ne sera pas éligible aux heures supplémentaires. Aucun calcul d'heures sup ne sera effectué.
+                        </p>
+                      )}
                     </div>
                   </div>
 

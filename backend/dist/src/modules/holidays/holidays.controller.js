@@ -19,6 +19,7 @@ const swagger_1 = require("@nestjs/swagger");
 const holidays_service_1 = require("./holidays.service");
 const create_holiday_dto_1 = require("./dto/create-holiday.dto");
 const update_holiday_dto_1 = require("./dto/update-holiday.dto");
+const generate_year_holidays_dto_1 = require("./dto/generate-year-holidays.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
@@ -35,15 +36,6 @@ let HolidaysController = class HolidaysController {
             throw new common_1.UnauthorizedException('User not authenticated or tenantId missing');
         }
         return this.holidaysService.findAll(user.tenantId, year);
-    }
-    findOne(user, id) {
-        return this.holidaysService.findOne(user.tenantId, id);
-    }
-    update(user, id, dto) {
-        return this.holidaysService.update(user.tenantId, id, dto);
-    }
-    remove(user, id) {
-        return this.holidaysService.remove(user.tenantId, id);
     }
     async importCsv(user, file) {
         if (!file) {
@@ -64,6 +56,18 @@ let HolidaysController = class HolidaysController {
             message: `Import terminé: ${result.success} jour(s) férié(s) importé(s), ${result.skipped} ignoré(s)`,
             data: result,
         };
+    }
+    async generateYearHolidays(user, dto) {
+        return this.holidaysService.generateYearHolidays(user.tenantId, dto);
+    }
+    findOne(user, id) {
+        return this.holidaysService.findOne(user.tenantId, id);
+    }
+    update(user, id, dto) {
+        return this.holidaysService.update(user.tenantId, id, dto);
+    }
+    remove(user, id) {
+        return this.holidaysService.remove(user.tenantId, id);
     }
 };
 exports.HolidaysController = HolidaysController;
@@ -87,6 +91,28 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], HolidaysController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Post)('import-csv'),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiOperation)({ summary: 'Importer des jours fériés depuis un fichier CSV' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], HolidaysController.prototype, "importCsv", null);
+__decorate([
+    (0, common_1.Post)('generate-year'),
+    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
+    (0, swagger_1.ApiOperation)({ summary: 'Générer automatiquement les jours fériés d\'une année complète' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, generate_year_holidays_dto_1.GenerateYearHolidaysDto]),
+    __metadata("design:returntype", Promise)
+], HolidaysController.prototype, "generateYearHolidays", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Récupérer un jour férié par ID' }),
@@ -117,18 +143,6 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], HolidaysController.prototype, "remove", null);
-__decorate([
-    (0, common_1.Post)('import-csv'),
-    (0, roles_decorator_1.Roles)(client_1.LegacyRole.ADMIN_RH, client_1.LegacyRole.SUPER_ADMIN),
-    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
-    (0, swagger_1.ApiConsumes)('multipart/form-data'),
-    (0, swagger_1.ApiOperation)({ summary: 'Importer des jours fériés depuis un fichier CSV' }),
-    __param(0, (0, current_user_decorator_1.CurrentUser)()),
-    __param(1, (0, common_1.UploadedFile)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object]),
-    __metadata("design:returntype", Promise)
-], HolidaysController.prototype, "importCsv", null);
 exports.HolidaysController = HolidaysController = __decorate([
     (0, swagger_1.ApiTags)('Holidays'),
     (0, common_1.Controller)('holidays'),

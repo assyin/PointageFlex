@@ -30,8 +30,8 @@ export declare class DevicesController {
         isActive: boolean;
         name: string;
         siteId: string | null;
-        ipAddress: string | null;
         deviceId: string;
+        ipAddress: string | null;
         deviceType: import(".prisma/client").$Enums.DeviceType;
         apiKey: string | null;
         lastSync: Date | null;
@@ -65,8 +65,8 @@ export declare class DevicesController {
         isActive: boolean;
         name: string;
         siteId: string | null;
-        ipAddress: string | null;
         deviceId: string;
+        ipAddress: string | null;
         deviceType: import(".prisma/client").$Enums.DeviceType;
         apiKey: string | null;
         lastSync: Date | null;
@@ -106,8 +106,8 @@ export declare class DevicesController {
         isActive: boolean;
         name: string;
         siteId: string | null;
-        ipAddress: string | null;
         deviceId: string;
+        ipAddress: string | null;
         deviceType: import(".prisma/client").$Enums.DeviceType;
         apiKey: string | null;
         lastSync: Date | null;
@@ -138,8 +138,8 @@ export declare class DevicesController {
         isActive: boolean;
         name: string;
         siteId: string | null;
-        ipAddress: string | null;
         deviceId: string;
+        ipAddress: string | null;
         deviceType: import(".prisma/client").$Enums.DeviceType;
         apiKey: string | null;
         lastSync: Date | null;
@@ -152,8 +152,8 @@ export declare class DevicesController {
         isActive: boolean;
         name: string;
         siteId: string | null;
-        ipAddress: string | null;
         deviceId: string;
+        ipAddress: string | null;
         deviceType: import(".prisma/client").$Enums.DeviceType;
         apiKey: string | null;
         lastSync: Date | null;
@@ -187,8 +187,8 @@ export declare class DevicesController {
             isActive: boolean;
             name: string;
             siteId: string | null;
-            ipAddress: string | null;
             deviceId: string;
+            ipAddress: string | null;
             deviceType: import(".prisma/client").$Enums.DeviceType;
             apiKey: string | null;
             lastSync: Date | null;

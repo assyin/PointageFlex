@@ -6,10 +6,17 @@ export interface Schedule {
   shiftId: string;
   date: string;
   tenantId: string;
+  status?: 'PUBLISHED' | 'DRAFT' | 'CANCELLED' | 'SUSPENDED_BY_LEAVE';
+  suspendedByLeaveId?: string;
+  suspendedAt?: string;
+  customStartTime?: string;
+  customEndTime?: string;
+  notes?: string;
   createdAt: string;
   updatedAt: string;
   employee?: any;
   shift?: any;
+  suspendedByLeave?: any; // Leave relation
   isReplaced?: boolean;
   replacedAt?: string;
   replacedById?: string;

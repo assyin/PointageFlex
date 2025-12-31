@@ -79,3 +79,41 @@ export function useImportHolidays() {
     },
   });
 }
+
+export function useGenerateHolidays() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      year: number;
+      includeReligious?: boolean;
+      mode?: 'add' | 'replace';
+    }) => HolidaysAPI.generateYear(data),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['holidays'] });
+      toast.success(result.message, {
+        description: result.errors && result.errors.length > 0
+          ? `${result.errors.length} erreur(s) rencontrée(s). Consultez la console pour plus de détails.`
+          : undefined,
+        duration: 6000,
+      });
+      
+      if (result.errors && result.errors.length > 0) {
+        console.group('⚠️ Erreurs lors de la génération des jours fériés');
+        result.errors.forEach((error, index) => {
+          console.error(`${index + 1}. ${error}`);
+        });
+        console.groupEnd();
+      }
+    },
+    onError: (error: any) => {
+      toast.error(
+        error.response?.data?.message || 'Erreur lors de la génération des jours fériés',
+        {
+          description: error.response?.data?.error || 'Veuillez réessayer ou utiliser l\'import CSV.',
+          duration: 6000,
+        }
+      );
+    },
+  });
+}

@@ -29,17 +29,85 @@ let SchedulesService = class SchedulesService {
         const day = String(date.getUTCDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
-    generateDateRange(startDate, endDate) {
-        const dates = [];
+    generateDateRange(startDate, endDate, filters) {
+        const validDates = [];
+        const excludedDates = [];
         const currentDate = new Date(startDate);
         currentDate.setUTCHours(0, 0, 0, 0);
         const end = new Date(endDate);
         end.setUTCHours(0, 0, 0, 0);
         while (currentDate <= end) {
-            dates.push(new Date(currentDate));
+            const dateStr = currentDate.toISOString().split('T')[0];
+            let excluded = false;
+            let reason = '';
+            let details = '';
+            if (filters?.workingDays && filters.workingDays.length > 0) {
+                const dayOfWeek = currentDate.getDay();
+                const normalizedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+                if (!filters.workingDays.includes(normalizedDayOfWeek)) {
+                    const dayNames = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+                    excluded = true;
+                    reason = 'NON_OUVRABLE';
+                    details = `Jour non ouvrable (${dayNames[normalizedDayOfWeek]}) selon la configuration du tenant`;
+                }
+            }
+            if (!excluded && filters?.holidays && filters.holidays.length > 0) {
+                const isHoliday = filters.holidays.some((h) => {
+                    const holidayDate = new Date(h.date);
+                    holidayDate.setUTCHours(0, 0, 0, 0);
+                    return holidayDate.getTime() === currentDate.getTime();
+                });
+                if (isHoliday) {
+                }
+            }
+            if (!excluded && filters?.employeeId && filters?.leaves && filters.leaves.length > 0) {
+                const isOnLeave = filters.leaves.some((leave) => {
+                    const leaveStart = new Date(leave.startDate);
+                    leaveStart.setUTCHours(0, 0, 0, 0);
+                    const leaveEnd = new Date(leave.endDate);
+                    leaveEnd.setUTCHours(23, 59, 59, 999);
+                    return currentDate >= leaveStart && currentDate <= leaveEnd;
+                });
+                if (isOnLeave) {
+                    const leave = filters.leaves.find((l) => {
+                        const leaveStart = new Date(l.startDate);
+                        leaveStart.setUTCHours(0, 0, 0, 0);
+                        const leaveEnd = new Date(l.endDate);
+                        leaveEnd.setUTCHours(23, 59, 59, 999);
+                        return currentDate >= leaveStart && currentDate <= leaveEnd;
+                    });
+                    excluded = true;
+                    reason = 'CONGE';
+                    details = `Congé approuvé${leave?.leaveType?.name ? `: ${leave.leaveType.name}` : ''}`;
+                }
+            }
+            if (!excluded && filters?.employeeId && filters?.recoveryDays && filters.recoveryDays.length > 0) {
+                const isRecoveryDay = filters.recoveryDays.some((recovery) => {
+                    const recoveryStart = new Date(recovery.startDate);
+                    recoveryStart.setUTCHours(0, 0, 0, 0);
+                    const recoveryEnd = new Date(recovery.endDate);
+                    recoveryEnd.setUTCHours(23, 59, 59, 999);
+                    return currentDate >= recoveryStart && currentDate <= recoveryEnd;
+                });
+                if (isRecoveryDay) {
+                    excluded = true;
+                    reason = 'RECUPERATION';
+                    details = 'Jour de récupération approuvé';
+                }
+            }
+            if (excluded) {
+                excludedDates.push({
+                    date: new Date(currentDate),
+                    reason,
+                    details,
+                });
+            }
+            else {
+                validDates.push(new Date(currentDate));
+            }
             currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
-        return dates;
+        return { validDates, excludedDates };
     }
     async create(tenantId, dto) {
         console.log('SchedulesService.create called with:', {
@@ -66,19 +134,11 @@ let SchedulesService = class SchedulesService {
         if (!employee.isActive) {
             throw new common_1.BadRequestException(`L'employé ${employee.firstName} ${employee.lastName} (${employee.matricule}) n'est pas actif. Impossible de créer un planning pour un employé inactif.`);
         }
-        const recoveryDay = await this.prisma.recoveryDay.findFirst({
-            where: {
-                tenantId,
-                employeeId: dto.employeeId,
-                status: { in: [client_1.RecoveryDayStatus.APPROVED, client_1.RecoveryDayStatus.PENDING] },
-                startDate: { lte: new Date(dto.dateDebut) },
-                endDate: { gte: new Date(dto.dateDebut) }
-            }
+        const tenantSettings = await this.prisma.tenantSettings.findUnique({
+            where: { tenantId },
+            select: { workingDays: true },
         });
-        if (recoveryDay) {
-            throw new common_1.ConflictException(`L'employé est en récupération du ${recoveryDay.startDate.toISOString().split('T')[0]} au ${recoveryDay.endDate.toISOString().split('T')[0]}. ` +
-                `Impossible de créer un planning pour cette date.`);
-        }
+        const workingDays = tenantSettings?.workingDays || [1, 2, 3, 4, 5, 6];
         const shift = await this.prisma.shift.findFirst({
             where: {
                 id: dto.shiftId,
@@ -123,15 +183,84 @@ let SchedulesService = class SchedulesService {
                 throw new common_1.BadRequestException(`L'heure de fin (${dto.customEndTime}) doit être supérieure à l'heure de début (${dto.customStartTime})`);
             }
         }
-        const dates = this.generateDateRange(startDate, endDate);
+        const holidays = await this.prisma.holiday.findMany({
+            where: {
+                tenantId,
+                date: {
+                    gte: startDate,
+                    lte: endDate,
+                },
+            },
+            select: {
+                date: true,
+                name: true,
+            },
+        });
+        const leaves = await this.prisma.leave.findMany({
+            where: {
+                tenantId,
+                employeeId: dto.employeeId,
+                status: { in: ['APPROVED', 'MANAGER_APPROVED', 'HR_APPROVED'] },
+                OR: [
+                    {
+                        startDate: { lte: endDate },
+                        endDate: { gte: startDate },
+                    },
+                ],
+            },
+            select: {
+                startDate: true,
+                endDate: true,
+                leaveType: {
+                    select: {
+                        name: true,
+                    },
+                },
+            },
+        });
+        const recoveryDays = await this.prisma.recoveryDay.findMany({
+            where: {
+                tenantId,
+                employeeId: dto.employeeId,
+                status: { in: [client_1.RecoveryDayStatus.APPROVED, client_1.RecoveryDayStatus.PENDING] },
+                OR: [
+                    {
+                        startDate: { lte: endDate },
+                        endDate: { gte: startDate },
+                    },
+                ],
+            },
+            select: {
+                startDate: true,
+                endDate: true,
+            },
+        });
+        const { validDates: dates, excludedDates } = this.generateDateRange(startDate, endDate, {
+            workingDays,
+            holidays: holidays.map((h) => ({ date: h.date, name: h.name })),
+            employeeId: dto.employeeId,
+            tenantId,
+            leaves: leaves.map((l) => ({
+                startDate: l.startDate,
+                endDate: l.endDate,
+                leaveType: l.leaveType ? { name: l.leaveType.name } : undefined,
+            })),
+            recoveryDays: recoveryDays.map((r) => ({
+                startDate: r.startDate,
+                endDate: r.endDate,
+            })),
+        });
         const queryStartDate = new Date(startDate);
         queryStartDate.setUTCHours(0, 0, 0, 0);
         const queryEndDate = new Date(endDate);
         queryEndDate.setUTCHours(23, 59, 59, 999);
+        console.log(`[createSchedule] Vérification des conflits pour ${employee.firstName} ${employee.lastName}`);
+        console.log(`[createSchedule] Plage recherchée: ${queryStartDate.toISOString()} à ${queryEndDate.toISOString()}`);
         const existingSchedules = await this.prisma.schedule.findMany({
             where: {
                 tenantId,
                 employeeId: dto.employeeId,
+                status: 'PUBLISHED',
                 date: {
                     gte: queryStartDate,
                     lte: queryEndDate,
@@ -148,19 +277,31 @@ let SchedulesService = class SchedulesService {
                 },
             },
         });
+        console.log(`[createSchedule] ${existingSchedules.length} planning(s) trouvé(s):`);
+        existingSchedules.forEach((s) => {
+            console.log(`   - Date: ${s.date.toISOString()}, Shift: ${s.shift.name}`);
+        });
         const existingDatesMap = new Map();
         existingSchedules.forEach((s) => {
             const dateStr = this.formatDateToISO(s.date);
+            console.log(`   - Normalisation: ${s.date.toISOString()} → ${dateStr}`);
             existingDatesMap.set(dateStr, {
                 shiftId: s.shiftId,
                 shiftName: s.shift.name,
                 shiftCode: s.shift.code,
             });
         });
+        console.log(`[createSchedule] Dates à créer (avant filtrage):`);
+        dates.forEach((d) => console.log(`   - ${this.formatDateToISO(d)}`));
         const datesToCreate = dates.filter((date) => {
             const dateStr = this.formatDateToISO(date);
-            return !existingDatesMap.has(dateStr);
+            const exists = existingDatesMap.has(dateStr);
+            if (exists) {
+                console.log(`   ❌ ${dateStr} existe déjà`);
+            }
+            return !exists;
         });
+        console.log(`[createSchedule] Dates à créer (après filtrage): ${datesToCreate.length}`);
         if (datesToCreate.length === 0) {
             const startDateStr = this.formatDateToISO(startDate);
             const endDateStr = this.formatDateToISO(endDate);
@@ -215,6 +356,11 @@ let SchedulesService = class SchedulesService {
                 : `la période du ${this.formatDate(startDateStr)} au ${this.formatDate(endDateStr)}`;
             throw new common_1.ConflictException(`Impossible de créer le planning pour ${dateRangeStr} pour l'employé ${employee.firstName} ${employee.lastName}. Un planning existe déjà pour cette période. Veuillez modifier le planning existant ou choisir une autre date.`);
         }
+        const formattedExcludedDates = excludedDates.map((excluded) => ({
+            date: this.formatDateToISO(excluded.date),
+            reason: excluded.reason,
+            details: excluded.details,
+        }));
         const conflictingDates = dates
             .filter((date) => existingDatesMap.has(this.formatDateToISO(date)))
             .map((date) => {
@@ -223,18 +369,56 @@ let SchedulesService = class SchedulesService {
             return {
                 date: dateStr,
                 shift: existing?.shiftName || existing?.shiftCode || 'shift inconnu',
+                reason: 'DEJA_EXISTANT',
+                details: `Planning déjà existant pour le shift "${existing?.shiftName || existing?.shiftCode || 'shift inconnu'}"`,
             };
         });
+        const totalExcluded = formattedExcludedDates.length + conflictingDates.length;
+        let message = `${result.count} planning(s) créé(s)`;
+        if (totalExcluded > 0) {
+            const excludedReasons = new Map();
+            formattedExcludedDates.forEach((ex) => {
+                excludedReasons.set(ex.reason, (excludedReasons.get(ex.reason) || 0) + 1);
+            });
+            conflictingDates.forEach(() => {
+                excludedReasons.set('DEJA_EXISTANT', (excludedReasons.get('DEJA_EXISTANT') || 0) + 1);
+            });
+            const reasonLabels = {
+                NON_OUVRABLE: 'jours non ouvrables',
+                JOUR_FERIE: 'jours fériés',
+                CONGE: 'jours en congé',
+                RECUPERATION: 'jours de récupération',
+                DEJA_EXISTANT: 'jours avec planning existant',
+            };
+            const reasonsText = Array.from(excludedReasons.entries())
+                .map(([reason, count]) => `${count} ${reasonLabels[reason] || reason}`)
+                .join(', ');
+            message += `, ${totalExcluded} jour(s) exclu(s) (${reasonsText})`;
+        }
         return {
             count: result.count,
             created: result.count,
             skipped: dates.length - datesToCreate.length,
+            excluded: formattedExcludedDates.length,
             conflictingDates: conflictingDates.length > 0 ? conflictingDates : undefined,
+            excludedDates: formattedExcludedDates.length > 0 ? formattedExcludedDates : undefined,
             dateRange: {
                 start: dto.dateDebut,
                 end: dto.dateFin || dto.dateDebut,
             },
-            message: `${result.count} planning(s) créé(s)${dates.length - datesToCreate.length > 0 ? `, ${dates.length - datesToCreate.length} ignoré(s) (déjà existants)` : ''}`,
+            message,
+            summary: {
+                totalDatesInRange: dates.length + excludedDates.length,
+                validDates: dates.length,
+                created: result.count,
+                excludedByReason: {
+                    nonOuvrable: formattedExcludedDates.filter((e) => e.reason === 'NON_OUVRABLE').length,
+                    jourFerie: formattedExcludedDates.filter((e) => e.reason === 'JOUR_FERIE').length,
+                    conge: formattedExcludedDates.filter((e) => e.reason === 'CONGE').length,
+                    recuperation: formattedExcludedDates.filter((e) => e.reason === 'RECUPERATION').length,
+                    dejaExistant: conflictingDates.length,
+                },
+            },
         };
     }
     formatDate(dateStr) {
@@ -801,7 +985,7 @@ let SchedulesService = class SchedulesService {
             if (endDate < startDate) {
                 continue;
             }
-            const dates = this.generateDateRange(startDate, endDate);
+            const { validDates: dates } = this.generateDateRange(startDate, endDate);
             dates.forEach((date) => {
                 schedulesToCreate.push({
                     tenantId,
@@ -1191,11 +1375,12 @@ let SchedulesService = class SchedulesService {
                         continue;
                     }
                     const endDate = dateFin || dateDebut;
-                    const datesToCreate = this.generateDateRange(dateDebut, endDate);
+                    const { validDates: datesToCreate } = this.generateDateRange(dateDebut, endDate);
                     const existingSchedules = await this.prisma.schedule.findMany({
                         where: {
                             tenantId,
                             employeeId,
+                            status: 'PUBLISHED',
                             date: {
                                 gte: dateDebut,
                                 lte: endDate,

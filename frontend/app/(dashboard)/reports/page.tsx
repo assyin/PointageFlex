@@ -60,8 +60,11 @@ import { ReportFiltersPanel } from '@/components/reports/ReportFiltersPanel';
 
 export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState<string>('attendance');
+  // Par défaut, afficher les 7 derniers jours pour avoir des données
+  const defaultStartDate = new Date();
+  defaultStartDate.setDate(defaultStartDate.getDate() - 7);
   const [startDate, setStartDate] = useState(
-    format(new Date(new Date().setDate(1)), 'yyyy-MM-dd')
+    format(defaultStartDate, 'yyyy-MM-dd')
   );
   const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
@@ -81,7 +84,6 @@ export default function ReportsPage() {
   const [selectedSite, setSelectedSite] = useState<string>('all');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedTeam, setSelectedTeam] = useState<string>('all');
-  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
   // Fetch data for filters
   const { data: employeesData } = useEmployees();
@@ -272,14 +274,15 @@ export default function ReportsPage() {
     setSelectedSite('all');
     setSelectedDepartment('all');
     setSelectedTeam('all');
-    setEmployeeSearchQuery('');
-    const today = new Date();
-    setStartDate(format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd'));
-    setEndDate(format(today, 'yyyy-MM-dd'));
+    // Réinitialiser aux 7 derniers jours par défaut
+    const defaultStart = new Date();
+    defaultStart.setDate(defaultStart.getDate() - 7);
+    setStartDate(format(defaultStart, 'yyyy-MM-dd'));
+    setEndDate(format(new Date(), 'yyyy-MM-dd'));
   };
 
   const hasActiveFilters = selectedEmployee !== 'all' || selectedSite !== 'all' ||
-    selectedDepartment !== 'all' || selectedTeam !== 'all' || employeeSearchQuery !== '';
+    selectedDepartment !== 'all' || selectedTeam !== 'all';
 
   // Extract arrays from API responses
   const employees = useMemo(() => {
@@ -310,17 +313,10 @@ export default function ReportsPage() {
     return [];
   }, [teamsData]);
 
-  // Filter employees by search query
+  // Use all employees for SearchableSelect (it handles filtering internally)
   const filteredEmployees = useMemo(() => {
-    if (!employeeSearchQuery) return employees;
-    const query = employeeSearchQuery.toLowerCase();
-    return employees.filter((emp: any) => {
-      const firstName = emp.firstName?.toLowerCase() || '';
-      const lastName = emp.lastName?.toLowerCase() || '';
-      const matricule = emp.matricule?.toLowerCase() || '';
-      return firstName.includes(query) || lastName.includes(query) || matricule.includes(query);
-    });
-  }, [employees, employeeSearchQuery]);
+    return employees;
+  }, [employees]);
 
   return (
     <ProtectedRoute permissions={['reports.view_all', 'reports.view_attendance', 'reports.view_leaves', 'reports.view_overtime']}>
@@ -445,14 +441,12 @@ export default function ReportsPage() {
                     selectedSite={selectedSite}
                     selectedDepartment={selectedDepartment}
                     selectedTeam={selectedTeam}
-                    employeeSearchQuery={employeeSearchQuery}
                     onStartDateChange={setStartDate}
                     onEndDateChange={setEndDate}
                     onEmployeeChange={setSelectedEmployee}
                     onSiteChange={setSelectedSite}
                     onDepartmentChange={setSelectedDepartment}
                     onTeamChange={setSelectedTeam}
-                    onEmployeeSearchChange={setEmployeeSearchQuery}
                     onReset={resetFilters}
                     employees={employees}
                     sites={sites}
@@ -555,7 +549,7 @@ export default function ReportsPage() {
                   <Clock className="h-8 w-8 animate-spin text-primary" />
                   <span className="ml-3 text-text-secondary">Chargement...</span>
                 </div>
-              ) : currentData ? (
+              ) : currentData !== undefined && currentData !== null ? (
                 <div className="space-y-4">
                   {/* Stats Summary - Dynamic based on report type */}
                   {selectedReport === 'attendance' && currentData.summary && (
@@ -737,22 +731,22 @@ export default function ReportsPage() {
                   )}
 
                   {/* Data Table Preview */}
-                  <div className="border rounded-lg overflow-hidden">
+                    <div className="border rounded-lg overflow-hidden">
                     <div className="bg-gray-50 px-4 py-2 border-b flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Table className="h-4 w-4 text-text-secondary" />
                         <p className="text-sm font-medium text-text-secondary">
-                          Données du rapport (aperçu - {currentData.data?.length || 0} entrée(s))
+                          Données du rapport (aperçu - {currentData?.data?.length || 0} entrée(s))
                         </p>
                       </div>
-                      {currentData.data && currentData.data.length > 10 && (
+                      {currentData?.data && currentData.data.length > 10 && (
                         <Badge variant="outline">
                           Affichage des 10 premières lignes
                         </Badge>
                       )}
                     </div>
                     <div className="overflow-x-auto">
-                      {currentData.data && currentData.data.length > 0 ? (
+                      {currentData?.data && Array.isArray(currentData.data) && currentData.data.length > 0 ? (
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50 border-b">
                             <tr>
@@ -794,7 +788,7 @@ export default function ReportsPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y">
-                            {currentData.data.slice(0, 10).map((item: any, index: number) => (
+                            {currentData?.data?.slice(0, 10).map((item: any, index: number) => (
                               <tr key={index} className="hover:bg-gray-50">
                                 {selectedReport === 'attendance' && (
                                   <>
@@ -873,11 +867,20 @@ export default function ReportsPage() {
                         </table>
                       ) : (
                         <div className="p-8 text-center text-text-secondary">
-                          <p>Aucune donnée disponible pour cette période et ces filtres.</p>
+                          <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                          <p className="font-medium mb-2">Aucune donnée disponible</p>
+                          <p className="text-sm">
+                            Aucune donnée trouvée pour la période du {format(new Date(startDate), 'dd MMM yyyy', { locale: fr })} au {format(new Date(endDate), 'dd MMM yyyy', { locale: fr })}.
+                          </p>
+                          {(selectedEmployee !== 'all' || selectedSite !== 'all' || selectedDepartment !== 'all' || selectedTeam !== 'all') && (
+                            <p className="text-sm mt-2">
+                              Vérifiez vos filtres ou essayez une autre période.
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
-                    {currentData.data && currentData.data.length > 10 && (
+                    {currentData?.data && currentData.data.length > 10 && (
                       <div className="bg-gray-50 px-4 py-2 border-t text-center text-sm text-text-secondary">
                         <p>... et {currentData.data.length - 10} autres entrées. Utilisez l'export pour voir toutes les données.</p>
                       </div>

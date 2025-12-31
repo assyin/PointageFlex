@@ -1477,7 +1477,10 @@ export class ReportsService {
 
   async getAttendanceReport(tenantId: string, dto: AttendanceReportDto) {
     const startDate = new Date(dto.startDate);
+    startDate.setHours(0, 0, 0, 0); // Début de la journée
+    
     const endDate = new Date(dto.endDate);
+    endDate.setHours(23, 59, 59, 999); // Fin de la journée
 
     const where: any = {
       tenantId,
@@ -1491,24 +1494,21 @@ export class ReportsService {
       where.employeeId = dto.employeeId;
     }
 
+    // Construire les filtres employee de manière cumulative
+    const employeeFilters: any = {};
     if (dto.departmentId) {
-      where.employee = {
-        departmentId: dto.departmentId,
-      };
+      employeeFilters.departmentId = dto.departmentId;
     }
-
     if (dto.teamId) {
-      where.employee = {
-        ...where.employee,
-        teamId: dto.teamId,
-      };
+      employeeFilters.teamId = dto.teamId;
     }
-
     if (dto.siteId) {
-      where.employee = {
-        ...where.employee,
-        siteId: dto.siteId,
-      };
+      employeeFilters.siteId = dto.siteId;
+    }
+    
+    // Ajouter les filtres employee seulement s'il y en a
+    if (Object.keys(employeeFilters).length > 0) {
+      where.employee = employeeFilters;
     }
 
     const attendance = await this.prisma.attendance.findMany({

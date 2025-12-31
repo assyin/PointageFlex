@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 import { UpdateHolidayDto } from './dto/update-holiday.dto';
+import { GenerateYearHolidaysDto } from './dto/generate-year-holidays.dto';
+import { generateMoroccoHolidays } from '../data-generator/utils/morocco-holidays';
 import * as XLSX from 'xlsx';
 
 @Injectable()
@@ -214,5 +216,147 @@ export class HolidaysService {
     } catch (error) {
       throw new Error(`Erreur lors de l'import CSV: ${error.message}`);
     }
+  }
+
+  /**
+   * Générer automatiquement les jours fériés d'une année complète
+   * Basé sur le pays du tenant (actuellement supporte le Maroc)
+   */
+  async generateYearHolidays(tenantId: string, dto: GenerateYearHolidaysDto) {
+    // Récupérer le pays du tenant
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { country: true },
+    });
+
+    if (!tenant) {
+      throw new NotFoundException('Tenant non trouvé');
+    }
+
+    const country = tenant.country || 'MA'; // Par défaut Maroc
+    const year = dto.year;
+    const includeReligious = dto.includeReligious !== false; // Par défaut true
+    const mode = dto.mode || 'add'; // Par défaut 'add'
+
+    // Valider l'année
+    if (year < 2000 || year > 2100) {
+      throw new BadRequestException('L\'année doit être entre 2000 et 2100');
+    }
+
+    // Si mode 'replace', supprimer les jours fériés existants de l'année
+    if (mode === 'replace') {
+      const yearStart = new Date(`${year}-01-01`);
+      const yearEnd = new Date(`${year}-12-31`);
+      yearEnd.setHours(23, 59, 59, 999);
+
+      await this.prisma.holiday.deleteMany({
+        where: {
+          tenantId,
+          date: {
+            gte: yearStart,
+            lte: yearEnd,
+          },
+        },
+      });
+    }
+
+    // Générer les jours fériés selon le pays
+    let holidays: Array<{ name: string; date: Date; isRecurring: boolean; type: any }> = [];
+
+    if (country === 'MA' || country === 'MAR' || country === 'Morocco' || country === 'Maroc') {
+      // Générer les jours fériés du Maroc
+      const moroccoHolidays = generateMoroccoHolidays(year, year);
+      
+      // Filtrer les jours religieux si demandé
+      if (includeReligious) {
+        holidays = moroccoHolidays;
+      } else {
+        holidays = moroccoHolidays.filter(h => h.type !== 'RELIGIOUS');
+      }
+    } else {
+      // Pour les autres pays, on pourrait ajouter la logique ici
+      throw new BadRequestException(
+        `La génération automatique des jours fériés n'est pas encore supportée pour le pays "${country}". Veuillez utiliser l'import CSV ou la création manuelle.`
+      );
+    }
+
+    // Statistiques
+    const stats = {
+      total: holidays.length,
+      created: 0,
+      skipped: 0,
+      errors: [] as string[],
+    };
+
+    // Créer les jours fériés en batch (optimisation)
+    const holidaysToCreate: Array<{
+      tenantId: string;
+      name: string;
+      date: Date;
+      isRecurring: boolean;
+      type: any;
+    }> = [];
+
+    // Vérifier les doublons et préparer la création
+    for (const holiday of holidays) {
+      // Normaliser la date à minuit UTC pour la comparaison
+      const normalizedDate = new Date(holiday.date);
+      normalizedDate.setUTCHours(0, 0, 0, 0);
+
+      // Vérifier si le jour férié existe déjà (même date et même nom)
+      const existing = await this.prisma.holiday.findFirst({
+        where: {
+          tenantId,
+          date: normalizedDate,
+          name: holiday.name,
+        },
+      });
+
+      if (existing) {
+        stats.skipped++;
+        continue;
+      }
+
+      holidaysToCreate.push({
+        tenantId,
+        name: holiday.name,
+        date: normalizedDate,
+        isRecurring: holiday.isRecurring,
+        type: holiday.type,
+      });
+    }
+
+    // Créer en batch pour optimiser les performances
+    if (holidaysToCreate.length > 0) {
+      try {
+        await this.prisma.holiday.createMany({
+          data: holidaysToCreate,
+          skipDuplicates: true,
+        });
+        stats.created = holidaysToCreate.length;
+      } catch (error: any) {
+        // Si createMany échoue, essayer un par un pour identifier les erreurs
+        for (const holiday of holidaysToCreate) {
+          try {
+            await this.prisma.holiday.create({
+              data: holiday,
+            });
+            stats.created++;
+          } catch (err: any) {
+            stats.skipped++;
+            stats.errors.push(`${holiday.name} (${holiday.date.toISOString().split('T')[0]}): ${err.message}`);
+          }
+        }
+      }
+    }
+
+    return {
+      success: true,
+      year,
+      country,
+      mode,
+      ...stats,
+      message: `${stats.created} jour(s) férié(s) créé(s) pour l'année ${year}${stats.skipped > 0 ? `, ${stats.skipped} ignoré(s) (déjà existants)` : ''}`,
+    };
   }
 }

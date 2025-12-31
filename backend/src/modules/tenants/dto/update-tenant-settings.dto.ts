@@ -49,10 +49,11 @@ export class UpdateTenantSettingsDto {
   @IsString()
   firstDayOfWeek?: string;
 
-  @ApiPropertyOptional({ type: [String] })
+  @ApiPropertyOptional({ type: [Number], description: 'Array of working days (1=Monday, 2=Tuesday, ..., 7=Sunday)' })
   @IsOptional()
   @IsArray()
-  workingDays?: string[];
+  @IsNumber({}, { each: true })
+  workingDays?: number[];
 
   // Time Policy
   @ApiPropertyOptional()
@@ -69,6 +70,14 @@ export class UpdateTenantSettingsDto {
   @IsOptional()
   @IsInt()
   overtimeRounding?: number;
+
+  @ApiPropertyOptional({
+    description: 'Seuil minimum en minutes pour créer automatiquement un Overtime',
+    example: 30,
+  })
+  @IsOptional()
+  @IsInt()
+  overtimeMinimumThreshold?: number;
 
   // Leave Rules
   @ApiPropertyOptional()
@@ -96,6 +105,52 @@ export class UpdateTenantSettingsDto {
   @IsOptional()
   @IsBoolean()
   requireBreakPunch?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Exiger un planning ou shift par défaut pour créer un pointage. Si false, les pointages sans planning/shift seront autorisés mais marqués comme anomalie.',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  requireScheduleForAttendance?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Heures de retard pour considérer absence partielle',
+  })
+  @IsOptional()
+  @IsNumber()
+  absencePartialThreshold?: number;
+
+  @ApiPropertyOptional({
+    description: 'Heure d\'exécution du job de détection d\'absences (format HH:mm)',
+  })
+  @IsOptional()
+  @IsString()
+  absenceDetectionTime?: string;
+
+  @ApiPropertyOptional({
+    description: 'Activer/désactiver la détection de repos insuffisant',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enableInsufficientRestDetection?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Nombre d\'heures légales de repos minimum requis entre deux shifts (défaut: 11h)',
+    default: 11,
+  })
+  @IsOptional()
+  @IsNumber()
+  minimumRestHours?: number;
+
+  @ApiPropertyOptional({
+    description: 'Nombre d\'heures légales de repos minimum pour shift de nuit (optionnel, défaut: 12h)',
+    default: 12,
+  })
+  @IsOptional()
+  @IsNumber()
+  minimumRestHoursNightShift?: number;
 
   @ApiPropertyOptional({
     description: 'Nombre de jours avant expiration du matricule temporaire (délai pour obtenir le matricule officiel)',
@@ -133,4 +188,30 @@ export class UpdateTenantSettingsDto {
   @IsOptional()
   @IsNumber()
   dailyWorkingHours?: number;
+
+  // Holiday Overtime Settings
+  @ApiPropertyOptional({
+    description: 'Activer la majoration des heures travaillées les jours fériés',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  holidayOvertimeEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Taux de majoration pour les heures travaillées les jours fériés (défaut: 2.0 = double)',
+    example: 2.0,
+    default: 2.0,
+  })
+  @IsOptional()
+  @IsNumber()
+  holidayOvertimeRate?: number;
+
+  @ApiPropertyOptional({
+    description: 'Calculer les heures travaillées les jours fériés comme heures normales sans majoration',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  holidayOvertimeAsNormalHours?: boolean;
 }

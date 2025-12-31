@@ -12,15 +12,35 @@ export declare class SchedulesService {
         count: number;
         created: number;
         skipped: number;
+        excluded: number;
         conflictingDates: {
             date: string;
             shift: string;
+            reason: string;
+            details: string;
+        }[];
+        excludedDates: {
+            date: string;
+            reason: string;
+            details: string;
         }[];
         dateRange: {
             start: string;
             end: string;
         };
         message: string;
+        summary: {
+            totalDatesInRange: number;
+            validDates: number;
+            created: number;
+            excludedByReason: {
+                nonOuvrable: number;
+                jourFerie: number;
+                conge: number;
+                recuperation: number;
+                dejaExistant: number;
+            };
+        };
     }>;
     private formatDate;
     findAll(tenantId: string, page?: number, limit?: number, filters?: {
@@ -71,12 +91,17 @@ export declare class SchedulesService {
             updatedAt: Date;
             tenantId: string;
             teamId: string | null;
+            employeeId: string;
+            shiftId: string;
             date: Date;
             customStartTime: string | null;
             customEndTime: string | null;
             notes: string | null;
-            employeeId: string;
-            shiftId: string;
+            status: import(".prisma/client").$Enums.ScheduleStatus;
+            publishedAt: Date | null;
+            cancelledAt: Date | null;
+            suspendedByLeaveId: string | null;
+            suspendedAt: Date | null;
         })[];
         meta: {
             total: number;
@@ -117,12 +142,17 @@ export declare class SchedulesService {
         updatedAt: Date;
         tenantId: string;
         teamId: string | null;
+        employeeId: string;
+        shiftId: string;
         date: Date;
         customStartTime: string | null;
         customEndTime: string | null;
         notes: string | null;
-        employeeId: string;
-        shiftId: string;
+        status: import(".prisma/client").$Enums.ScheduleStatus;
+        publishedAt: Date | null;
+        cancelledAt: Date | null;
+        suspendedByLeaveId: string | null;
+        suspendedAt: Date | null;
     }>;
     update(tenantId: string, id: string, dto: UpdateScheduleDto): Promise<{
         employee: {
@@ -155,12 +185,17 @@ export declare class SchedulesService {
         updatedAt: Date;
         tenantId: string;
         teamId: string | null;
+        employeeId: string;
+        shiftId: string;
         date: Date;
         customStartTime: string | null;
         customEndTime: string | null;
         notes: string | null;
-        employeeId: string;
-        shiftId: string;
+        status: import(".prisma/client").$Enums.ScheduleStatus;
+        publishedAt: Date | null;
+        cancelledAt: Date | null;
+        suspendedByLeaveId: string | null;
+        suspendedAt: Date | null;
     }>;
     remove(tenantId: string, id: string): Promise<{
         id: string;
@@ -168,12 +203,17 @@ export declare class SchedulesService {
         updatedAt: Date;
         tenantId: string;
         teamId: string | null;
+        employeeId: string;
+        shiftId: string;
         date: Date;
         customStartTime: string | null;
         customEndTime: string | null;
         notes: string | null;
-        employeeId: string;
-        shiftId: string;
+        status: import(".prisma/client").$Enums.ScheduleStatus;
+        publishedAt: Date | null;
+        cancelledAt: Date | null;
+        suspendedByLeaveId: string | null;
+        suspendedAt: Date | null;
     }>;
     removeBulk(tenantId: string, ids: string[]): Promise<{
         count: number;
@@ -230,12 +270,17 @@ export declare class SchedulesService {
             updatedAt: Date;
             tenantId: string;
             teamId: string | null;
+            employeeId: string;
+            shiftId: string;
             date: Date;
             customStartTime: string | null;
             customEndTime: string | null;
             notes: string | null;
-            employeeId: string;
-            shiftId: string;
+            status: import(".prisma/client").$Enums.ScheduleStatus;
+            publishedAt: Date | null;
+            cancelledAt: Date | null;
+            suspendedByLeaveId: string | null;
+            suspendedAt: Date | null;
         })[];
         leaves: ({
             employee: {
@@ -310,11 +355,11 @@ export declare class SchedulesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            date: Date;
             shiftId: string;
+            date: Date;
+            status: import(".prisma/client").$Enums.ReplacementStatus;
             approvedBy: string | null;
             approvedAt: Date | null;
-            status: import(".prisma/client").$Enums.ReplacementStatus;
             reason: string | null;
             originalEmployeeId: string;
             replacementEmployeeId: string;
@@ -371,12 +416,17 @@ export declare class SchedulesService {
             updatedAt: Date;
             tenantId: string;
             teamId: string | null;
+            employeeId: string;
+            shiftId: string;
             date: Date;
             customStartTime: string | null;
             customEndTime: string | null;
             notes: string | null;
-            employeeId: string;
-            shiftId: string;
+            status: import(".prisma/client").$Enums.ScheduleStatus;
+            publishedAt: Date | null;
+            cancelledAt: Date | null;
+            suspendedByLeaveId: string | null;
+            suspendedAt: Date | null;
         })[];
         leaves: ({
             employee: {
@@ -451,11 +501,11 @@ export declare class SchedulesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            date: Date;
             shiftId: string;
+            date: Date;
+            status: import(".prisma/client").$Enums.ReplacementStatus;
             approvedBy: string | null;
             approvedAt: Date | null;
-            status: import(".prisma/client").$Enums.ReplacementStatus;
             reason: string | null;
             originalEmployeeId: string;
             replacementEmployeeId: string;
@@ -498,11 +548,11 @@ export declare class SchedulesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        date: Date;
         shiftId: string;
+        date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
         approvedBy: string | null;
         approvedAt: Date | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         reason: string | null;
         originalEmployeeId: string;
         replacementEmployeeId: string;
@@ -542,11 +592,11 @@ export declare class SchedulesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        date: Date;
         shiftId: string;
+        date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
         approvedBy: string | null;
         approvedAt: Date | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         reason: string | null;
         originalEmployeeId: string;
         replacementEmployeeId: string;
@@ -580,11 +630,11 @@ export declare class SchedulesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        date: Date;
         shiftId: string;
+        date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
         approvedBy: string | null;
         approvedAt: Date | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         reason: string | null;
         originalEmployeeId: string;
         replacementEmployeeId: string;
@@ -618,11 +668,11 @@ export declare class SchedulesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        date: Date;
         shiftId: string;
+        date: Date;
+        status: import(".prisma/client").$Enums.ReplacementStatus;
         approvedBy: string | null;
         approvedAt: Date | null;
-        status: import(".prisma/client").$Enums.ReplacementStatus;
         reason: string | null;
         originalEmployeeId: string;
         replacementEmployeeId: string;

@@ -119,8 +119,11 @@ let AttendanceController = class AttendanceController {
     findOne(tenantId, id) {
         return this.attendanceService.findOne(tenantId, id);
     }
+    delete(user, tenantId, id) {
+        return this.attendanceService.remove(tenantId, id, user.userId, user.permissions || []);
+    }
     correctAttendance(user, tenantId, id, correctionDto) {
-        return this.attendanceService.correctAttendance(tenantId, id, correctionDto);
+        return this.attendanceService.correctAttendance(tenantId, id, correctionDto, user.userId, user.permissions || []);
     }
     approveCorrection(user, tenantId, id, body) {
         return this.attendanceService.approveCorrection(tenantId, id, user.userId, body.approved, body.comment);
@@ -169,6 +172,20 @@ let AttendanceController = class AttendanceController {
     }
     getAnomaliesDashboard(user, tenantId, startDate, endDate) {
         return this.attendanceService.getAnomaliesDashboard(tenantId, new Date(startDate), new Date(endDate), user.userId, user.permissions || []);
+    }
+    getAnomaliesAnalytics(tenantId, startDate, endDate, employeeId, departmentId, siteId, anomalyType) {
+        return this.attendanceService.getAnomaliesAnalytics(tenantId, startDate, endDate, {
+            employeeId,
+            departmentId,
+            siteId,
+            anomalyType,
+        });
+    }
+    getMonthlyAnomaliesReport(tenantId, year, month) {
+        return this.attendanceService.getMonthlyAnomaliesReport(tenantId, parseInt(year, 10), parseInt(month, 10));
+    }
+    getHighAnomalyRateEmployees(tenantId, threshold, days) {
+        return this.attendanceService.getHighAnomalyRateEmployees(tenantId, threshold ? parseInt(threshold, 10) : 5, days ? parseInt(days, 10) : 30);
     }
 };
 exports.AttendanceController = AttendanceController;
@@ -274,6 +291,23 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AttendanceController.prototype, "findOne", null);
 __decorate([
+    (0, common_1.Delete)(':id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, permissions_decorator_1.RequirePermissions)('attendance.delete', 'attendance.edit'),
+    (0, swagger_1.ApiOperation)({ summary: 'Delete manual attendance record' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Attendance deleted successfully' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Attendance not found' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Only manual attendance records can be deleted' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Cannot delete attendance outside your scope' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(2, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", void 0)
+], AttendanceController.prototype, "delete", null);
+__decorate([
     (0, common_1.Patch)(':id/correct'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, swagger_1.ApiBearerAuth)(),
@@ -281,6 +315,7 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Correct attendance record' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Attendance corrected successfully' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Attendance not found' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: 'Forbidden: Cannot correct attendance outside your scope' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, current_tenant_decorator_1.CurrentTenant)()),
     __param(2, (0, common_1.Param)('id')),
@@ -417,6 +452,52 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String, String]),
     __metadata("design:returntype", void 0)
 ], AttendanceController.prototype, "getAnomaliesDashboard", null);
+__decorate([
+    (0, common_1.Get)('analytics/anomalies'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, permissions_decorator_1.RequirePermissions)('attendance.view_all', 'attendance.view_anomalies'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get comprehensive anomalies analytics' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Anomalies analytics data' }),
+    __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(1, (0, common_1.Query)('startDate')),
+    __param(2, (0, common_1.Query)('endDate')),
+    __param(3, (0, common_1.Query)('employeeId')),
+    __param(4, (0, common_1.Query)('departmentId')),
+    __param(5, (0, common_1.Query)('siteId')),
+    __param(6, (0, common_1.Query)('anomalyType')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String]),
+    __metadata("design:returntype", void 0)
+], AttendanceController.prototype, "getAnomaliesAnalytics", null);
+__decorate([
+    (0, common_1.Get)('reports/monthly-anomalies'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, permissions_decorator_1.RequirePermissions)('attendance.view_all', 'attendance.view_anomalies'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get monthly anomalies report by department' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Monthly anomalies report' }),
+    __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(1, (0, common_1.Query)('year')),
+    __param(2, (0, common_1.Query)('month')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], AttendanceController.prototype, "getMonthlyAnomaliesReport", null);
+__decorate([
+    (0, common_1.Get)('alerts/high-anomaly-rate'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, permissions_decorator_1.RequirePermissions)('attendance.view_all', 'attendance.view_anomalies'),
+    (0, swagger_1.ApiOperation)({ summary: 'Get employees with high anomaly rate' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'List of employees with high anomaly rate' }),
+    __param(0, (0, current_tenant_decorator_1.CurrentTenant)()),
+    __param(1, (0, common_1.Query)('threshold')),
+    __param(2, (0, common_1.Query)('days')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], AttendanceController.prototype, "getHighAnomalyRateEmployees", null);
 exports.AttendanceController = AttendanceController = __decorate([
     (0, swagger_1.ApiTags)('Attendance'),
     (0, common_1.Controller)('attendance'),

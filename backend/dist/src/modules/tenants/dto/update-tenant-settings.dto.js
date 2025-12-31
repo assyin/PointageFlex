@@ -70,9 +70,10 @@ __decorate([
     __metadata("design:type", String)
 ], UpdateTenantSettingsDto.prototype, "firstDayOfWeek", void 0);
 __decorate([
-    (0, swagger_1.ApiPropertyOptional)({ type: [String] }),
+    (0, swagger_1.ApiPropertyOptional)({ type: [Number], description: 'Array of working days (1=Monday, 2=Tuesday, ..., 7=Sunday)' }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsNumber)({}, { each: true }),
     __metadata("design:type", Array)
 ], UpdateTenantSettingsDto.prototype, "workingDays", void 0);
 __decorate([
@@ -93,6 +94,15 @@ __decorate([
     (0, class_validator_1.IsInt)(),
     __metadata("design:type", Number)
 ], UpdateTenantSettingsDto.prototype, "overtimeRounding", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Seuil minimum en minutes pour créer automatiquement un Overtime',
+        example: 30,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    __metadata("design:type", Number)
+], UpdateTenantSettingsDto.prototype, "overtimeMinimumThreshold", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)(),
     (0, class_validator_1.IsOptional)(),
@@ -123,6 +133,58 @@ __decorate([
     (0, class_validator_1.IsBoolean)(),
     __metadata("design:type", Boolean)
 ], UpdateTenantSettingsDto.prototype, "requireBreakPunch", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Exiger un planning ou shift par défaut pour créer un pointage. Si false, les pointages sans planning/shift seront autorisés mais marqués comme anomalie.',
+        default: true,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateTenantSettingsDto.prototype, "requireScheduleForAttendance", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Heures de retard pour considérer absence partielle',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateTenantSettingsDto.prototype, "absencePartialThreshold", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Heure d\'exécution du job de détection d\'absences (format HH:mm)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], UpdateTenantSettingsDto.prototype, "absenceDetectionTime", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Activer/désactiver la détection de repos insuffisant',
+        default: true,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateTenantSettingsDto.prototype, "enableInsufficientRestDetection", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Nombre d\'heures légales de repos minimum requis entre deux shifts (défaut: 11h)',
+        default: 11,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateTenantSettingsDto.prototype, "minimumRestHours", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Nombre d\'heures légales de repos minimum pour shift de nuit (optionnel, défaut: 12h)',
+        default: 12,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateTenantSettingsDto.prototype, "minimumRestHoursNightShift", void 0);
 __decorate([
     (0, swagger_1.ApiPropertyOptional)({
         description: 'Nombre de jours avant expiration du matricule temporaire (délai pour obtenir le matricule officiel)',
@@ -163,4 +225,32 @@ __decorate([
     (0, class_validator_1.IsNumber)(),
     __metadata("design:type", Number)
 ], UpdateTenantSettingsDto.prototype, "dailyWorkingHours", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Activer la majoration des heures travaillées les jours fériés',
+        default: true,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateTenantSettingsDto.prototype, "holidayOvertimeEnabled", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Taux de majoration pour les heures travaillées les jours fériés (défaut: 2.0 = double)',
+        example: 2.0,
+        default: 2.0,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], UpdateTenantSettingsDto.prototype, "holidayOvertimeRate", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Calculer les heures travaillées les jours fériés comme heures normales sans majoration',
+        default: false,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], UpdateTenantSettingsDto.prototype, "holidayOvertimeAsNormalHours", void 0);
 //# sourceMappingURL=update-tenant-settings.dto.js.map

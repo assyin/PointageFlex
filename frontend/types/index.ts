@@ -71,6 +71,10 @@ export interface Employee {
   siteId?: string;
   shiftId?: string;
   teamId?: string;
+  isEligibleForOvertime?: boolean;
+  maxOvertimeHoursPerMonth?: number;
+  maxOvertimeHoursPerWeek?: number;
+  overtimeEligibilityNotes?: string;
   createdAt: string;
   updatedAt: string;
   user?: User;
@@ -94,6 +98,10 @@ export interface CreateEmployeeDto {
   siteId?: string;
   shiftId?: string;
   teamId?: string;
+  isEligibleForOvertime?: boolean;
+  maxOvertimeHoursPerMonth?: number;
+  maxOvertimeHoursPerWeek?: number;
+  overtimeEligibilityNotes?: string;
 }
 
 // Attendance Types

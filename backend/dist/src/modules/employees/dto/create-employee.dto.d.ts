@@ -23,4 +23,8 @@ export declare class CreateEmployeeDto {
     userId?: string;
     createUserAccount?: boolean;
     userEmail?: string;
+    isEligibleForOvertime?: boolean;
+    maxOvertimeHoursPerMonth?: number;
+    maxOvertimeHoursPerWeek?: number;
+    overtimeEligibilityNotes?: string;
 }

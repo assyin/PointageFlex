@@ -8,18 +8,20 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OvertimeModule = void 0;
 const common_1 = require("@nestjs/common");
+const schedule_1 = require("@nestjs/schedule");
 const overtime_service_1 = require("./overtime.service");
 const overtime_controller_1 = require("./overtime.controller");
 const prisma_module_1 = require("../../database/prisma.module");
 const recovery_days_module_1 = require("../recovery-days/recovery-days.module");
+const detect_overtime_job_1 = require("./jobs/detect-overtime.job");
 let OvertimeModule = class OvertimeModule {
 };
 exports.OvertimeModule = OvertimeModule;
 exports.OvertimeModule = OvertimeModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, recovery_days_module_1.RecoveryDaysModule],
+        imports: [prisma_module_1.PrismaModule, recovery_days_module_1.RecoveryDaysModule, schedule_1.ScheduleModule],
         controllers: [overtime_controller_1.OvertimeController],
-        providers: [overtime_service_1.OvertimeService],
+        providers: [overtime_service_1.OvertimeService, detect_overtime_job_1.DetectOvertimeJob],
         exports: [overtime_service_1.OvertimeService],
     })
 ], OvertimeModule);

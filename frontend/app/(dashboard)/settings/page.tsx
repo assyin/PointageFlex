@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTenantSettings, useUpdateTenantSettings } from '@/lib/hooks/useTenantSettings';
 import { useSites, useCreateSite, useUpdateSite, useDeleteSite } from '@/lib/hooks/useSites';
-import { useHolidays, useCreateHoliday, useUpdateHoliday, useDeleteHoliday, useImportHolidays } from '@/lib/hooks/useHolidays';
+import { useHolidays, useCreateHoliday, useUpdateHoliday, useDeleteHoliday, useImportHolidays, useGenerateHolidays } from '@/lib/hooks/useHolidays';
 import { HolidayType } from '@/lib/api/holidays';
 import {
   Settings as SettingsIcon,
@@ -46,6 +46,7 @@ export default function SettingsPage() {
   const updateHoliday = useUpdateHoliday();
   const deleteHoliday = useDeleteHoliday();
   const importHolidays = useImportHolidays();
+  const generateHolidays = useGenerateHolidays();
 
   // Local state for form
   const [formData, setFormData] = useState({
@@ -58,25 +59,42 @@ export default function SettingsPage() {
     language: '',
     timezone: '',
     firstDayOfWeek: '',
+    workingDays: [1, 2, 3, 4, 5, 6] as number[], // Par défaut: Lundi-Samedi
     lateToleranceEntry: 10,
     earlyToleranceExit: 5,
     overtimeRounding: 15,
+    overtimeMinimumThreshold: 30,
     twoLevelWorkflow: true,
     anticipatedLeave: false,
     monthlyPayrollEmail: false,
     sfptExport: false,
     requireBreakPunch: false,
+    requireScheduleForAttendance: true,
     recoveryExpiryDays: 90,
     recoveryConversionRate: 1.0,
     dailyWorkingHours: 7.33,
     temporaryMatriculeExpiryDays: 8,
+    absencePartialThreshold: 2,
+    absenceDetectionTime: '01:00',
+    enableInsufficientRestDetection: true,
+    minimumRestHours: 11,
+    minimumRestHoursNightShift: 12,
+    holidayOvertimeEnabled: true,
+    holidayOvertimeRate: 2.0,
+    holidayOvertimeAsNormalHours: false,
   });
 
   // Modal states
   const [showSiteModal, setShowSiteModal] = useState(false);
   const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [showGenerateHolidaysModal, setShowGenerateHolidaysModal] = useState(false);
   const [editingSite, setEditingSite] = useState<any>(null);
   const [editingHoliday, setEditingHoliday] = useState<any>(null);
+  const [generateForm, setGenerateForm] = useState({
+    year: new Date().getFullYear(),
+    includeReligious: true,
+    mode: 'add' as 'add' | 'replace',
+  });
   const [siteForm, setSiteForm] = useState({
     name: '',
     address: '',
@@ -93,6 +111,20 @@ export default function SettingsPage() {
   // Update form when settings load
   useEffect(() => {
     if (settings) {
+      // Convertir workingDays de string[] ou number[] en number[]
+      let workingDays = [1, 2, 3, 4, 5, 6]; // Par défaut: Lundi-Samedi
+      if (settings.workingDays) {
+        if (Array.isArray(settings.workingDays)) {
+          workingDays = settings.workingDays.map((day: any) => 
+            typeof day === 'string' ? parseInt(day, 10) : day
+          ).filter((day: number) => !isNaN(day) && day >= 1 && day <= 7);
+        }
+        // Si vide après conversion, utiliser la valeur par défaut
+        if (workingDays.length === 0) {
+          workingDays = [1, 2, 3, 4, 5, 6];
+        }
+      }
+
       setFormData({
         legalName: settings.legalName || '',
         displayName: settings.displayName || '',
@@ -103,18 +135,29 @@ export default function SettingsPage() {
         language: settings.language || 'fr',
         timezone: settings.timezone || 'Africa/Casablanca',
         firstDayOfWeek: settings.firstDayOfWeek || 'Lundi',
+        workingDays: workingDays,
         lateToleranceEntry: settings.lateToleranceEntry || 10,
         earlyToleranceExit: settings.earlyToleranceExit || 5,
         overtimeRounding: settings.overtimeRounding || 15,
+        overtimeMinimumThreshold: settings.overtimeMinimumThreshold || 30,
         twoLevelWorkflow: settings.twoLevelWorkflow ?? true,
         anticipatedLeave: settings.anticipatedLeave ?? false,
         monthlyPayrollEmail: settings.monthlyPayrollEmail ?? false,
         sfptExport: settings.sfptExport ?? false,
         requireBreakPunch: settings.requireBreakPunch ?? false,
+        requireScheduleForAttendance: settings.requireScheduleForAttendance ?? true,
         recoveryExpiryDays: settings.recoveryExpiryDays ?? 90,
         recoveryConversionRate: settings.recoveryConversionRate ?? 1.0,
         dailyWorkingHours: settings.dailyWorkingHours ?? 7.33,
         temporaryMatriculeExpiryDays: settings.temporaryMatriculeExpiryDays ?? 8,
+        absencePartialThreshold: settings.absencePartialThreshold ?? 2,
+        absenceDetectionTime: settings.absenceDetectionTime ?? '01:00',
+        enableInsufficientRestDetection: settings.enableInsufficientRestDetection ?? true,
+        minimumRestHours: settings.minimumRestHours ?? 11,
+        minimumRestHoursNightShift: settings.minimumRestHoursNightShift ?? 12,
+        holidayOvertimeEnabled: settings.holidayOvertimeEnabled ?? true,
+        holidayOvertimeRate: settings.holidayOvertimeRate ?? 2.0,
+        holidayOvertimeAsNormalHours: settings.holidayOvertimeAsNormalHours ?? false,
       });
     }
   }, [settings]);
@@ -227,6 +270,25 @@ export default function SettingsPage() {
 
     await importHolidays.mutateAsync(file);
     e.target.value = ''; // Reset input
+  };
+
+  const handleGenerateHolidays = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await generateHolidays.mutateAsync({
+        year: generateForm.year,
+        includeReligious: generateForm.includeReligious,
+        mode: generateForm.mode,
+      });
+      setShowGenerateHolidaysModal(false);
+      setGenerateForm({
+        year: new Date().getFullYear(),
+        includeReligious: true,
+        mode: 'add',
+      });
+    } catch (error) {
+      // Error handled by mutation
+    }
   };
 
   const sites = sitesData?.data || [];
@@ -426,6 +488,65 @@ export default function SettingsPage() {
                     </select>
                   </div>
                 </div>
+
+                {/* Jours ouvrables de la semaine */}
+                <div className="mt-6">
+                  <label className="block text-[13px] font-medium text-[#6C757D] mb-3">
+                    Jours ouvrables de la semaine
+                  </label>
+                  <p className="text-[12px] text-[#6C757D] mb-3">
+                    Sélectionnez les jours de la semaine où les employés travaillent normalement. Ces jours sont utilisés pour la détection d'absences et la validation des pointages.
+                  </p>
+                  <div className="grid grid-cols-7 gap-2">
+                    {[
+                      { value: 1, label: 'Lun', fullLabel: 'Lundi' },
+                      { value: 2, label: 'Mar', fullLabel: 'Mardi' },
+                      { value: 3, label: 'Mer', fullLabel: 'Mercredi' },
+                      { value: 4, label: 'Jeu', fullLabel: 'Jeudi' },
+                      { value: 5, label: 'Ven', fullLabel: 'Vendredi' },
+                      { value: 6, label: 'Sam', fullLabel: 'Samedi' },
+                      { value: 7, label: 'Dim', fullLabel: 'Dimanche' },
+                    ].map((day) => (
+                      <label
+                        key={day.value}
+                        className={`flex flex-col items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-colors ${
+                          formData.workingDays.includes(day.value)
+                            ? 'border-[#0052CC] bg-blue-50 text-[#0052CC]'
+                            : 'border-gray-300 bg-white text-gray-600 hover:border-gray-400'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.workingDays.includes(day.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                workingDays: [...formData.workingDays, day.value].sort(),
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                workingDays: formData.workingDays.filter((d) => d !== day.value),
+                              });
+                            }
+                          }}
+                          className="sr-only"
+                        />
+                        <span className="text-[14px] font-semibold">{day.label}</span>
+                        <span className="text-[10px] mt-0.5 opacity-75">{day.fullLabel}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-3">
+                    Jours sélectionnés: {formData.workingDays.length === 0 
+                      ? 'Aucun (tous les jours seront considérés comme non ouvrables)' 
+                      : formData.workingDays.map(d => {
+                          const days = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+                          return days[d];
+                        }).join(', ')}
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -479,6 +600,27 @@ export default function SettingsPage() {
                       <option value="30">30 minutes</option>
                       <option value="60">60 minutes</option>
                     </select>
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Arrondi appliqué aux heures supplémentaires calculées
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
+                      Seuil minimum pour création automatique (minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="120"
+                      step="15"
+                      value={formData.overtimeMinimumThreshold}
+                      onChange={(e) => setFormData({ ...formData, overtimeMinimumThreshold: parseInt(e.target.value) || 30 })}
+                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Seuil minimum en minutes pour créer automatiquement un Overtime depuis les pointages (défaut: 30 min)
+                    </p>
                   </div>
 
                   <div>
@@ -551,6 +693,110 @@ export default function SettingsPage() {
                     </p>
                   </div>
 
+                  <div>
+                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
+                      Seuil d'absence partielle (heures)
+                    </label>
+                    <input
+                      type="number"
+                      min="0.5"
+                      max="8"
+                      step="0.5"
+                      value={formData.absencePartialThreshold}
+                      onChange={(e) => setFormData({ ...formData, absencePartialThreshold: parseFloat(e.target.value) || 2 })}
+                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Nombre d'heures de retard pour considérer une absence partielle au lieu d'un simple retard (défaut: 2h)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
+                      Heure de détection des absences
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.absenceDetectionTime}
+                      onChange={(e) => setFormData({ ...formData, absenceDetectionTime: e.target.value })}
+                      className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      Heure d'exécution quotidienne du job batch pour détecter les absences complètes (format HH:mm, défaut: 01:00)
+                    </p>
+                  </div>
+
+                </div>
+
+                {/* Insufficient Rest Detection Settings */}
+                <div className="bg-white rounded-lg border border-gray-200 mt-6">
+                  <div className="p-6 border-b border-gray-200">
+                    <h2 className="text-[18px] font-semibold text-[#212529]">
+                      Détection de repos insuffisant
+                    </h2>
+                    <p className="text-[13px] text-[#6C757D] mt-0.5">
+                      Configuration de la détection des violations de repos légal entre shifts
+                    </p>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="text-[14px] font-semibold text-[#212529]">
+                          Activer la détection de repos insuffisant
+                        </div>
+                        <div className="text-[12px] text-[#6C757D] mt-0.5">
+                          Détecter automatiquement les violations du repos légal entre deux shifts consécutifs
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={formData.enableInsufficientRestDetection}
+                        onChange={(e) => setFormData({ ...formData, enableInsufficientRestDetection: e.target.checked })}
+                        className="w-11 h-6"
+                      />
+                    </div>
+
+                    {formData.enableInsufficientRestDetection && (
+                      <div className="grid grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
+                            Repos minimum requis (heures)
+                          </label>
+                          <input
+                            type="number"
+                            min="8"
+                            max="24"
+                            step="0.5"
+                            value={formData.minimumRestHours}
+                            onChange={(e) => setFormData({ ...formData, minimumRestHours: parseFloat(e.target.value) || 11 })}
+                            className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                          />
+                          <p className="text-xs text-gray-500 mt-1.5">
+                            Nombre d'heures légales de repos minimum requis entre deux shifts consécutifs (défaut: 11h, conforme à la législation)
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
+                            Repos minimum pour shift de nuit (heures)
+                          </label>
+                          <input
+                            type="number"
+                            min="8"
+                            max="24"
+                            step="0.5"
+                            value={formData.minimumRestHoursNightShift}
+                            onChange={(e) => setFormData({ ...formData, minimumRestHoursNightShift: parseFloat(e.target.value) || 12 })}
+                            className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                          />
+                          <p className="text-xs text-gray-500 mt-1.5">
+                            Nombre d'heures légales de repos minimum pour les shifts de nuit (optionnel, défaut: 12h)
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Leave Rules */}
@@ -618,6 +864,87 @@ export default function SettingsPage() {
                         onChange={(e) => setFormData({ ...formData, requireBreakPunch: e.target.checked })}
                         className="w-11 h-6"
                       />
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <div className="text-[14px] font-semibold text-[#212529]">
+                          Exiger un planning ou shift pour les pointages
+                        </div>
+                        <div className="text-[12px] text-[#6C757D] mt-0.5">
+                          Si activé, les pointages seront refusés si l'employé n'a pas de planning publié ni de shift par défaut assigné (sauf weekends, congés ou récupérations approuvés). Si désactivé, les pointages seront autorisés mais marqués comme anomalie.
+                        </div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={formData.requireScheduleForAttendance}
+                        onChange={(e) => setFormData({ ...formData, requireScheduleForAttendance: e.target.checked })}
+                        className="w-11 h-6"
+                      />
+                    </div>
+
+                    {/* Majoration des jours fériés */}
+                    <div className="space-y-3 mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h3 className="text-[14px] font-semibold text-[#212529] mb-3">
+                        Majoration des jours fériés
+                      </h3>
+                      
+                      <div className="flex items-center justify-between p-3 bg-white rounded-lg">
+                        <div>
+                          <div className="text-[14px] font-semibold text-[#212529]">
+                            Activer la majoration des heures travaillées les jours fériés
+                          </div>
+                          <div className="text-[12px] text-[#6C757D] mt-0.5">
+                            Si activé, les heures travaillées les jours fériés seront majorées selon le taux configuré.
+                          </div>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={formData.holidayOvertimeEnabled}
+                          onChange={(e) => setFormData({ ...formData, holidayOvertimeEnabled: e.target.checked })}
+                          className="w-11 h-6"
+                        />
+                      </div>
+
+                      {formData.holidayOvertimeEnabled && (
+                        <>
+                          <div className="p-3 bg-white rounded-lg">
+                            <label className="block text-[14px] font-semibold text-[#212529] mb-2">
+                              Taux de majoration
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="5"
+                              step="0.1"
+                              value={formData.holidayOvertimeRate}
+                              onChange={(e) => setFormData({ ...formData, holidayOvertimeRate: parseFloat(e.target.value) || 2.0 })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="2.0"
+                            />
+                            <div className="text-[12px] text-[#6C757D] mt-1">
+                              Exemple: 2.0 = double, 2.5 = double et demi. Défaut: 2.0
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between p-3 bg-white rounded-lg">
+                            <div>
+                              <div className="text-[14px] font-semibold text-[#212529]">
+                                Calculer comme heures normales (sans majoration)
+                              </div>
+                              <div className="text-[12px] text-[#6C757D] mt-0.5">
+                                Si activé, les heures travaillées les jours fériés seront calculées comme heures normales, sans majoration. Le taux de majoration sera ignoré.
+                              </div>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={formData.holidayOvertimeAsNormalHours}
+                              onChange={(e) => setFormData({ ...formData, holidayOvertimeAsNormalHours: e.target.checked })}
+                              className="w-11 h-6"
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -756,6 +1083,20 @@ export default function SettingsPage() {
                           className="hidden"
                         />
                       </label>
+                      <button
+                        onClick={() => {
+                          setGenerateForm({
+                            year: new Date().getFullYear(),
+                            includeReligious: true,
+                            mode: 'add',
+                          });
+                          setShowGenerateHolidaysModal(true);
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 text-[13px] font-medium"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        Générer l'année
+                      </button>
                       <button
                         onClick={() => {
                           setEditingHoliday(null);
@@ -995,6 +1336,109 @@ export default function SettingsPage() {
                   className="flex-1 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8]"
                 >
                   {editingHoliday ? 'Modifier' : 'Créer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Generate Holidays Modal */}
+      {showGenerateHolidaysModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-md w-full mx-4">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-[18px] font-semibold">
+                Générer les jours fériés de l'année
+              </h3>
+            </div>
+            <form onSubmit={handleGenerateHolidays} className="p-6 space-y-4">
+              <div>
+                <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
+                  Année *
+                </label>
+                <input
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  value={generateForm.year}
+                  onChange={(e) => setGenerateForm({ ...generateForm, year: parseInt(e.target.value) || new Date().getFullYear() })}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Les jours fériés seront générés pour l'année sélectionnée
+                </p>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="includeReligious"
+                  checked={generateForm.includeReligious}
+                  onChange={(e) => setGenerateForm({ ...generateForm, includeReligious: e.target.checked })}
+                  className="mr-2"
+                />
+                <label htmlFor="includeReligious" className="text-[13px] text-[#6C757D]">
+                  Inclure les jours fériés religieux (Aïd, etc.)
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 ml-6">
+                Si coché, les jours fériés religieux seront également générés
+              </p>
+
+              <div>
+                <label className="block text-[13px] font-medium text-[#6C757D] mb-1.5">
+                  Mode de génération *
+                </label>
+                <select
+                  value={generateForm.mode}
+                  onChange={(e) => setGenerateForm({ ...generateForm, mode: e.target.value as 'add' | 'replace' })}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-[#0052CC]"
+                  required
+                >
+                  <option value="add">Ajouter uniquement les manquants</option>
+                  <option value="replace">Remplacer tous les jours fériés de l'année</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  {generateForm.mode === 'add'
+                    ? 'Les jours fériés existants seront conservés, seuls les nouveaux seront ajoutés.'
+                    : '⚠️ Tous les jours fériés existants pour cette année seront supprimés et remplacés.'}
+                </p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Note :</strong> La génération est basée sur le pays configuré dans les paramètres du tenant.
+                  Actuellement, seuls les jours fériés du Maroc sont supportés.
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowGenerateHolidaysModal(false)}
+                  disabled={generateHolidays.isPending}
+                  className="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-[#212529] rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={generateHolidays.isPending}
+                  className="flex-1 px-4 py-2.5 bg-[#0052CC] text-white rounded-lg hover:bg-[#0041A8] disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {generateHolidays.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Génération...
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="w-4 h-4" />
+                      Générer
+                    </>
+                  )}
                 </button>
               </div>
             </form>

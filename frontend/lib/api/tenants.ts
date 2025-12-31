@@ -25,6 +25,7 @@ export interface TenantSettings {
   earlyToleranceExit?: number;
   breakDuration?: number;
   overtimeRounding?: number;
+  overtimeMinimumThreshold?: number; // Seuil minimum en minutes pour créer automatiquement un Overtime
   overtimeRate?: number;
   nightShiftRate?: number;
 
@@ -46,10 +47,25 @@ export interface TenantSettings {
 
   // Attendance Settings
   requireBreakPunch?: boolean; // Activer/désactiver le pointage des repos (pauses)
+  requireScheduleForAttendance?: boolean; // Exiger un planning ou shift par défaut pour créer un pointage
   recoveryExpiryDays?: number; // Nombre de jours avant expiration de la récupération
   recoveryConversionRate?: number; // Taux de conversion heures supplémentaires -> récupération
   dailyWorkingHours?: number; // Nombre d'heures équivalent à une journée normale
   temporaryMatriculeExpiryDays?: number; // Nombre de jours avant expiration du matricule temporaire
+  
+  // Absence Detection Settings
+  absencePartialThreshold?: number; // Heures de retard pour considérer absence partielle
+  absenceDetectionTime?: string; // Heure d'exécution du job de détection d'absences (format HH:mm)
+  
+  // Insufficient Rest Detection Settings
+  enableInsufficientRestDetection?: boolean; // Activer/désactiver la détection de repos insuffisant
+  minimumRestHours?: number; // Nombre d'heures légales de repos minimum requis entre deux shifts
+  minimumRestHoursNightShift?: number; // Nombre d'heures légales de repos minimum pour shift de nuit
+
+  // Holiday Overtime Settings
+  holidayOvertimeEnabled?: boolean; // Activer la majoration des heures travaillées les jours fériés
+  holidayOvertimeRate?: number; // Taux de majoration pour les heures travaillées les jours fériés (défaut: 2.0 = double)
+  holidayOvertimeAsNormalHours?: boolean; // Calculer les heures travaillées les jours fériés comme heures normales sans majoration
 
   createdAt: string;
   updatedAt: string;
@@ -68,12 +84,13 @@ export interface UpdateTenantSettingsDto {
   // Regional Settings
   timezone?: string;
   firstDayOfWeek?: string;
-  workingDays?: string[];
+  workingDays?: number[];
 
   // Time Policy
   lateToleranceEntry?: number;
   earlyToleranceExit?: number;
   overtimeRounding?: number;
+  overtimeMinimumThreshold?: number; // Seuil minimum en minutes pour créer automatiquement un Overtime
 
   // Leave Rules
   twoLevelWorkflow?: boolean;
@@ -85,10 +102,20 @@ export interface UpdateTenantSettingsDto {
 
   // Attendance Settings
   requireBreakPunch?: boolean; // Activer/désactiver le pointage des repos (pauses)
+  requireScheduleForAttendance?: boolean; // Exiger un planning ou shift par défaut pour créer un pointage
   recoveryExpiryDays?: number; // Nombre de jours avant expiration de la récupération
   recoveryConversionRate?: number; // Taux de conversion heures supplémentaires -> récupération
   dailyWorkingHours?: number; // Nombre d'heures équivalent à une journée normale
   temporaryMatriculeExpiryDays?: number; // Nombre de jours avant expiration du matricule temporaire
+  
+  // Absence Detection Settings
+  absencePartialThreshold?: number; // Heures de retard pour considérer absence partielle
+  absenceDetectionTime?: string; // Heure d'exécution du job de détection d'absences (format HH:mm)
+  
+  // Insufficient Rest Detection Settings
+  enableInsufficientRestDetection?: boolean; // Activer/désactiver la détection de repos insuffisant
+  minimumRestHours?: number; // Nombre d'heures légales de repos minimum requis entre deux shifts
+  minimumRestHoursNightShift?: number; // Nombre d'heures légales de repos minimum pour shift de nuit
 }
 
 export const TenantsAPI = {

@@ -1,7 +1,23 @@
+import * as crypto from 'crypto';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+
+// Polyfill pour crypto - nécessaire pour @nestjs/schedule
+if (typeof globalThis.crypto === 'undefined') {
+  (globalThis as any).crypto = {
+    ...crypto,
+    randomUUID: crypto.randomUUID.bind(crypto),
+  };
+}
+// Aussi pour global (compatibilité)
+if (typeof (global as any).crypto === 'undefined') {
+  (global as any).crypto = {
+    ...crypto,
+    randomUUID: crypto.randomUUID.bind(crypto),
+  };
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);

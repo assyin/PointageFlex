@@ -26,6 +26,7 @@ model Tenant {
   language                  String                     @default("fr")
   legalName                 String?
   attendance                Attendance[]
+  attendanceAttempts        AttendanceAttempt[]
   devices                   AttendanceDevice[]
   auditLogs                 AuditLog[]
   departments               Department[]
@@ -78,6 +79,7 @@ model TenantSettings {
   nightShiftEnd                String   @default("06:00")
   nightShiftStart              String   @default("21:00")
   overtimeRounding             Int      @default(15)
+  overtimeMinimumThreshold     Int      @default(30) // Seuil minimum en minutes pour créer automatiquement un Overtime (défaut: 30 min)
   sfptExport                   Boolean  @default(false)
   twoLevelWorkflow             Boolean  @default(true)
   workingDays                  Json?
@@ -85,7 +87,41 @@ model TenantSettings {
   recoveryExpiryDays           Int      @default(90) // Nombre de jours avant expiration de la récupération
   dailyWorkingHours            Decimal  @default(7.33) // Nombre d'heures équivalent à une journée normale (par défaut: 44h/6j = 7.33h)
   requireBreakPunch            Boolean  @default(false) // Activer/désactiver le pointage des repos (pauses)
+  requireScheduleForAttendance Boolean  @default(true) // Exiger un planning ou shift par défaut pour créer un pointage (défaut: true)
+  absencePartialThreshold      Int      @default(2) // Heures de retard pour considérer absence partielle
+  absenceDetectionTime         String?  @default("01:00") // Heure d'exécution du job de détection d'absences (format HH:mm)
   temporaryMatriculeExpiryDays Int      @default(8) // Nombre de jours avant expiration du matricule temporaire (délai pour obtenir le matricule officiel)
+  enableInsufficientRestDetection Boolean @default(true) // Activer/désactiver la détection de repos insuffisant
+  minimumRestHours             Decimal  @default(11) // Nombre d'heures légales de repos minimum requis entre deux shifts (défaut: 11h)
+  minimumRestHoursNightShift   Decimal? @default(12) // Nombre d'heures légales de repos minimum pour shift de nuit (optionnel, défaut: 12h)
+  // Paramètres pour amélioration DOUBLE_IN
+  doubleInDetectionWindow      Int      @default(24) // Fenêtre de détection DOUBLE_IN en heures (défaut: 24h)
+  orphanInThreshold            Int      @default(12) // Seuil en heures pour considérer un IN comme orphelin (défaut: 12h)
+  doublePunchToleranceMinutes Int      @default(2) // Fenêtre de tolérance en minutes pour erreur de badgeage (défaut: 2 min)
+  enableDoubleInPatternDetection Boolean @default(true) // Activer la détection de patterns suspects DOUBLE_IN
+  doubleInPatternAlertThreshold Int     @default(3) // Seuil d'alerte pour patterns suspects (nombre de DOUBLE_IN sur 30 jours, défaut: 3)
+  // Paramètres pour amélioration MISSING_IN
+  allowMissingInForRemoteWork  Boolean @default(true) // Autoriser MISSING_IN pour télétravail
+  allowMissingInForMissions     Boolean @default(true) // Autoriser MISSING_IN pour missions
+  missingInReminderEnabled      Boolean @default(true) // Activer les rappels MISSING_IN
+  missingInReminderDelay         Int     @default(15) // Délai en minutes avant le rappel (défaut: 15 min)
+  missingInReminderMaxPerDay     Int     @default(2) // Nombre maximum de rappels par jour (défaut: 2)
+  // Paramètres pour majoration des jours fériés
+  holidayOvertimeEnabled         Boolean @default(true) // Activer la majoration des heures travaillées les jours fériés
+  holidayOvertimeRate            Decimal @default(2.0) // Taux de majoration pour les heures travaillées les jours fériés (défaut: 2.0 = double)
+  holidayOvertimeAsNormalHours   Boolean @default(false) // Calculer les heures travaillées les jours fériés comme heures normales sans majoration (défaut: false)
+  enableMissingInPatternDetection Boolean @default(true) // Activer la détection de patterns d'oubli MISSING_IN
+  missingInPatternAlertThreshold Int     @default(3) // Seuil d'alerte pour patterns d'oubli (nombre de MISSING_IN sur 30 jours, défaut: 3)
+  // Paramètres pour amélioration MISSING_OUT
+  missingOutDetectionTime         String?  @default("00:00") // Heure d'exécution du job batch (format HH:mm)
+  missingOutDetectionWindow       Int      @default(12) // Fenêtre de détection en heures pour shifts de nuit (défaut: 12h)
+  allowMissingOutForRemoteWork     Boolean @default(true) // Autoriser MISSING_OUT pour télétravail
+  allowMissingOutForMissions       Boolean @default(true) // Autoriser MISSING_OUT pour missions
+  missingOutReminderEnabled        Boolean @default(true) // Activer les rappels MISSING_OUT
+  missingOutReminderDelay           Int     @default(15) // Délai en minutes avant le rappel (défaut: 15 min)
+  missingOutReminderBeforeClosing  Int     @default(30) // Rappel X minutes avant fermeture (défaut: 30 min)
+  enableMissingOutPatternDetection Boolean @default(true) // Activer la détection de patterns d'oubli MISSING_OUT
+  missingOutPatternAlertThreshold  Int     @default(3) // Seuil d'alerte pour patterns d'oubli (nombre de MISSING_OUT sur 30 jours, défaut: 3)
   tenant                       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
@@ -155,8 +191,13 @@ model Employee {
   qrCode                    String?
   pinCode                   String?
   isActive                  Boolean                    @default(true)
+  isEligibleForOvertime     Boolean                    @default(true) // Éligibilité aux heures supplémentaires
+  maxOvertimeHoursPerMonth  Decimal? // Plafond mensuel d'heures supplémentaires (optionnel)
+  maxOvertimeHoursPerWeek   Decimal? // Plafond hebdomadaire d'heures supplémentaires (optionnel)
+  overtimeEligibilityNotes  String? // Notes/justification sur l'éligibilité
   userId                    String?                    @unique
   attendance                Attendance[]
+  attendanceAttempts        AttendanceAttempt[]
   currentShift              Shift?                     @relation(fields: [currentShiftId], references: [id])
   department                Department?                @relation(fields: [departmentId], references: [id])
   positionRef               Position?                  @relation(fields: [positionId], references: [id])
@@ -338,26 +379,34 @@ model Team {
 }
 
 model Schedule {
-  id              String   @id @default(uuid())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  tenantId        String
-  employeeId      String
-  teamId          String?
-  shiftId         String
-  date            DateTime @db.Date
-  customStartTime String?
-  customEndTime   String?
-  notes           String?
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  shift           Shift    @relation(fields: [shiftId], references: [id])
-  team            Team?    @relation(fields: [teamId], references: [id])
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                 String         @id @default(uuid())
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  tenantId           String
+  employeeId         String
+  teamId             String?
+  shiftId            String
+  date               DateTime       @db.Date
+  customStartTime    String?
+  customEndTime      String?
+  notes              String?
+  status             ScheduleStatus @default(PUBLISHED)
+  publishedAt        DateTime?
+  cancelledAt        DateTime?
+  suspendedByLeaveId String?
+  suspendedAt        DateTime?
+  employee           Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift              Shift          @relation(fields: [shiftId], references: [id])
+  team               Team?          @relation(fields: [teamId], references: [id])
+  tenant             Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  suspendedByLeave   Leave?         @relation("ScheduleSuspendedByLeave", fields: [suspendedByLeaveId], references: [id], onDelete: SetNull)
 
   @@unique([employeeId, date])
   @@index([tenantId])
   @@index([date])
   @@index([employeeId])
+  @@index([status])
+  @@index([suspendedByLeaveId])
 }
 
 model ShiftReplacement {
@@ -383,21 +432,22 @@ model ShiftReplacement {
 }
 
 model AttendanceDevice {
-  id         String       @id @default(uuid())
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  tenantId   String
-  siteId     String?
-  name       String
-  deviceId   String       @unique
-  deviceType DeviceType
-  ipAddress  String?
-  apiKey     String?
-  isActive   Boolean      @default(true)
-  lastSync   DateTime?
-  attendance Attendance[]
-  site       Site?        @relation(fields: [siteId], references: [id])
-  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                 String              @id @default(uuid())
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  tenantId           String
+  siteId             String?
+  name               String
+  deviceId           String              @unique
+  deviceType         DeviceType
+  ipAddress          String?
+  apiKey             String?
+  isActive           Boolean             @default(true)
+  lastSync           DateTime?
+  attendance         Attendance[]
+  attendanceAttempts AttendanceAttempt[]
+  site               Site?               @relation(fields: [siteId], references: [id])
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
 }
@@ -446,6 +496,28 @@ model Attendance {
   @@index([tenantId, employeeId, timestamp])
 }
 
+model AttendanceAttempt {
+  id           String            @id @default(uuid())
+  createdAt    DateTime          @default(now())
+  tenantId     String
+  employeeId   String
+  deviceId     String?
+  timestamp    DateTime
+  type         AttendanceType
+  method       DeviceType
+  status       String // SUCCESS, FAILED, REJECTED
+  errorCode    String? // BADGE_NOT_RECOGNIZED, DEVICE_OFF, NETWORK_ERROR, etc.
+  errorMessage String?
+  rawData      Json?
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  device       AttendanceDevice? @relation(fields: [deviceId], references: [id])
+
+  @@index([tenantId, employeeId, timestamp])
+  @@index([status])
+  @@index([tenantId])
+}
+
 model LeaveType {
   id               String   @id @default(uuid())
   createdAt        DateTime @default(now())
@@ -463,14 +535,14 @@ model LeaveType {
 }
 
 model Leave {
-  id                 String      @id @default(uuid())
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
+  id                 String     @id @default(uuid())
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
   tenantId           String
   employeeId         String
   leaveTypeId        String
-  startDate          DateTime    @db.Date
-  endDate            DateTime    @db.Date
+  startDate          DateTime   @db.Date
+  endDate            DateTime   @db.Date
   days               Decimal
   reason             String?
   document           String? // Chemin ou URL du fichier
@@ -488,9 +560,10 @@ model Leave {
   hrApprovedBy       String?
   hrApprovedAt       DateTime?
   hrComment          String?
-  employee           Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  leaveType          LeaveType   @relation(fields: [leaveTypeId], references: [id])
-  tenant             Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee           Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType          LeaveType  @relation(fields: [leaveTypeId], references: [id])
+  tenant             Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  suspendedSchedules Schedule[] @relation("ScheduleSuspendedByLeave")
 
   @@index([tenantId])
   @@index([employeeId])
@@ -813,6 +886,13 @@ enum LegacyRole {
   ADMIN_RH
   MANAGER
   EMPLOYEE
+}
+
+enum ScheduleStatus {
+  PUBLISHED
+  DRAFT
+  CANCELLED
+  SUSPENDED_BY_LEAVE
 }
 
 enum ReplacementStatus {

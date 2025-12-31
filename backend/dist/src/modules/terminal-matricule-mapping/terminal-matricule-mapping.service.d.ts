@@ -51,6 +51,10 @@ export declare class TerminalMatriculeMappingService {
         rfidBadge: string | null;
         qrCode: string | null;
         pinCode: string | null;
+        isEligibleForOvertime: boolean;
+        maxOvertimeHoursPerMonth: import("@prisma/client/runtime/library").Decimal | null;
+        maxOvertimeHoursPerWeek: import("@prisma/client/runtime/library").Decimal | null;
+        overtimeEligibilityNotes: string | null;
     }>;
     updateOfficialMatricule(employeeId: string, officialMatricule: string): Promise<import(".prisma/client").Prisma.BatchPayload>;
     deactivateMappings(employeeId: string): Promise<import(".prisma/client").Prisma.BatchPayload>;

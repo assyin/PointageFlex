@@ -34,21 +34,128 @@ export class SchedulesService {
    * Generate all dates between start and end date (inclusive)
    * Uses UTC to avoid timezone issues
    */
-  private generateDateRange(startDate: Date, endDate: Date): Date[] {
-    const dates: Date[] = [];
-    const currentDate = new Date(startDate);
+  /**
+   * Génère une plage de dates avec filtrage selon les critères métier
+   * @returns Objet contenant les dates valides et les dates exclues avec leurs raisons
+   */
+  private generateDateRange(
+    startDate: Date,
+    endDate: Date,
+    filters?: {
+      workingDays?: number[]; // Jours ouvrables du tenant (1=Lundi, 2=Mardi, ..., 7=Dimanche)
+      holidays?: Array<{ date: Date; name: string }>; // Jours fériés
+      employeeId?: string; // Pour vérifier congés et récupérations
+      tenantId?: string; // Pour les requêtes
+      leaves?: Array<{ startDate: Date; endDate: Date; leaveType?: { name: string } }>; // Congés approuvés
+      recoveryDays?: Array<{ startDate: Date; endDate: Date }>; // Jours de récupération
+    },
+  ): {
+    validDates: Date[];
+    excludedDates: Array<{ date: Date; reason: string; details?: string }>;
+  } {
+    const validDates: Date[] = [];
+    const excludedDates: Array<{ date: Date; reason: string; details?: string }> = [];
     
+    const currentDate = new Date(startDate);
     // Reset time to midnight UTC for comparison
     currentDate.setUTCHours(0, 0, 0, 0);
     const end = new Date(endDate);
     end.setUTCHours(0, 0, 0, 0);
     
     while (currentDate <= end) {
-      dates.push(new Date(currentDate));
+      const dateStr = currentDate.toISOString().split('T')[0];
+      let excluded = false;
+      let reason = '';
+      let details = '';
+
+      // 1. Vérifier les jours ouvrables
+      if (filters?.workingDays && filters.workingDays.length > 0) {
+        const dayOfWeek = currentDate.getDay(); // 0 = Dimanche, 1 = Lundi, etc.
+        const normalizedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek; // Convertir dimanche en 7
+        
+        if (!filters.workingDays.includes(normalizedDayOfWeek)) {
+          const dayNames = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+          excluded = true;
+          reason = 'NON_OUVRABLE';
+          details = `Jour non ouvrable (${dayNames[normalizedDayOfWeek]}) selon la configuration du tenant`;
+        }
+      }
+
+      // 2. Vérifier les jours fériés (seulement si pas déjà exclu)
+      // NOTE: Ne PAS exclure automatiquement les jours fériés
+      // L'utilisateur peut vouloir créer un planning pour un jour férié (travail exceptionnel)
+      // Les jours fériés sont simplement notés comme information
+      if (!excluded && filters?.holidays && filters.holidays.length > 0) {
+        const isHoliday = filters.holidays.some((h) => {
+          const holidayDate = new Date(h.date);
+          holidayDate.setUTCHours(0, 0, 0, 0);
+          return holidayDate.getTime() === currentDate.getTime();
+        });
+
+        if (isHoliday) {
+          // Ne PAS exclure - juste noter qu'il s'agit d'un jour férié
+          // L'utilisateur peut décider de créer un planning malgré tout
+          // excluded = true;
+          // reason = 'JOUR_FERIE';
+          // details = `Jour férié détecté mais planning autorisé`;
+        }
+      }
+
+      // 3. Vérifier les congés approuvés (seulement si pas déjà exclu et employeeId fourni)
+      if (!excluded && filters?.employeeId && filters?.leaves && filters.leaves.length > 0) {
+        const isOnLeave = filters.leaves.some((leave) => {
+          const leaveStart = new Date(leave.startDate);
+          leaveStart.setUTCHours(0, 0, 0, 0);
+          const leaveEnd = new Date(leave.endDate);
+          leaveEnd.setUTCHours(23, 59, 59, 999);
+          return currentDate >= leaveStart && currentDate <= leaveEnd;
+        });
+
+        if (isOnLeave) {
+          const leave = filters.leaves.find((l) => {
+            const leaveStart = new Date(l.startDate);
+            leaveStart.setUTCHours(0, 0, 0, 0);
+            const leaveEnd = new Date(l.endDate);
+            leaveEnd.setUTCHours(23, 59, 59, 999);
+            return currentDate >= leaveStart && currentDate <= leaveEnd;
+          });
+          excluded = true;
+          reason = 'CONGE';
+          details = `Congé approuvé${leave?.leaveType?.name ? `: ${leave.leaveType.name}` : ''}`;
+        }
+      }
+
+      // 4. Vérifier les jours de récupération (seulement si pas déjà exclu et employeeId fourni)
+      if (!excluded && filters?.employeeId && filters?.recoveryDays && filters.recoveryDays.length > 0) {
+        const isRecoveryDay = filters.recoveryDays.some((recovery) => {
+          const recoveryStart = new Date(recovery.startDate);
+          recoveryStart.setUTCHours(0, 0, 0, 0);
+          const recoveryEnd = new Date(recovery.endDate);
+          recoveryEnd.setUTCHours(23, 59, 59, 999);
+          return currentDate >= recoveryStart && currentDate <= recoveryEnd;
+        });
+
+        if (isRecoveryDay) {
+          excluded = true;
+          reason = 'RECUPERATION';
+          details = 'Jour de récupération approuvé';
+        }
+      }
+
+      if (excluded) {
+        excludedDates.push({
+          date: new Date(currentDate),
+          reason,
+          details,
+        });
+      } else {
+        validDates.push(new Date(currentDate));
+      }
+
       currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
-    
-    return dates;
+
+    return { validDates, excludedDates };
   }
 
   async create(tenantId: string, dto: CreateScheduleDto) {
@@ -86,23 +193,13 @@ export class SchedulesService {
       );
     }
 
-    // AJOUT: Vérifier si l'employé est en récupération ce jour-là
-    const recoveryDay = await this.prisma.recoveryDay.findFirst({
-      where: {
-        tenantId,
-        employeeId: dto.employeeId,
-        status: { in: [RecoveryDayStatus.APPROVED, RecoveryDayStatus.PENDING] },
-        startDate: { lte: new Date(dto.dateDebut) },
-        endDate: { gte: new Date(dto.dateDebut) }
-      }
+    // Récupérer les paramètres du tenant (workingDays)
+    const tenantSettings = await this.prisma.tenantSettings.findUnique({
+      where: { tenantId },
+      select: { workingDays: true },
     });
 
-    if (recoveryDay) {
-      throw new ConflictException(
-        `L'employé est en récupération du ${recoveryDay.startDate.toISOString().split('T')[0]} au ${recoveryDay.endDate.toISOString().split('T')[0]}. ` +
-        `Impossible de créer un planning pour cette date.`
-      );
-    }
+    const workingDays = (tenantSettings?.workingDays as number[]) || [1, 2, 3, 4, 5, 6]; // Par défaut: Lun-Sam
 
     // 2. Verify shift belongs to tenant
     const shift = await this.prisma.shift.findFirst({
@@ -177,10 +274,82 @@ export class SchedulesService {
       }
     }
 
-    // 6. Generate all dates in the range
-    const dates = this.generateDateRange(startDate, endDate);
+    // 6. Récupérer les jours fériés pour la période
+    const holidays = await this.prisma.holiday.findMany({
+      where: {
+        tenantId,
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      select: {
+        date: true,
+        name: true,
+      },
+    });
 
-    // 7. Check for existing schedules (optimized query)
+    // 7. Récupérer les congés approuvés de l'employé pour la période
+    const leaves = await this.prisma.leave.findMany({
+      where: {
+        tenantId,
+        employeeId: dto.employeeId,
+        status: { in: ['APPROVED', 'MANAGER_APPROVED', 'HR_APPROVED'] },
+        OR: [
+          {
+            startDate: { lte: endDate },
+            endDate: { gte: startDate },
+          },
+        ],
+      },
+      select: {
+        startDate: true,
+        endDate: true,
+        leaveType: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    // 8. Récupérer les jours de récupération de l'employé pour la période
+    const recoveryDays = await this.prisma.recoveryDay.findMany({
+      where: {
+        tenantId,
+        employeeId: dto.employeeId,
+        status: { in: [RecoveryDayStatus.APPROVED, RecoveryDayStatus.PENDING] },
+        OR: [
+          {
+            startDate: { lte: endDate },
+            endDate: { gte: startDate },
+          },
+        ],
+      },
+      select: {
+        startDate: true,
+        endDate: true,
+      },
+    });
+
+    // 9. Générer les dates avec filtrage selon tous les critères
+    const { validDates: dates, excludedDates } = this.generateDateRange(startDate, endDate, {
+      workingDays,
+      holidays: holidays.map((h) => ({ date: h.date, name: h.name })),
+      employeeId: dto.employeeId,
+      tenantId,
+      leaves: leaves.map((l) => ({
+        startDate: l.startDate,
+        endDate: l.endDate,
+        leaveType: l.leaveType ? { name: l.leaveType.name } : undefined,
+      })),
+      recoveryDays: recoveryDays.map((r) => ({
+        startDate: r.startDate,
+        endDate: r.endDate,
+      })),
+    });
+
+    // 10. Check for existing schedules (optimized query)
     // IMPORTANT: Check for same employee and same date, REGARDLESS of shift
     // Business rule: An employee can only have ONE schedule per day, regardless of the shift
     // This is consistent with the database constraint: @@unique([employeeId, date])
@@ -189,12 +358,18 @@ export class SchedulesService {
     queryStartDate.setUTCHours(0, 0, 0, 0);
     const queryEndDate = new Date(endDate);
     queryEndDate.setUTCHours(23, 59, 59, 999); // Include the entire end date
-    
+
+    console.log(`[createSchedule] Vérification des conflits pour ${employee.firstName} ${employee.lastName}`);
+    console.log(`[createSchedule] Plage recherchée: ${queryStartDate.toISOString()} à ${queryEndDate.toISOString()}`);
+
     const existingSchedules = await this.prisma.schedule.findMany({
       where: {
         tenantId,
         employeeId: dto.employeeId,
         // NOTE: We do NOT filter by shiftId - an employee can only have ONE schedule per day
+        // IMPORTANT: Only check PUBLISHED schedules as conflicts
+        // Suspended/cancelled schedules can be replaced
+        status: 'PUBLISHED',
         date: {
           gte: queryStartDate,
           lte: queryEndDate,
@@ -212,10 +387,16 @@ export class SchedulesService {
       },
     });
 
+    console.log(`[createSchedule] ${existingSchedules.length} planning(s) trouvé(s):`);
+    existingSchedules.forEach((s) => {
+      console.log(`   - Date: ${s.date.toISOString()}, Shift: ${s.shift.name}`);
+    });
+
     // Normalize existing dates to YYYY-MM-DD format in UTC for comparison
     const existingDatesMap = new Map<string, { shiftId: string; shiftName: string; shiftCode: string }>();
     existingSchedules.forEach((s) => {
       const dateStr = this.formatDateToISO(s.date);
+      console.log(`   - Normalisation: ${s.date.toISOString()} → ${dateStr}`);
       existingDatesMap.set(dateStr, {
         shiftId: s.shiftId,
         shiftName: s.shift.name,
@@ -224,10 +405,19 @@ export class SchedulesService {
     });
 
     // Filter out dates that already have schedules (regardless of shift)
+    console.log(`[createSchedule] Dates à créer (avant filtrage):`);
+    dates.forEach((d) => console.log(`   - ${this.formatDateToISO(d)}`));
+
     const datesToCreate = dates.filter((date) => {
       const dateStr = this.formatDateToISO(date);
-      return !existingDatesMap.has(dateStr);
+      const exists = existingDatesMap.has(dateStr);
+      if (exists) {
+        console.log(`   ❌ ${dateStr} existe déjà`);
+      }
+      return !exists;
     });
+
+    console.log(`[createSchedule] Dates à créer (après filtrage): ${datesToCreate.length}`);
 
     if (datesToCreate.length === 0) {
       const startDateStr = this.formatDateToISO(startDate);
@@ -263,7 +453,7 @@ export class SchedulesService {
       throw new ConflictException(errorMessage);
     }
 
-    // 8. Create all schedules
+    // 11. Create all schedules
     // IMPORTANT: Ensure dates are stored correctly by using UTC dates
     // Since Prisma stores dates as Date type, we need to ensure they're normalized
     const schedulesToCreate = datesToCreate.map((date) => {
@@ -288,7 +478,7 @@ export class SchedulesService {
       skipDuplicates: true,
     });
 
-    // 9. Verify that schedules were actually created
+    // 12. Verify that schedules were actually created
     // This is a safety check in case the database constraint prevents creation
     if (result.count === 0 && schedulesToCreate.length > 0) {
       // This should not happen if our conflict check is correct, but it's a safety net
@@ -302,7 +492,14 @@ export class SchedulesService {
       );
     }
 
-    // 10. Prepare conflicting dates for response
+    // 13. Préparer les dates exclues pour la réponse (formater avec raisons)
+    const formattedExcludedDates = excludedDates.map((excluded) => ({
+      date: this.formatDateToISO(excluded.date),
+      reason: excluded.reason,
+      details: excluded.details,
+    }));
+
+    // 14. Préparer les dates en conflit (déjà existantes) pour la réponse
     const conflictingDates = dates
       .filter((date) => existingDatesMap.has(this.formatDateToISO(date)))
       .map((date) => {
@@ -311,20 +508,64 @@ export class SchedulesService {
         return {
           date: dateStr,
           shift: existing?.shiftName || existing?.shiftCode || 'shift inconnu',
+          reason: 'DEJA_EXISTANT',
+          details: `Planning déjà existant pour le shift "${existing?.shiftName || existing?.shiftCode || 'shift inconnu'}"`,
         };
       });
+
+    // 15. Construire le message détaillé
+    const totalExcluded = formattedExcludedDates.length + conflictingDates.length;
+    let message = `${result.count} planning(s) créé(s)`;
+    
+    if (totalExcluded > 0) {
+      const excludedReasons = new Map<string, number>();
+      formattedExcludedDates.forEach((ex) => {
+        excludedReasons.set(ex.reason, (excludedReasons.get(ex.reason) || 0) + 1);
+      });
+      conflictingDates.forEach(() => {
+        excludedReasons.set('DEJA_EXISTANT', (excludedReasons.get('DEJA_EXISTANT') || 0) + 1);
+      });
+
+      const reasonLabels: Record<string, string> = {
+        NON_OUVRABLE: 'jours non ouvrables',
+        JOUR_FERIE: 'jours fériés',
+        CONGE: 'jours en congé',
+        RECUPERATION: 'jours de récupération',
+        DEJA_EXISTANT: 'jours avec planning existant',
+      };
+
+      const reasonsText = Array.from(excludedReasons.entries())
+        .map(([reason, count]) => `${count} ${reasonLabels[reason] || reason}`)
+        .join(', ');
+      
+      message += `, ${totalExcluded} jour(s) exclu(s) (${reasonsText})`;
+    }
 
     // Return detailed summary
     return {
       count: result.count,
       created: result.count,
       skipped: dates.length - datesToCreate.length,
+      excluded: formattedExcludedDates.length,
       conflictingDates: conflictingDates.length > 0 ? conflictingDates : undefined,
+      excludedDates: formattedExcludedDates.length > 0 ? formattedExcludedDates : undefined,
       dateRange: {
         start: dto.dateDebut,
         end: dto.dateFin || dto.dateDebut,
       },
-      message: `${result.count} planning(s) créé(s)${dates.length - datesToCreate.length > 0 ? `, ${dates.length - datesToCreate.length} ignoré(s) (déjà existants)` : ''}`,
+      message,
+      summary: {
+        totalDatesInRange: dates.length + excludedDates.length,
+        validDates: dates.length,
+        created: result.count,
+        excludedByReason: {
+          nonOuvrable: formattedExcludedDates.filter((e) => e.reason === 'NON_OUVRABLE').length,
+          jourFerie: formattedExcludedDates.filter((e) => e.reason === 'JOUR_FERIE').length,
+          conge: formattedExcludedDates.filter((e) => e.reason === 'CONGE').length,
+          recuperation: formattedExcludedDates.filter((e) => e.reason === 'RECUPERATION').length,
+          dejaExistant: conflictingDates.length,
+        },
+      },
     };
   }
 
@@ -1011,7 +1252,7 @@ export class SchedulesService {
       }
 
       // Generate all dates in the range
-      const dates = this.generateDateRange(startDate, endDate);
+      const { validDates: dates } = this.generateDateRange(startDate, endDate);
 
       // Add schedules for each date
       dates.forEach((date) => {
@@ -1484,13 +1725,15 @@ export class SchedulesService {
 
           // Generate dates to create
           const endDate = dateFin || dateDebut;
-          const datesToCreate = this.generateDateRange(dateDebut, endDate);
+          const { validDates: datesToCreate } = this.generateDateRange(dateDebut, endDate);
 
           // Check for existing schedules
           const existingSchedules = await this.prisma.schedule.findMany({
             where: {
               tenantId,
               employeeId,
+              // Only check PUBLISHED schedules as conflicts
+              status: 'PUBLISHED',
               date: {
                 gte: dateDebut,
                 lte: endDate,

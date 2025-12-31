@@ -308,6 +308,10 @@ export declare class UsersService {
             rfidBadge: string | null;
             qrCode: string | null;
             pinCode: string | null;
+            isEligibleForOvertime: boolean;
+            maxOvertimeHoursPerMonth: import("@prisma/client/runtime/library").Decimal | null;
+            maxOvertimeHoursPerWeek: import("@prisma/client/runtime/library").Decimal | null;
+            overtimeEligibilityNotes: string | null;
         };
         roles: {
             role: {
