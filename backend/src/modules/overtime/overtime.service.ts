@@ -18,10 +18,53 @@ export class OvertimeService {
    */
   private roundOvertimeHours(hours: number, roundingMinutes: number): number {
     if (roundingMinutes <= 0) return hours;
-    
+
     const totalMinutes = hours * 60;
     const roundedMinutes = Math.round(totalMinutes / roundingMinutes) * roundingMinutes;
     return roundedMinutes / 60;
+  }
+
+  /**
+   * Récupère le taux de majoration selon le type d'heures supplémentaires
+   * et la configuration du tenant
+   * @param settings Configuration du tenant (TenantSettings)
+   * @param overtimeType Type d'heures supplémentaires (STANDARD, NIGHT, HOLIDAY, EMERGENCY)
+   * @returns Taux de majoration (1.0 si majorations désactivées)
+   */
+  getOvertimeRate(settings: any, overtimeType: string): number {
+    // Si les majorations sont désactivées, retourner 1.0 (pas de majoration)
+    const majorationEnabled = settings?.overtimeMajorationEnabled !== false;
+    if (!majorationEnabled) {
+      return 1.0;
+    }
+
+    // Utiliser les nouveaux champs configurables avec fallback sur les anciens
+    switch (overtimeType) {
+      case 'NIGHT':
+        // Nouveau champ > Ancien champ > Valeur par défaut
+        return Number(
+          settings?.overtimeRateNight ??
+          settings?.nightShiftRate ??
+          1.50
+        );
+      case 'HOLIDAY':
+        // Nouveau champ > Ancien champ (holidayOvertimeRate) > Valeur par défaut
+        return Number(
+          settings?.overtimeRateHoliday ??
+          settings?.holidayOvertimeRate ??
+          2.00
+        );
+      case 'EMERGENCY':
+        return Number(settings?.overtimeRateEmergency ?? 1.30);
+      case 'STANDARD':
+      default:
+        // Nouveau champ > Ancien champ > Valeur par défaut
+        return Number(
+          settings?.overtimeRateStandard ??
+          settings?.overtimeRate ??
+          1.25
+        );
+    }
   }
 
   /**
@@ -198,18 +241,10 @@ export class OvertimeService {
     // Determine type: use dto.type if provided, otherwise infer from isNightShift (backward compatibility)
     const overtimeType = dto.type || (dto.isNightShift ? 'NIGHT' : 'STANDARD');
 
-    // Determine rate based on type
+    // Determine rate based on type and tenant configuration
     let rate = dto.rate;
     if (!rate) {
-      if (overtimeType === 'NIGHT') {
-        rate = Number(settings?.nightShiftRate || 1.5);
-      } else if (overtimeType === 'HOLIDAY') {
-        rate = Number(settings?.overtimeRate || 1.25) * 1.5; // 50% de majoration pour jours fériés
-      } else if (overtimeType === 'EMERGENCY') {
-        rate = Number(settings?.overtimeRate || 1.25) * 1.3; // 30% de majoration pour urgences
-      } else {
-        rate = Number(settings?.overtimeRate || 1.25);
-      }
+      rate = this.getOvertimeRate(settings, overtimeType);
     }
 
     // Vérifier les plafonds si configurés

@@ -18,8 +18,8 @@ export declare class TeamsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
@@ -30,16 +30,16 @@ export declare class TeamsService {
         rotationEnabled?: boolean;
     }): Promise<{
         data: ({
-            _count: {
-                employees: number;
-                schedules: number;
-            };
             employees: {
                 id: string;
                 firstName: string;
                 lastName: string;
                 matricule: string;
             }[];
+            _count: {
+                employees: number;
+                schedules: number;
+            };
             manager: {
                 id: string;
                 firstName: string;
@@ -51,8 +51,8 @@ export declare class TeamsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             description: string | null;
             managerId: string | null;
             rotationEnabled: boolean;
@@ -66,10 +66,6 @@ export declare class TeamsService {
         };
     }>;
     findOne(tenantId: string, id: string): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -78,13 +74,17 @@ export declare class TeamsService {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
@@ -102,8 +102,8 @@ export declare class TeamsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
@@ -114,18 +114,14 @@ export declare class TeamsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
         rotationCycleDays: number | null;
     }>;
     addMember(tenantId: string, teamId: string, dto: AddMemberDto): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -134,23 +130,23 @@ export declare class TeamsService {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
         rotationCycleDays: number | null;
     }>;
     removeMember(tenantId: string, teamId: string, employeeId: string): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -159,23 +155,23 @@ export declare class TeamsService {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
         rotationCycleDays: number | null;
     }>;
     addMembersBulk(tenantId: string, teamId: string, dto: BulkMembersDto): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -184,23 +180,23 @@ export declare class TeamsService {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
         rotationCycleDays: number | null;
     }>;
     removeMembersBulk(tenantId: string, teamId: string, dto: BulkMembersDto): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -209,13 +205,17 @@ export declare class TeamsService {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;

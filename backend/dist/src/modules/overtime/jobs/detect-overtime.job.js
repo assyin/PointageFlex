@@ -55,9 +55,20 @@ let DetectOvertimeJob = DetectOvertimeJob_1 = class DetectOvertimeJob {
             where: { tenantId },
             select: {
                 overtimeMinimumThreshold: true,
+                overtimeAutoDetectType: true,
+                nightShiftStart: true,
+                nightShiftEnd: true,
+                overtimeMajorationEnabled: true,
+                overtimeRateStandard: true,
+                overtimeRateNight: true,
+                overtimeRateHoliday: true,
+                overtimeRateEmergency: true,
+                overtimeRate: true,
+                nightShiftRate: true,
             },
         });
         const minimumThreshold = settings?.overtimeMinimumThreshold || 30;
+        const autoDetectType = settings?.overtimeAutoDetectType !== false;
         const attendancesWithOvertime = await this.prisma.attendance.findMany({
             where: {
                 tenantId,
@@ -86,6 +97,21 @@ let DetectOvertimeJob = DetectOvertimeJob_1 = class DetectOvertimeJob {
             orderBy: { timestamp: 'asc' },
         });
         this.logger.log(`Analyse de ${attendancesWithOvertime.length} pointage(s) avec heures sup pour le tenant ${tenantId}...`);
+        let holidays = new Set();
+        if (autoDetectType) {
+            const holidayRecords = await this.prisma.holiday.findMany({
+                where: {
+                    tenantId,
+                    date: {
+                        gte: startDate,
+                        lte: endDate,
+                    },
+                },
+                select: { date: true },
+            });
+            holidays = new Set(holidayRecords.map(h => h.date.toISOString().split('T')[0]));
+            this.logger.debug(`${holidays.size} jour(s) férié(s) trouvé(s) pour la période`);
+        }
         let createdCount = 0;
         let skippedCount = 0;
         for (const attendance of attendancesWithOvertime) {
@@ -122,15 +148,30 @@ let DetectOvertimeJob = DetectOvertimeJob_1 = class DetectOvertimeJob {
                         this.logger.warn(`Plafond partiel pour ${attendance.employee.firstName} ${attendance.employee.lastName}. ${hoursToCreate.toFixed(2)}h créées au lieu de ${overtimeHours.toFixed(2)}h`);
                     }
                 }
+                let overtimeType = 'STANDARD';
+                const dateStr = attendance.timestamp.toISOString().split('T')[0];
+                if (autoDetectType) {
+                    if (holidays.has(dateStr)) {
+                        overtimeType = 'HOLIDAY';
+                        this.logger.debug(`Type HOLIDAY détecté pour ${dateStr} (jour férié)`);
+                    }
+                    else if (this.isNightShiftTime(attendance.timestamp, settings)) {
+                        overtimeType = 'NIGHT';
+                        this.logger.debug(`Type NIGHT détecté pour ${attendance.timestamp.toISOString()}`);
+                    }
+                }
+                const rate = this.overtimeService.getOvertimeRate(settings, overtimeType);
                 await this.prisma.overtime.create({
                     data: {
                         tenantId,
                         employeeId: attendance.employeeId,
-                        date: new Date(attendance.timestamp.toISOString().split('T')[0]),
+                        date: new Date(dateStr),
                         hours: hoursToCreate,
-                        type: 'STANDARD',
+                        type: overtimeType,
+                        rate,
+                        isNightShift: overtimeType === 'NIGHT',
                         status: client_1.OvertimeStatus.PENDING,
-                        notes: `Créé automatiquement depuis le pointage du ${attendance.timestamp.toLocaleDateString('fr-FR')}`,
+                        notes: `Créé automatiquement depuis le pointage du ${attendance.timestamp.toLocaleDateString('fr-FR')}${overtimeType !== 'STANDARD' ? ` (${overtimeType})` : ''}`,
                     },
                 });
                 createdCount++;
@@ -142,6 +183,23 @@ let DetectOvertimeJob = DetectOvertimeJob_1 = class DetectOvertimeJob {
             }
         }
         this.logger.log(`Détection des heures sup pour le tenant ${tenantId} terminée. ${createdCount} créé(s), ${skippedCount} ignoré(s).`);
+    }
+    isNightShiftTime(timestamp, settings) {
+        const nightStart = settings?.nightShiftStart || '21:00';
+        const nightEnd = settings?.nightShiftEnd || '06:00';
+        const [startHour, startMin] = nightStart.split(':').map(Number);
+        const [endHour, endMin] = nightEnd.split(':').map(Number);
+        const hour = timestamp.getHours();
+        const minute = timestamp.getMinutes();
+        const currentMinutes = hour * 60 + minute;
+        const startMinutes = startHour * 60 + startMin;
+        const endMinutes = endHour * 60 + endMin;
+        if (startMinutes > endMinutes) {
+            return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+        }
+        else {
+            return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+        }
     }
 };
 exports.DetectOvertimeJob = DetectOvertimeJob;

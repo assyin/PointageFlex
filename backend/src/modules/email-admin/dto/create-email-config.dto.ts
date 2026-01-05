@@ -28,6 +28,10 @@ export class CreateEmailConfigDto {
   @IsOptional()
   notifyAbsence?: boolean;
 
+  @IsBoolean()
+  @IsOptional()
+  notifyOvertimePending?: boolean;
+
   @IsString()
   @IsOptional()
   provider?: string;

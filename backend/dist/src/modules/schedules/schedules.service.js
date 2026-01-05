@@ -256,10 +256,12 @@ let SchedulesService = class SchedulesService {
         queryEndDate.setUTCHours(23, 59, 59, 999);
         console.log(`[createSchedule] Vérification des conflits pour ${employee.firstName} ${employee.lastName}`);
         console.log(`[createSchedule] Plage recherchée: ${queryStartDate.toISOString()} à ${queryEndDate.toISOString()}`);
+        console.log(`[createSchedule] Shift: ${dto.shiftId}`);
         const existingSchedules = await this.prisma.schedule.findMany({
             where: {
                 tenantId,
                 employeeId: dto.employeeId,
+                shiftId: dto.shiftId,
                 status: 'PUBLISHED',
                 date: {
                     gte: queryStartDate,
@@ -318,16 +320,16 @@ let SchedulesService = class SchedulesService {
                     shift: existing?.shiftName || existing?.shiftCode || 'shift inconnu',
                 };
             });
-            let errorMessage = `Un planning existe déjà pour ${dateRangeStr} pour l'employé ${employee.firstName} ${employee.lastName}. `;
-            errorMessage += `Un employé ne peut avoir qu'un seul planning par jour. `;
+            let errorMessage = `Un planning existe déjà pour le shift "${shift.name}" `;
+            errorMessage += `pour ${dateRangeStr} pour l'employé ${employee.firstName} ${employee.lastName}. `;
             if (conflictingDates.length === 1) {
-                errorMessage += `Le planning existant est pour le shift "${conflictingDates[0].shift}" le ${conflictingDates[0].date}. `;
+                errorMessage += `Le planning existant est le ${conflictingDates[0].date}. `;
             }
             else if (conflictingDates.length > 1) {
                 errorMessage += `Plannings existants : `;
-                errorMessage += conflictingDates.map(c => `${c.shift} le ${c.date}`).join(', ') + '. ';
+                errorMessage += conflictingDates.map(c => c.date).join(', ') + '. ';
             }
-            errorMessage += `Veuillez modifier le planning existant ou choisir une autre date.`;
+            errorMessage += `Veuillez modifier le planning existant, choisir un autre shift, ou choisir une autre date.`;
             throw new common_1.ConflictException(errorMessage);
         }
         const schedulesToCreate = datesToCreate.map((date) => {
@@ -354,7 +356,7 @@ let SchedulesService = class SchedulesService {
             const dateRangeStr = startDateStr === endDateStr
                 ? `le ${this.formatDate(startDateStr)}`
                 : `la période du ${this.formatDate(startDateStr)} au ${this.formatDate(endDateStr)}`;
-            throw new common_1.ConflictException(`Impossible de créer le planning pour ${dateRangeStr} pour l'employé ${employee.firstName} ${employee.lastName}. Un planning existe déjà pour cette période. Veuillez modifier le planning existant ou choisir une autre date.`);
+            throw new common_1.ConflictException(`Impossible de créer le planning pour le shift "${shift.name}" pour ${dateRangeStr} pour l'employé ${employee.firstName} ${employee.lastName}. Un planning existe déjà pour ce shift pour cette période. Veuillez modifier le planning existant, choisir un autre shift, ou choisir une autre date.`);
         }
         const formattedExcludedDates = excludedDates.map((excluded) => ({
             date: this.formatDateToISO(excluded.date),
@@ -1380,6 +1382,7 @@ let SchedulesService = class SchedulesService {
                         where: {
                             tenantId,
                             employeeId,
+                            shiftId,
                             status: 'PUBLISHED',
                             date: {
                                 gte: dateDebut,
@@ -1399,7 +1402,7 @@ let SchedulesService = class SchedulesService {
                         result.errors.push({
                             row: rowNumber,
                             matricule,
-                            error: `Tous les plannings pour cette période existent déjà`,
+                            error: `Tous les plannings pour le shift ${shiftCode} pour cette période existent déjà`,
                         });
                         result.failed++;
                         continue;

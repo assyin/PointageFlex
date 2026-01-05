@@ -12,16 +12,33 @@ const schedule_1 = require("@nestjs/schedule");
 const attendance_service_1 = require("./attendance.service");
 const attendance_controller_1 = require("./attendance.controller");
 const prisma_module_1 = require("../../database/prisma.module");
+const mail_module_1 = require("../mail/mail.module");
 const detect_absences_job_1 = require("./jobs/detect-absences.job");
 const detect_missing_out_job_1 = require("./jobs/detect-missing-out.job");
+const missing_out_manager_notification_job_1 = require("./jobs/missing-out-manager-notification.job");
+const missing_in_manager_notification_job_1 = require("./jobs/missing-in-manager-notification.job");
+const late_manager_notification_job_1 = require("./jobs/late-manager-notification.job");
+const absence_manager_notification_job_1 = require("./jobs/absence-manager-notification.job");
+const absence_partial_manager_notification_job_1 = require("./jobs/absence-partial-manager-notification.job");
+const absence_technical_manager_notification_job_1 = require("./jobs/absence-technical-manager-notification.job");
 let AttendanceModule = class AttendanceModule {
 };
 exports.AttendanceModule = AttendanceModule;
 exports.AttendanceModule = AttendanceModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, schedule_1.ScheduleModule],
+        imports: [prisma_module_1.PrismaModule, schedule_1.ScheduleModule, mail_module_1.MailModule],
         controllers: [attendance_controller_1.AttendanceController],
-        providers: [attendance_service_1.AttendanceService, detect_absences_job_1.DetectAbsencesJob, detect_missing_out_job_1.DetectMissingOutJob],
+        providers: [
+            attendance_service_1.AttendanceService,
+            detect_absences_job_1.DetectAbsencesJob,
+            detect_missing_out_job_1.DetectMissingOutJob,
+            missing_out_manager_notification_job_1.MissingOutManagerNotificationJob,
+            missing_in_manager_notification_job_1.MissingInManagerNotificationJob,
+            late_manager_notification_job_1.LateManagerNotificationJob,
+            absence_manager_notification_job_1.AbsenceManagerNotificationJob,
+            absence_partial_manager_notification_job_1.AbsencePartialManagerNotificationJob,
+            absence_technical_manager_notification_job_1.AbsenceTechnicalManagerNotificationJob,
+        ],
         exports: [attendance_service_1.AttendanceService],
     })
 ], AttendanceModule);

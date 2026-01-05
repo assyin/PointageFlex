@@ -7,13 +7,13 @@ export declare class SiteManagersController {
     create(user: any, dto: CreateSiteManagerDto): Promise<{
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         manager: {
             id: string;
@@ -34,21 +34,21 @@ export declare class SiteManagersController {
     findAll(user: any, siteId?: string, departmentId?: string): Promise<({
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
-            code: string;
             city: string;
+            code: string;
+            name: string;
         };
         manager: {
             id: string;
             email: string;
+            phone: string;
             firstName: string;
             lastName: string;
-            phone: string;
             matricule: string;
         };
     } & {
@@ -63,8 +63,8 @@ export declare class SiteManagersController {
     findBySite(user: any, siteId: string): Promise<({
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         manager: {
             id: string;
@@ -85,14 +85,14 @@ export declare class SiteManagersController {
     findByManager(user: any, managerId: string): Promise<({
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
-            code: string;
             city: string;
+            code: string;
+            name: string;
         };
     } & {
         id: string;
@@ -106,21 +106,21 @@ export declare class SiteManagersController {
     findOne(user: any, id: string): Promise<{
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
-            code: string;
             city: string;
+            code: string;
+            name: string;
         };
         manager: {
             id: string;
             email: string;
+            phone: string;
             firstName: string;
             lastName: string;
-            phone: string;
             matricule: string;
         };
     } & {
@@ -135,13 +135,13 @@ export declare class SiteManagersController {
     update(user: any, id: string, dto: UpdateSiteManagerDto): Promise<{
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         manager: {
             id: string;

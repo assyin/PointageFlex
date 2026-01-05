@@ -24,6 +24,39 @@ let DetectMissingOutJob = DetectMissingOutJob_1 = class DetectMissingOutJob {
         const [hours, minutes] = timeString.split(':').map(Number);
         return { hours: hours || 0, minutes: minutes || 0 };
     }
+    getTimezoneOffset(timezone, referenceDate) {
+        if (!timezone || timezone === 'UTC') {
+            return 0;
+        }
+        try {
+            const date = referenceDate || new Date();
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: timezone,
+                hour: 'numeric',
+                hourCycle: 'h23',
+                timeZoneName: 'shortOffset',
+            });
+            const parts = formatter.formatToParts(date);
+            const offsetPart = parts.find(p => p.type === 'timeZoneName');
+            if (offsetPart?.value) {
+                const match = offsetPart.value.match(/GMT([+-]?)(\d+)(?::(\d+))?/);
+                if (match) {
+                    const sign = match[1] === '-' ? -1 : 1;
+                    const hours = parseInt(match[2], 10);
+                    const minutes = parseInt(match[3] || '0', 10);
+                    return sign * (hours + minutes / 60);
+                }
+            }
+            const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+            const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+            const diffMs = tzDate.getTime() - utcDate.getTime();
+            return Math.round((diffMs / (1000 * 60 * 60)) * 2) / 2;
+        }
+        catch (error) {
+            this.logger.warn(`Timezone invalide: ${timezone}, utilisant UTC`);
+            return 0;
+        }
+    }
     async detectMissingOuts() {
         this.logger.log('Démarrage de la détection des MISSING_OUT...');
         try {
@@ -86,11 +119,12 @@ let DetectMissingOutJob = DetectMissingOutJob_1 = class DetectMissingOutJob {
                 startOfDay.setHours(0, 0, 0, 0);
                 const endOfDay = new Date(inRecord.timestamp);
                 endOfDay.setHours(23, 59, 59, 999);
-                const schedule = await this.prisma.schedule.findFirst({
+                const schedules = await this.prisma.schedule.findMany({
                     where: {
                         tenantId,
                         employeeId: inRecord.employeeId,
                         date: { gte: startOfDay, lte: endOfDay },
+                        status: 'PUBLISHED',
                     },
                     include: {
                         shift: {
@@ -101,7 +135,41 @@ let DetectMissingOutJob = DetectMissingOutJob_1 = class DetectMissingOutJob {
                             },
                         },
                     },
+                    orderBy: {
+                        shift: {
+                            startTime: 'asc',
+                        },
+                    },
                 });
+                let schedule = null;
+                if (schedules.length > 0) {
+                    if (schedules.length === 1) {
+                        schedule = schedules[0];
+                    }
+                    else {
+                        const inHour = inRecord.timestamp.getUTCHours();
+                        const inMinutes = inRecord.timestamp.getUTCMinutes();
+                        const inTimeInMinutes = inHour * 60 + inMinutes;
+                        let closestSchedule = schedules[0];
+                        let smallestDifference = Infinity;
+                        const tenant = await this.prisma.tenant.findUnique({
+                            where: { id: tenantId },
+                            select: { timezone: true },
+                        });
+                        const timezoneOffset = this.getTimezoneOffset(tenant?.timezone || 'UTC', inRecord.timestamp);
+                        for (const sched of schedules) {
+                            const startTime = this.parseTimeString(sched.customStartTime || sched.shift.startTime);
+                            const shiftStartInMinutesLocal = startTime.hours * 60 + startTime.minutes;
+                            const shiftStartInMinutesUTC = shiftStartInMinutesLocal - (timezoneOffset * 60);
+                            const difference = Math.abs(inTimeInMinutes - shiftStartInMinutesUTC);
+                            if (difference < smallestDifference) {
+                                smallestDifference = difference;
+                                closestSchedule = sched;
+                            }
+                        }
+                        schedule = closestSchedule;
+                    }
+                }
                 let shift = schedule?.shift;
                 if (!shift) {
                     const employee = await this.prisma.employee.findUnique({

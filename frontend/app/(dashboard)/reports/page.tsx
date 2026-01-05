@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { ReportComparisonView } from '@/components/reports/ReportComparisonView';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -164,7 +165,7 @@ export default function ReportsPage() {
     },
   ];
 
-  const handleExport = (format: 'PDF' | 'EXCEL' | 'CSV') => {
+  const handleExport = (format: 'pdf' | 'excel' | 'csv') => {
     setExportFormat(format);
     setShowExportModal(true);
   };
@@ -301,9 +302,7 @@ export default function ReportsPage() {
 
   const departments = useMemo(() => {
     if (!departmentsData) return [];
-    if (Array.isArray(departmentsData)) return departmentsData;
-    if (departmentsData?.data && Array.isArray(departmentsData.data)) return departmentsData.data;
-    return [];
+    return Array.isArray(departmentsData) ? departmentsData : [];
   }, [departmentsData]);
 
   const teams = useMemo(() => {
@@ -394,7 +393,7 @@ export default function ReportsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleExport('PDF')}
+                      onClick={() => handleExport('pdf')}
                       disabled={exportMutation.isPending || !currentData}
                     >
                       <FileText className="h-4 w-4 mr-2" />
@@ -403,7 +402,7 @@ export default function ReportsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleExport('EXCEL')}
+                      onClick={() => handleExport('excel')}
                       disabled={exportMutation.isPending || !currentData}
                     >
                       <FileSpreadsheet className="h-4 w-4 mr-2" />
@@ -412,7 +411,7 @@ export default function ReportsPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleExport('CSV')}
+                      onClick={() => handleExport('csv')}
                       disabled={exportMutation.isPending || !currentData}
                     >
                       <FileBarChart className="h-4 w-4 mr-2" />
@@ -979,7 +978,7 @@ export default function ReportsPage() {
           reportType={selectedReport}
           reportName={reportTypes.find((r) => r.id === selectedReport)?.name || 'Rapport'}
           availableColumns={getAvailableColumns()}
-          defaultFormat={exportFormat}
+          defaultFormat={exportFormat.toUpperCase() as 'PDF' | 'EXCEL' | 'CSV'}
           isLoading={exportMutation.isPending}
         />
       </DashboardLayout>

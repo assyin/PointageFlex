@@ -25,6 +25,29 @@ let OvertimeService = class OvertimeService {
         const roundedMinutes = Math.round(totalMinutes / roundingMinutes) * roundingMinutes;
         return roundedMinutes / 60;
     }
+    getOvertimeRate(settings, overtimeType) {
+        const majorationEnabled = settings?.overtimeMajorationEnabled !== false;
+        if (!majorationEnabled) {
+            return 1.0;
+        }
+        switch (overtimeType) {
+            case 'NIGHT':
+                return Number(settings?.overtimeRateNight ??
+                    settings?.nightShiftRate ??
+                    1.50);
+            case 'HOLIDAY':
+                return Number(settings?.overtimeRateHoliday ??
+                    settings?.holidayOvertimeRate ??
+                    2.00);
+            case 'EMERGENCY':
+                return Number(settings?.overtimeRateEmergency ?? 1.30);
+            case 'STANDARD':
+            default:
+                return Number(settings?.overtimeRateStandard ??
+                    settings?.overtimeRate ??
+                    1.25);
+        }
+    }
     async checkOvertimeLimits(tenantId, employeeId, newHours, date) {
         const employee = await this.prisma.employee.findUnique({
             where: { id: employeeId },
@@ -147,18 +170,7 @@ let OvertimeService = class OvertimeService {
         const overtimeType = dto.type || (dto.isNightShift ? 'NIGHT' : 'STANDARD');
         let rate = dto.rate;
         if (!rate) {
-            if (overtimeType === 'NIGHT') {
-                rate = Number(settings?.nightShiftRate || 1.5);
-            }
-            else if (overtimeType === 'HOLIDAY') {
-                rate = Number(settings?.overtimeRate || 1.25) * 1.5;
-            }
-            else if (overtimeType === 'EMERGENCY') {
-                rate = Number(settings?.overtimeRate || 1.25) * 1.3;
-            }
-            else {
-                rate = Number(settings?.overtimeRate || 1.25);
-            }
+            rate = this.getOvertimeRate(settings, overtimeType);
         }
         let hoursToCreate = dto.hours;
         if (employee.maxOvertimeHoursPerMonth || employee.maxOvertimeHoursPerWeek) {

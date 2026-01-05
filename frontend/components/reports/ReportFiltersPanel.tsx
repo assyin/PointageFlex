@@ -55,7 +55,7 @@ export function ReportFiltersPanel({
 
   // Préparer les options pour le SearchableSelect
   const employeeOptions = useMemo(() => {
-    const options = [
+    const options: { value: string; label: string; searchText?: string }[] = [
       { value: 'all', label: 'Tous les employés' }
     ];
     filteredEmployees.slice(0, 50).forEach((emp: any) => {

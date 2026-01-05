@@ -19,8 +19,8 @@ export declare class DepartmentsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     }>;
@@ -38,15 +38,12 @@ export declare class DepartmentsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     })[]>;
     findOne(id: string, tenantId: string): Promise<{
-        _count: {
-            employees: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -55,6 +52,9 @@ export declare class DepartmentsService {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+        };
         manager: {
             id: string;
             firstName: string;
@@ -65,8 +65,8 @@ export declare class DepartmentsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     }>;
@@ -84,8 +84,8 @@ export declare class DepartmentsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     }>;
@@ -94,8 +94,8 @@ export declare class DepartmentsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     }>;

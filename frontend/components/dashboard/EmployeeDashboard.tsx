@@ -61,7 +61,7 @@ export function EmployeeDashboard() {
   const { data: stats, isLoading } = useDashboardStats(dateFilters);
   const { data: recentAttendance } = useAttendance({ limit: 5 });
   const { data: leaves } = useLeaves({ status: 'PENDING' });
-  const { data: schedules } = useSchedules({ limit: 7 });
+  const { data: schedules } = useSchedules({});
 
   if (isLoading) {
     return (

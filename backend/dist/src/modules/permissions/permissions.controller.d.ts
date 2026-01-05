@@ -6,30 +6,30 @@ export declare class PermissionsController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         category: string;
+        isActive: boolean;
     }[]>;
     findByCategory(category: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         category: string;
+        isActive: boolean;
     }[]>;
     getRolePermissions(roleId: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         category: string;
+        isActive: boolean;
     }[]>;
 }

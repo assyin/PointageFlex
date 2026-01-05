@@ -13,15 +13,17 @@ const overtime_service_1 = require("./overtime.service");
 const overtime_controller_1 = require("./overtime.controller");
 const prisma_module_1 = require("../../database/prisma.module");
 const recovery_days_module_1 = require("../recovery-days/recovery-days.module");
+const mail_module_1 = require("../mail/mail.module");
 const detect_overtime_job_1 = require("./jobs/detect-overtime.job");
+const overtime_pending_notification_job_1 = require("./jobs/overtime-pending-notification.job");
 let OvertimeModule = class OvertimeModule {
 };
 exports.OvertimeModule = OvertimeModule;
 exports.OvertimeModule = OvertimeModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, recovery_days_module_1.RecoveryDaysModule, schedule_1.ScheduleModule],
+        imports: [prisma_module_1.PrismaModule, recovery_days_module_1.RecoveryDaysModule, schedule_1.ScheduleModule, mail_module_1.MailModule],
         controllers: [overtime_controller_1.OvertimeController],
-        providers: [overtime_service_1.OvertimeService, detect_overtime_job_1.DetectOvertimeJob],
+        providers: [overtime_service_1.OvertimeService, detect_overtime_job_1.DetectOvertimeJob, overtime_pending_notification_job_1.OvertimePendingNotificationJob],
         exports: [overtime_service_1.OvertimeService],
     })
 ], OvertimeModule);

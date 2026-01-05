@@ -37,6 +37,8 @@ const roles_module_1 = require("./modules/roles/roles.module");
 const permissions_module_1 = require("./modules/permissions/permissions.module");
 const terminal_matricule_mapping_module_1 = require("./modules/terminal-matricule-mapping/terminal-matricule-mapping.module");
 const dashboard_module_1 = require("./modules/dashboard/dashboard.module");
+const mail_module_1 = require("./modules/mail/mail.module");
+const email_admin_module_1 = require("./modules/email-admin/email-admin.module");
 const jwt_auth_guard_1 = require("./common/guards/jwt-auth.guard");
 const roles_guard_1 = require("./common/guards/roles.guard");
 const permissions_guard_1 = require("./common/guards/permissions.guard");
@@ -60,6 +62,7 @@ exports.AppModule = AppModule = __decorate([
                 max: 100,
             }),
             prisma_module_1.PrismaModule,
+            mail_module_1.MailModule,
             auth_module_1.AuthModule,
             tenants_module_1.TenantsModule,
             users_module_1.UsersModule,
@@ -84,6 +87,7 @@ exports.AppModule = AppModule = __decorate([
             permissions_module_1.PermissionsModule,
             terminal_matricule_mapping_module_1.TerminalMatriculeMappingModule,
             dashboard_module_1.DashboardModule,
+            email_admin_module_1.EmailAdminModule,
         ],
         providers: [
             {

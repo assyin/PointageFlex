@@ -7,4 +7,5 @@ export declare class DetectOvertimeJob {
     constructor(prisma: PrismaService, overtimeService: OvertimeService);
     detectOvertime(): Promise<void>;
     private detectOvertimeForTenant;
+    private isNightShiftTime;
 }

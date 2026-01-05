@@ -23,8 +23,8 @@ export declare class LeavesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -71,8 +71,8 @@ export declare class LeavesService {
                 matricule: string;
                 site: {
                     id: string;
-                    name: string;
                     code: string;
+                    name: string;
                 };
             };
             leaveType: {
@@ -80,8 +80,8 @@ export declare class LeavesService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 isPaid: boolean;
                 requiresDocument: boolean;
                 maxDaysPerYear: number | null;
@@ -134,8 +134,8 @@ export declare class LeavesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -179,8 +179,8 @@ export declare class LeavesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -224,8 +224,8 @@ export declare class LeavesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -269,8 +269,8 @@ export declare class LeavesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -334,8 +334,8 @@ export declare class LeavesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         isPaid: boolean;
         requiresDocument: boolean;
         maxDaysPerYear: number | null;
@@ -345,8 +345,8 @@ export declare class LeavesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         isPaid: boolean;
         requiresDocument: boolean;
         maxDaysPerYear: number | null;
@@ -356,8 +356,8 @@ export declare class LeavesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         isPaid: boolean;
         requiresDocument: boolean;
         maxDaysPerYear: number | null;
@@ -367,8 +367,8 @@ export declare class LeavesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         isPaid: boolean;
         requiresDocument: boolean;
         maxDaysPerYear: number | null;
@@ -385,8 +385,8 @@ export declare class LeavesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;
@@ -435,8 +435,8 @@ export declare class LeavesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             isPaid: boolean;
             requiresDocument: boolean;
             maxDaysPerYear: number | null;

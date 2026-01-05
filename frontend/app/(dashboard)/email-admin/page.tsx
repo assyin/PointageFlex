@@ -24,7 +24,7 @@ export default function EmailAdminPage() {
   if (!isMounted || isLoading) {
     return (
       <ProtectedRoute>
-        <DashboardLayout>
+        <DashboardLayout title="Gestion des Emails" subtitle="Chargement...">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
@@ -43,7 +43,7 @@ export default function EmailAdminPage() {
   if (!hasAccess) {
     return (
       <ProtectedRoute>
-        <DashboardLayout>
+        <DashboardLayout title="Acces refuse" subtitle="Permission insuffisante">
           <div className="p-6">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
               <h2 className="text-lg font-semibold text-yellow-800 mb-2">
@@ -74,7 +74,7 @@ export default function EmailAdminPage() {
 
   return (
     <ProtectedRoute>
-      <DashboardLayout>
+      <DashboardLayout title="Gestion des Emails" subtitle="Configuration SMTP, templates et notifications">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex items-center gap-3">

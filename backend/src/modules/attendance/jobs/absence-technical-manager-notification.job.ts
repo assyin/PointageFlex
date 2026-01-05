@@ -96,18 +96,46 @@ export class AbsenceTechnicalManagerNotificationJob {
   /**
    * Récupère les anomalies techniques récentes (dernières 24h)
    * qui n'ont pas encore généré de notification
-   *
-   * NOTE: Cette fonctionnalité nécessite un modèle AttendanceAnomaly
-   * qui n'existe pas encore. Pour le moment, on retourne un tableau vide.
-   * TODO: Implémenter quand le modèle AttendanceAnomaly sera créé.
    */
   private async getTechnicalAnomalies(tenantId: string): Promise<any[]> {
-    // TODO: Implémenter quand le modèle AttendanceAnomaly sera créé
-    // Pour le moment, on désactive cette fonctionnalité
-    this.logger.debug(
-      `[SKIP] Détection anomalies techniques désactivée - modèle AttendanceAnomaly non disponible`,
-    );
-    return [];
+    const oneDayAgo = new Date();
+    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+
+    // Récupérer les anomalies techniques non notifiées
+    const anomalies = await this.prisma.attendanceAnomaly.findMany({
+      where: {
+        tenantId,
+        type: 'TECHNICAL',
+        status: { in: ['OPEN', 'INVESTIGATING'] },
+        notifiedAt: null, // Pas encore notifié
+        detectedAt: { gte: oneDayAgo },
+      },
+      include: {
+        employee: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+            department: true,
+          },
+        },
+        schedule: {
+          include: {
+            shift: true,
+          },
+        },
+        device: true,
+        attendance: true,
+      },
+      orderBy: { detectedAt: 'desc' },
+    });
+
+    return anomalies;
   }
 
   /**
@@ -116,9 +144,9 @@ export class AbsenceTechnicalManagerNotificationJob {
   private async processAnomaly(tenantId: string, anomaly: any) {
     const { employee, schedule } = anomaly;
 
-    if (!schedule) {
+    if (!employee || !employee.user) {
       this.logger.debug(
-        `Anomalie ${anomaly.id} sans schedule, skip`,
+        `Anomalie ${anomaly.id} sans employé/user valide, skip`,
       );
       return;
     }
@@ -138,8 +166,6 @@ export class AbsenceTechnicalManagerNotificationJob {
     }
 
     // ÉTAPE 2: Vérifier qu'il s'agit bien d'un problème technique
-    // (pour le moment, on suppose que toutes les anomalies récentes sans
-    // justification sont potentiellement techniques)
     const isTechnical = await this.isTechnicalIssue(tenantId, anomaly);
 
     if (!isTechnical) {
@@ -156,7 +182,7 @@ export class AbsenceTechnicalManagerNotificationJob {
       return;
     }
 
-    this.logger.log(`[DEBUG] Anomalie technique ${anomaly.type} détectée pour ${employee.user.firstName} ${employee.user.lastName}. Envoi notification au manager ${manager.firstName} ${manager.lastName}`);
+    this.logger.log(`[DEBUG] Anomalie technique ${anomaly.subType || anomaly.type} détectée pour ${employee.user.firstName} ${employee.user.lastName}. Envoi notification au manager ${manager.firstName} ${manager.lastName}`);
 
     // ÉTAPE 4: Envoyer notification
     await this.sendManagerNotification(
@@ -166,24 +192,63 @@ export class AbsenceTechnicalManagerNotificationJob {
       anomaly,
       schedule,
     );
+
+    // ÉTAPE 5: Marquer l'anomalie comme notifiée
+    await this.prisma.attendanceAnomaly.update({
+      where: { id: anomaly.id },
+      data: { notifiedAt: new Date() },
+    });
   }
 
   /**
    * Détermine si une anomalie est d'origine technique
    * Critères:
-   * - Anomalie récente sans justification
+   * - Anomalie de type TECHNICAL
    * - Multiple employés affectés au même moment (panne générale)
-   * - Terminal marqué comme en panne
+   * - Terminal marqué comme en panne ou hors ligne
    * - Coupure électrique signalée
-   *
-   * NOTE: Désactivé pour le moment car le modèle AttendanceAnomaly n'existe pas
    */
   private async isTechnicalIssue(
     tenantId: string,
     anomaly: any,
   ): Promise<boolean> {
-    // TODO: Implémenter quand le modèle AttendanceAnomaly sera créé
-    // Pour le moment, on retourne toujours false
+    // L'anomalie est déjà de type TECHNICAL (filtré dans getTechnicalAnomalies)
+    if (anomaly.type === 'TECHNICAL') {
+      return true;
+    }
+
+    // Vérifier si le terminal associé est hors ligne
+    if (anomaly.device) {
+      const lastSync = anomaly.device.lastSync;
+      if (lastSync) {
+        const hoursSinceLastSync = (Date.now() - new Date(lastSync).getTime()) / (1000 * 60 * 60);
+        if (hoursSinceLastSync > 1) {
+          return true; // Terminal hors ligne depuis plus d'1h
+        }
+      }
+    }
+
+    // Vérifier si plusieurs employés sont affectés au même moment (panne générale)
+    if (anomaly.occurredAt && anomaly.deviceId) {
+      const windowStart = new Date(anomaly.occurredAt);
+      windowStart.setMinutes(windowStart.getMinutes() - 30);
+      const windowEnd = new Date(anomaly.occurredAt);
+      windowEnd.setMinutes(windowEnd.getMinutes() + 30);
+
+      const sameTimeAnomalies = await this.prisma.attendanceAnomaly.count({
+        where: {
+          tenantId,
+          deviceId: anomaly.deviceId,
+          occurredAt: { gte: windowStart, lte: windowEnd },
+          id: { not: anomaly.id },
+        },
+      });
+
+      if (sameTimeAnomalies >= 3) {
+        return true; // 3+ anomalies sur le même terminal en 1h = panne probable
+      }
+    }
+
     return false;
   }
 
@@ -256,11 +321,22 @@ export class AbsenceTechnicalManagerNotificationJob {
     }
 
     // Préparer les données pour le template
+    const occurredDate = anomaly.occurredAt ? new Date(anomaly.occurredAt) : new Date();
+    const sessionDate = schedule?.date
+      ? new Date(schedule.date).toLocaleDateString('fr-FR')
+      : occurredDate.toLocaleDateString('fr-FR');
+
+    const deviceInfo = anomaly.device ? ` (Terminal: ${anomaly.device.name})` : '';
+    const subTypeInfo = anomaly.subType ? ` - ${anomaly.subType}` : '';
+
     const templateData = {
       managerName: `${manager.firstName} ${manager.lastName}`,
       employeeName: `${employee.user.firstName} ${employee.user.lastName}`,
-      sessionDate: schedule.date.toLocaleDateString('fr-FR'),
-      reason: `Anomalie de type ${anomaly.type} détectée. Problème technique possible.`,
+      sessionDate: sessionDate,
+      occurredAt: occurredDate.toLocaleString('fr-FR'),
+      reason: anomaly.description || `Anomalie technique${subTypeInfo} détectée${deviceInfo}.`,
+      deviceName: anomaly.device?.name || 'N/A',
+      severity: anomaly.severity || 'MEDIUM',
     };
 
     // Remplacer les variables dans le template

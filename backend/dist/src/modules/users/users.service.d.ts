@@ -9,9 +9,9 @@ export declare class UsersService {
         id: string;
         createdAt: Date;
         email: string;
+        phone: string;
         firstName: string;
         lastName: string;
-        phone: string;
         isActive: boolean;
         role: import(".prisma/client").$Enums.LegacyRole;
     }>;
@@ -24,9 +24,9 @@ export declare class UsersService {
             id: string;
             createdAt: Date;
             email: string;
+            phone: string;
             firstName: string;
             lastName: string;
-            phone: string;
             isActive: boolean;
             lastLoginAt: Date;
             role: import(".prisma/client").$Enums.LegacyRole;
@@ -51,9 +51,28 @@ export declare class UsersService {
         createdAt: Date;
         updatedAt: Date;
         email: string;
+        phone: string;
+        userTenantRoles: {
+            id: string;
+            role: {
+                id: string;
+                code: string;
+                name: string;
+                description: string;
+                isSystem: boolean;
+                permissions: {
+                    permission: {
+                        id: string;
+                        code: string;
+                        name: string;
+                        description: string;
+                        category: string;
+                    };
+                }[];
+            };
+        }[];
         firstName: string;
         lastName: string;
-        phone: string;
         avatar: string;
         isActive: boolean;
         lastLoginAt: Date;
@@ -61,9 +80,9 @@ export declare class UsersService {
         employee: {
             id: string;
             email: string;
+            phone: string;
             firstName: string;
             lastName: string;
-            phone: string;
             matricule: string;
             position: string;
             positionId: string;
@@ -77,53 +96,34 @@ export declare class UsersService {
             };
             department: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
             };
             positionRef: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
                 category: string;
             };
             site: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
             };
             team: {
                 id: string;
                 name: string;
             };
         };
-        userTenantRoles: {
-            id: string;
-            role: {
-                id: string;
-                name: string;
-                code: string;
-                description: string;
-                isSystem: boolean;
-                permissions: {
-                    permission: {
-                        id: string;
-                        name: string;
-                        code: string;
-                        description: string;
-                        category: string;
-                    };
-                }[];
-            };
-        }[];
     }>;
     update(tenantId: string, id: string, dto: UpdateUserDto, currentUserRole?: LegacyRole): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         email: string;
+        phone: string;
         firstName: string;
         lastName: string;
-        phone: string;
         avatar: string;
         isActive: boolean;
         role: import(".prisma/client").$Enums.LegacyRole;
@@ -132,12 +132,12 @@ export declare class UsersService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string | null;
         email: string;
+        phone: string | null;
+        tenantId: string | null;
         password: string;
         firstName: string;
         lastName: string;
-        phone: string | null;
         avatar: string | null;
         isActive: boolean;
         lastLoginAt: Date | null;
@@ -151,10 +151,10 @@ export declare class UsersService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         timezone: string;
         language: string;
         notifications: import("@prisma/client/runtime/library").JsonValue | null;
+        userId: string;
         dateFormat: string;
         timeFormat: string;
         theme: string;
@@ -163,10 +163,10 @@ export declare class UsersService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        userId: string;
         timezone: string;
         language: string;
         notifications: import("@prisma/client/runtime/library").JsonValue | null;
+        userId: string;
         dateFormat: string;
         timeFormat: string;
         theme: string;
@@ -227,8 +227,8 @@ export declare class UsersService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string | null;
+                name: string;
                 description: string | null;
                 managerId: string | null;
             };
@@ -237,8 +237,8 @@ export declare class UsersService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string | null;
+                name: string;
                 description: string | null;
                 category: string | null;
             };
@@ -246,13 +246,13 @@ export declare class UsersService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                tenantId: string;
                 phone: string | null;
-                name: string;
-                code: string | null;
                 address: string | null;
                 timezone: string | null;
                 city: string | null;
+                tenantId: string;
+                code: string | null;
+                name: string;
                 departmentId: string | null;
                 managerId: string | null;
                 latitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -264,8 +264,8 @@ export declare class UsersService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 managerId: string | null;
                 rotationEnabled: boolean;
@@ -275,14 +275,14 @@ export declare class UsersService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             email: string | null;
+            phone: string | null;
+            address: string | null;
+            tenantId: string;
             firstName: string;
             lastName: string;
-            phone: string | null;
             isActive: boolean;
             userId: string | null;
-            address: string | null;
             matricule: string;
             dateOfBirth: Date | null;
             photo: string | null;
@@ -320,11 +320,11 @@ export declare class UsersService {
                         id: string;
                         createdAt: Date;
                         updatedAt: Date;
-                        isActive: boolean;
-                        name: string;
                         code: string;
+                        name: string;
                         description: string | null;
                         category: string;
+                        isActive: boolean;
                     };
                 } & {
                     id: string;
@@ -337,10 +337,10 @@ export declare class UsersService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string | null;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
+                isActive: boolean;
                 isSystem: boolean;
             };
             assignedAt: Date;
@@ -349,10 +349,10 @@ export declare class UsersService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            userId: string;
             timezone: string;
             language: string;
             notifications: import("@prisma/client/runtime/library").JsonValue | null;
+            userId: string;
             dateFormat: string;
             timeFormat: string;
             theme: string;

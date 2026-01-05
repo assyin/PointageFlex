@@ -18,14 +18,14 @@ export declare class TerminalMatriculeMappingService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
         email: string | null;
+        phone: string | null;
+        address: string | null;
+        tenantId: string;
         firstName: string;
         lastName: string;
-        phone: string | null;
         isActive: boolean;
         userId: string | null;
-        address: string | null;
         matricule: string;
         dateOfBirth: Date | null;
         photo: string | null;

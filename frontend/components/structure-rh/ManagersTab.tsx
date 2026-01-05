@@ -67,23 +67,26 @@ export function ManagersTab() {
 
   // Extraire les tableaux des réponses API
   const sites = useMemo(() => {
-    if (!sitesData) return [];
-    if (Array.isArray(sitesData)) return sitesData;
-    if (sitesData?.data && Array.isArray(sitesData.data)) return sitesData.data;
+    const data = sitesData as any;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data?.data && Array.isArray(data.data)) return data.data;
     return [];
   }, [sitesData]);
 
   const departments = useMemo(() => {
-    if (!departmentsData) return [];
-    if (Array.isArray(departmentsData)) return departmentsData;
-    if (departmentsData?.data && Array.isArray(departmentsData.data)) return departmentsData.data;
+    const data = departmentsData as any;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data?.data && Array.isArray(data.data)) return data.data;
     return [];
   }, [departmentsData]);
 
   const employees = useMemo(() => {
-    if (!employeesData) return [];
-    if (Array.isArray(employeesData)) return employeesData;
-    if (employeesData?.data && Array.isArray(employeesData.data)) return employeesData.data;
+    const data = employeesData as any;
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data?.data && Array.isArray(data.data)) return data.data;
     return [];
   }, [employeesData]);
 

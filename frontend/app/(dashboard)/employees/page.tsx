@@ -117,16 +117,12 @@ export default function EmployeesPage() {
   
   const departments = useMemo(() => {
     if (!departmentsData) return [];
-    if (Array.isArray(departmentsData)) return departmentsData;
-    if (departmentsData?.data && Array.isArray(departmentsData.data)) return departmentsData.data;
-    return [];
+    return Array.isArray(departmentsData) ? departmentsData : [];
   }, [departmentsData]);
   
   const positions = useMemo(() => {
     if (!positionsData) return [];
-    if (Array.isArray(positionsData)) return positionsData;
-    if (positionsData?.data && Array.isArray(positionsData.data)) return positionsData.data;
-    return [];
+    return Array.isArray(positionsData) ? positionsData : [];
   }, [positionsData]);
 
   const shifts = useMemo(() => {
@@ -332,6 +328,10 @@ export default function EmployeesPage() {
         hireDate: editingEmployee.hireDate ? new Date(editingEmployee.hireDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         createUserAccount: false,
         userEmail: '',
+        isEligibleForOvertime: editingEmployee.isEligibleForOvertime ?? true,
+        maxOvertimeHoursPerMonth: editingEmployee.maxOvertimeHoursPerMonth?.toString() || '',
+        maxOvertimeHoursPerWeek: editingEmployee.maxOvertimeHoursPerWeek?.toString() || '',
+        overtimeEligibilityNotes: editingEmployee.overtimeEligibilityNotes || '',
       });
     }
   }, [editingEmployee, showEditModal, shifts]);

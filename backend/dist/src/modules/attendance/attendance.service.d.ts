@@ -31,13 +31,13 @@ export declare class AttendanceService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             phone: string | null;
-            name: string;
-            code: string | null;
             address: string | null;
             timezone: string | null;
             city: string | null;
+            tenantId: string;
+            code: string | null;
+            name: string;
             departmentId: string | null;
             managerId: string | null;
             latitude: Decimal | null;
@@ -49,8 +49,8 @@ export declare class AttendanceService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            isActive: boolean;
             name: string;
+            isActive: boolean;
             siteId: string | null;
             deviceId: string;
             ipAddress: string | null;
@@ -90,7 +90,7 @@ export declare class AttendanceService {
         generatedBy: string | null;
         isGenerated: boolean;
     }>;
-    handleWebhook(tenantId: string, deviceId: string, webhookData: WebhookAttendanceDto): Promise<{
+    handleWebhook(tenantId: string, deviceId: string, webhookData: WebhookAttendanceDto, apiKey?: string): Promise<{
         employee: {
             id: string;
             firstName: string;
@@ -163,8 +163,8 @@ export declare class AttendanceService {
             photo: string;
             currentShift: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
                 startTime: string;
                 endTime: string;
             };
@@ -172,8 +172,8 @@ export declare class AttendanceService {
         siteId: string;
         site: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         latitude: Decimal;
         longitude: Decimal;
@@ -220,8 +220,8 @@ export declare class AttendanceService {
                 photo: string;
                 currentShift: {
                     id: string;
-                    name: string;
                     code: string;
+                    name: string;
                     startTime: string;
                     endTime: string;
                 };
@@ -229,8 +229,8 @@ export declare class AttendanceService {
             siteId: string;
             site: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
             };
             latitude: Decimal;
             longitude: Decimal;
@@ -287,8 +287,8 @@ export declare class AttendanceService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string | null;
+                name: string;
                 description: string | null;
                 managerId: string | null;
             };
@@ -297,8 +297,8 @@ export declare class AttendanceService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 managerId: string | null;
                 rotationEnabled: boolean;
@@ -309,13 +309,13 @@ export declare class AttendanceService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             phone: string | null;
-            name: string;
-            code: string | null;
             address: string | null;
             timezone: string | null;
             city: string | null;
+            tenantId: string;
+            code: string | null;
+            name: string;
             departmentId: string | null;
             managerId: string | null;
             latitude: Decimal | null;
@@ -327,8 +327,8 @@ export declare class AttendanceService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            isActive: boolean;
             name: string;
+            isActive: boolean;
             siteId: string | null;
             deviceId: string;
             ipAddress: string | null;
@@ -408,9 +408,11 @@ export declare class AttendanceService {
         generatedBy: string | null;
         isGenerated: boolean;
     }>;
+    private isManagerCorrectingOthersAttendance;
     private requiresApproval;
     private notifyManagersOfAnomaly;
     private notifyEmployeeOfCorrection;
+    private notifyEmployeeOfManagerCorrection;
     private notifyManagersOfApprovalRequired;
     getAnomalies(tenantId: string, date?: string, userId?: string, userPermissions?: string[]): Promise<{
         score: number;
@@ -433,13 +435,13 @@ export declare class AttendanceService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             phone: string | null;
-            name: string;
-            code: string | null;
             address: string | null;
             timezone: string | null;
             city: string | null;
+            tenantId: string;
+            code: string | null;
+            name: string;
             departmentId: string | null;
             managerId: string | null;
             latitude: Decimal | null;
@@ -695,4 +697,191 @@ export declare class AttendanceService {
     }[]>;
     private detectHolidayWork;
     private generateRecommendation;
+    createTechnicalAnomaly(tenantId: string, employeeId: string, data: {
+        subType: string;
+        description: string;
+        severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+        deviceId?: string;
+        attendanceId?: string;
+        scheduleId?: string;
+        occurredAt?: Date;
+        metadata?: any;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        description: string;
+        employeeId: string;
+        status: string;
+        deviceId: string | null;
+        type: string;
+        occurredAt: Date;
+        severity: string;
+        subType: string | null;
+        detectedAt: Date;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        resolvedAt: Date | null;
+        resolution: string | null;
+        notifiedAt: Date | null;
+        attendanceId: string | null;
+        scheduleId: string | null;
+        resolvedBy: string | null;
+    }>;
+    detectDeviceFailures(tenantId: string, deviceId: string): Promise<void>;
+    detectOfflineDevices(tenantId: string): Promise<void>;
+    resolveAnomaly(anomalyId: string, resolvedBy: string, resolution: string): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        description: string;
+        employeeId: string;
+        status: string;
+        deviceId: string | null;
+        type: string;
+        occurredAt: Date;
+        severity: string;
+        subType: string | null;
+        detectedAt: Date;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        resolvedAt: Date | null;
+        resolution: string | null;
+        notifiedAt: Date | null;
+        attendanceId: string | null;
+        scheduleId: string | null;
+        resolvedBy: string | null;
+    }>;
+    getOpenTechnicalAnomalies(tenantId: string, filters?: {
+        employeeId?: string;
+        deviceId?: string;
+        severity?: string;
+        limit?: number;
+    }): Promise<({
+        employee: {
+            user: {
+                email: string;
+                firstName: string;
+                lastName: string;
+            };
+            department: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string;
+                code: string | null;
+                name: string;
+                description: string | null;
+                managerId: string | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            email: string | null;
+            phone: string | null;
+            address: string | null;
+            tenantId: string;
+            firstName: string;
+            lastName: string;
+            isActive: boolean;
+            userId: string | null;
+            matricule: string;
+            dateOfBirth: Date | null;
+            photo: string | null;
+            civilite: string | null;
+            situationFamiliale: string | null;
+            nombreEnfants: number | null;
+            cnss: string | null;
+            cin: string | null;
+            ville: string | null;
+            rib: string | null;
+            region: string | null;
+            categorie: string | null;
+            position: string;
+            positionId: string | null;
+            hireDate: Date;
+            contractType: string | null;
+            siteId: string | null;
+            departmentId: string | null;
+            teamId: string | null;
+            currentShiftId: string | null;
+            fingerprintData: string | null;
+            faceData: string | null;
+            rfidBadge: string | null;
+            qrCode: string | null;
+            pinCode: string | null;
+            isEligibleForOvertime: boolean;
+            maxOvertimeHoursPerMonth: Decimal | null;
+            maxOvertimeHoursPerWeek: Decimal | null;
+            overtimeEligibilityNotes: string | null;
+        };
+        schedule: {
+            shift: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                tenantId: string;
+                code: string;
+                name: string;
+                startTime: string;
+                endTime: string;
+                breakDuration: number;
+                isNightShift: boolean;
+                color: string | null;
+            };
+        } & {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            teamId: string | null;
+            employeeId: string;
+            shiftId: string;
+            date: Date;
+            customStartTime: string | null;
+            customEndTime: string | null;
+            notes: string | null;
+            status: import(".prisma/client").$Enums.ScheduleStatus;
+            publishedAt: Date | null;
+            cancelledAt: Date | null;
+            suspendedByLeaveId: string | null;
+            suspendedAt: Date | null;
+        };
+        device: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            tenantId: string;
+            name: string;
+            isActive: boolean;
+            siteId: string | null;
+            deviceId: string;
+            ipAddress: string | null;
+            deviceType: import(".prisma/client").$Enums.DeviceType;
+            apiKey: string | null;
+            lastSync: Date | null;
+        };
+    } & {
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        tenantId: string;
+        description: string;
+        employeeId: string;
+        status: string;
+        deviceId: string | null;
+        type: string;
+        occurredAt: Date;
+        severity: string;
+        subType: string | null;
+        detectedAt: Date;
+        metadata: import("@prisma/client/runtime/library").JsonValue | null;
+        resolvedAt: Date | null;
+        resolution: string | null;
+        notifiedAt: Date | null;
+        attendanceId: string | null;
+        scheduleId: string | null;
+        resolvedBy: string | null;
+    })[]>;
 }

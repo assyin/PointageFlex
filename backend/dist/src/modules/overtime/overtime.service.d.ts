@@ -7,6 +7,7 @@ export declare class OvertimeService {
     private prisma;
     constructor(prisma: PrismaService);
     private roundOvertimeHours;
+    getOvertimeRate(settings: any, overtimeType: string): number;
     checkOvertimeLimits(tenantId: string, employeeId: string, newHours: number, date: Date): Promise<{
         exceedsLimit: boolean;
         message?: string;
@@ -79,8 +80,8 @@ export declare class OvertimeService {
                 matricule: string;
                 site: {
                     id: string;
-                    name: string;
                     code: string;
+                    name: string;
                 };
             };
             isNightShift: boolean;

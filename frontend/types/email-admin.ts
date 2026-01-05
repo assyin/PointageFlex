@@ -17,6 +17,7 @@ export interface EmailConfig {
   notifyAbsence: boolean;
   notifyAbsencePartial: boolean;
   notifyAbsenceTechnical: boolean;
+  notifyOvertimePending: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,6 +39,7 @@ export interface EmailConfigInput {
   notifyAbsence?: boolean;
   notifyAbsencePartial?: boolean;
   notifyAbsenceTechnical?: boolean;
+  notifyOvertimePending?: boolean;
 }
 
 export interface TestSmtpInput {

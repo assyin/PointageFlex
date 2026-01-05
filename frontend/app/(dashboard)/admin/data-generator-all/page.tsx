@@ -196,7 +196,7 @@ export default function DataGeneratorAllPage() {
         </div>
         <div className="flex gap-3">
           <Button
-            variant="destructive"
+            variant="danger"
             onClick={handleCleanup}
             disabled={loading}
           >
@@ -1426,7 +1426,7 @@ function UserCredentialsCard({ user }: { user: { email: string; password: string
               <span className="font-semibold text-gray-900">
                 {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email}
               </span>
-              <Badge variant="outline" className="ml-2">
+              <Badge variant="default" className="ml-2">
                 {user.role}
               </Badge>
             </div>
@@ -1435,7 +1435,7 @@ function UserCredentialsCard({ user }: { user: { email: string; password: string
                 <span className="text-sm text-gray-600 w-20">Email:</span>
                 <code className="flex-1 px-2 py-1 bg-gray-100 rounded text-sm font-mono">{user.email}</code>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => copyToClipboard(user.email)}
                   className="h-8 w-8 p-0"
@@ -1449,7 +1449,7 @@ function UserCredentialsCard({ user }: { user: { email: string; password: string
                   {showPassword ? user.password : '••••••••'}
                 </code>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => setShowPassword(!showPassword)}
                   className="h-8 w-8 p-0"
@@ -1457,7 +1457,7 @@ function UserCredentialsCard({ user }: { user: { email: string; password: string
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
                   onClick={() => copyToClipboard(user.password)}
                   className="h-8 w-8 p-0"

@@ -28,6 +28,8 @@ export interface TenantSettings {
   overtimeMinimumThreshold?: number; // Seuil minimum en minutes pour créer automatiquement un Overtime
   overtimeRate?: number;
   nightShiftRate?: number;
+  nightShiftStart?: string; // Heure de début du shift de nuit (format HH:mm)
+  nightShiftEnd?: string; // Heure de fin du shift de nuit (format HH:mm)
 
   // Alerts
   alertWeeklyHoursExceeded?: boolean;
@@ -73,6 +75,42 @@ export interface TenantSettings {
   missingOutDetectionWindowMinutes?: number; // Fenêtre de détection MISSING_OUT en minutes après fin du shift (défaut: 120 min)
   missingOutNotificationFrequencyMinutes?: number; // Fréquence du job de notification MISSING_OUT en minutes (défaut: 15 min)
 
+  // Late Notification Settings
+  lateNotificationFrequencyMinutes?: number; // Fréquence du job de notification retard en minutes
+  lateNotificationThresholdMinutes?: number; // Seuil en minutes pour déclencher notification retard
+
+  // Absence Notification Settings
+  absenceNotificationFrequencyMinutes?: number; // Fréquence du job de notification absence en minutes
+  absenceDetectionBufferMinutes?: number; // Délai tampon après absenceDetectionTime
+  absencePartialNotificationFrequencyMinutes?: number; // Fréquence du job notification absence partielle
+
+  // DOUBLE_IN Detection Settings
+  doubleInDetectionWindow?: number; // Fenêtre de détection DOUBLE_IN en heures (défaut: 24h)
+  orphanInThreshold?: number; // Seuil en heures pour considérer un IN comme orphelin (défaut: 12h)
+  doublePunchToleranceMinutes?: number; // Fenêtre de tolérance en minutes pour erreur de badgeage (défaut: 2 min)
+  enableDoubleInPatternDetection?: boolean; // Activer la détection de patterns suspects DOUBLE_IN
+  doubleInPatternAlertThreshold?: number; // Seuil d'alerte pour patterns suspects (nombre sur 30 jours)
+
+  // MISSING_IN Advanced Settings
+  allowMissingInForRemoteWork?: boolean; // Autoriser MISSING_IN pour télétravail
+  allowMissingInForMissions?: boolean; // Autoriser MISSING_IN pour missions
+  missingInReminderEnabled?: boolean; // Activer les rappels MISSING_IN
+  missingInReminderDelay?: number; // Délai en minutes avant le rappel MISSING_IN
+  missingInReminderMaxPerDay?: number; // Nombre maximum de rappels MISSING_IN par jour
+  enableMissingInPatternDetection?: boolean; // Activer la détection de patterns d'oubli MISSING_IN
+  missingInPatternAlertThreshold?: number; // Seuil d'alerte pour patterns d'oubli MISSING_IN
+
+  // MISSING_OUT Advanced Settings
+  missingOutDetectionTime?: string; // Heure d'exécution du job batch MISSING_OUT (format HH:mm)
+  missingOutDetectionWindow?: number; // Fenêtre de détection en heures pour shifts de nuit
+  allowMissingOutForRemoteWork?: boolean; // Autoriser MISSING_OUT pour télétravail
+  allowMissingOutForMissions?: boolean; // Autoriser MISSING_OUT pour missions
+  missingOutReminderEnabled?: boolean; // Activer les rappels MISSING_OUT
+  missingOutReminderDelay?: number; // Délai en minutes avant le rappel MISSING_OUT
+  missingOutReminderBeforeClosing?: number; // Rappel X minutes avant fermeture du shift
+  enableMissingOutPatternDetection?: boolean; // Activer la détection de patterns d'oubli MISSING_OUT
+  missingOutPatternAlertThreshold?: number; // Seuil d'alerte pour patterns d'oubli MISSING_OUT
+
   createdAt: string;
   updatedAt: string;
 }
@@ -93,12 +131,27 @@ export interface UpdateTenantSettingsDto {
   workingDays?: number[];
 
   // Time Policy
+  workDaysPerWeek?: number;
+  maxWeeklyHours?: number;
   lateToleranceEntry?: number;
   earlyToleranceExit?: number;
+  breakDuration?: number;
   overtimeRounding?: number;
-  overtimeMinimumThreshold?: number; // Seuil minimum en minutes pour créer automatiquement un Overtime
+  overtimeMinimumThreshold?: number;
+  overtimeRate?: number;
+  nightShiftRate?: number;
+  nightShiftStart?: string;
+  nightShiftEnd?: string;
+
+  // Alerts
+  alertWeeklyHoursExceeded?: boolean;
+  alertInsufficientRest?: boolean;
+  alertNightWorkRepetitive?: boolean;
+  alertMinimumStaffing?: boolean;
 
   // Leave Rules
+  annualLeaveDays?: number;
+  leaveApprovalLevels?: number;
   twoLevelWorkflow?: boolean;
   anticipatedLeave?: boolean;
 
@@ -107,32 +160,68 @@ export interface UpdateTenantSettingsDto {
   sfptExport?: boolean;
 
   // Attendance Settings
-  requireBreakPunch?: boolean; // Activer/désactiver le pointage des repos (pauses)
-  requireScheduleForAttendance?: boolean; // Exiger un planning ou shift par défaut pour créer un pointage
-  recoveryExpiryDays?: number; // Nombre de jours avant expiration de la récupération
-  recoveryConversionRate?: number; // Taux de conversion heures supplémentaires -> récupération
-  dailyWorkingHours?: number; // Nombre d'heures équivalent à une journée normale
-  temporaryMatriculeExpiryDays?: number; // Nombre de jours avant expiration du matricule temporaire
-  
+  requireBreakPunch?: boolean;
+  requireScheduleForAttendance?: boolean;
+  recoveryExpiryDays?: number;
+  recoveryConversionRate?: number;
+  dailyWorkingHours?: number;
+  temporaryMatriculeExpiryDays?: number;
+
   // Absence Detection Settings
-  absencePartialThreshold?: number; // Heures de retard pour considérer absence partielle
-  absenceDetectionTime?: string; // Heure d'exécution du job de détection d'absences (format HH:mm)
-  
+  absencePartialThreshold?: number;
+  absenceDetectionTime?: string;
+
   // Insufficient Rest Detection Settings
-  enableInsufficientRestDetection?: boolean; // Activer/désactiver la détection de repos insuffisant
-  minimumRestHours?: number; // Nombre d'heures légales de repos minimum requis entre deux shifts
-  minimumRestHoursNightShift?: number; // Nombre d'heures légales de repos minimum pour shift de nuit
+  enableInsufficientRestDetection?: boolean;
+  minimumRestHours?: number;
+  minimumRestHoursNightShift?: number;
 
   // Holiday Overtime Settings
-  holidayOvertimeEnabled?: boolean; // Activer la majoration des heures travaillées les jours fériés
-  holidayOvertimeRate?: number; // Taux de majoration pour les heures travaillées les jours fériés (défaut: 2.0 = double)
-  holidayOvertimeAsNormalHours?: boolean; // Calculer les heures travaillées les jours fériés comme heures normales sans majoration
+  holidayOvertimeEnabled?: boolean;
+  holidayOvertimeRate?: number;
+  holidayOvertimeAsNormalHours?: boolean;
 
   // MISSING_IN/OUT Notification Settings
-  missingInDetectionWindowMinutes?: number; // Fenêtre de détection MISSING_IN en minutes après début du shift (défaut: 30 min)
-  missingInNotificationFrequencyMinutes?: number; // Fréquence du job de notification MISSING_IN en minutes (défaut: 15 min)
-  missingOutDetectionWindowMinutes?: number; // Fenêtre de détection MISSING_OUT en minutes après fin du shift (défaut: 120 min)
-  missingOutNotificationFrequencyMinutes?: number; // Fréquence du job de notification MISSING_OUT en minutes (défaut: 15 min)
+  missingInDetectionWindowMinutes?: number;
+  missingInNotificationFrequencyMinutes?: number;
+  missingOutDetectionWindowMinutes?: number;
+  missingOutNotificationFrequencyMinutes?: number;
+
+  // Late Notification Settings
+  lateNotificationFrequencyMinutes?: number;
+  lateNotificationThresholdMinutes?: number;
+
+  // Absence Notification Settings
+  absenceNotificationFrequencyMinutes?: number;
+  absenceDetectionBufferMinutes?: number;
+  absencePartialNotificationFrequencyMinutes?: number;
+
+  // DOUBLE_IN Detection Settings
+  doubleInDetectionWindow?: number;
+  orphanInThreshold?: number;
+  doublePunchToleranceMinutes?: number;
+  enableDoubleInPatternDetection?: boolean;
+  doubleInPatternAlertThreshold?: number;
+
+  // MISSING_IN Advanced Settings
+  allowMissingInForRemoteWork?: boolean;
+  allowMissingInForMissions?: boolean;
+  missingInReminderEnabled?: boolean;
+  missingInReminderDelay?: number;
+  missingInReminderMaxPerDay?: number;
+  enableMissingInPatternDetection?: boolean;
+  missingInPatternAlertThreshold?: number;
+
+  // MISSING_OUT Advanced Settings
+  missingOutDetectionTime?: string;
+  missingOutDetectionWindow?: number;
+  allowMissingOutForRemoteWork?: boolean;
+  allowMissingOutForMissions?: boolean;
+  missingOutReminderEnabled?: boolean;
+  missingOutReminderDelay?: number;
+  missingOutReminderBeforeClosing?: number;
+  enableMissingOutPatternDetection?: boolean;
+  missingOutPatternAlertThreshold?: number;
 }
 
 export const TenantsAPI = {

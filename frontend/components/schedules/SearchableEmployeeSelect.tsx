@@ -23,6 +23,7 @@ interface SearchableEmployeeSelectProps {
   label?: string;
   required?: boolean;
   error?: string;
+  excludeEmployeeId?: string;
 }
 
 export function SearchableEmployeeSelect({
@@ -34,15 +35,18 @@ export function SearchableEmployeeSelect({
   label,
   required = false,
   error,
+  excludeEmployeeId,
 }: SearchableEmployeeSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filtrer les employés selon la recherche (nom, prénom ou matricule)
   const filteredEmployees = useMemo(() => {
-    // Filtrer d'abord les employés actifs
-    const activeEmployees = employees.filter((emp) => emp.isActive !== false);
-    
+    // Filtrer d'abord les employés actifs et exclure l'employé spécifié
+    const activeEmployees = employees.filter((emp) =>
+      emp.isActive !== false && emp.id !== excludeEmployeeId
+    );
+
     if (!searchQuery.trim()) {
       return activeEmployees;
     }
@@ -53,7 +57,7 @@ export function SearchableEmployeeSelect({
       const matricule = (emp.matricule || '').toLowerCase();
       const firstName = (emp.firstName || '').toLowerCase();
       const lastName = (emp.lastName || '').toLowerCase();
-      
+
       return (
         fullName.includes(query) ||
         matricule.includes(query) ||
@@ -61,7 +65,7 @@ export function SearchableEmployeeSelect({
         lastName.includes(query)
       );
     });
-  }, [employees, searchQuery]);
+  }, [employees, searchQuery, excludeEmployeeId]);
 
   // Trouver l'employé sélectionné
   const selectedEmployee = useMemo(() => {

@@ -414,10 +414,10 @@ export default function LeavesPage() {
   const { data: departmentsData } = useDepartments();
   const { data: sitesData } = useSites();
   
-  // Normalize data structures - handle both array and object with data property
-  const sites = Array.isArray(sitesData) ? sitesData : (sitesData?.data || sitesData || []);
-  const departments = Array.isArray(departmentsData) ? departmentsData : (departmentsData?.data || departmentsData || []);
-  const leaveTypes = Array.isArray(leaveTypesData) ? leaveTypesData : (leaveTypesData?.data || leaveTypesData || []);
+  // Normalize data structures
+  const sites = sitesData?.data || sitesData || [];
+  const departments = departmentsData || [];
+  const leaveTypes = leaveTypesData?.data || leaveTypesData || [];
 
   // Mutations
   const approveMutation = useApproveLeave();
@@ -971,7 +971,7 @@ export default function LeavesPage() {
                                   </>
                                 )}
                               </Button>
-                              {(isManager || isHRAdmin || (user?.employeeId === leave.employeeId && leave.status === 'PENDING')) && (
+                              {(isManager || isHRAdmin || ((user as any)?.employeeId === leave.employeeId && leave.status === 'PENDING')) && (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1004,7 +1004,7 @@ export default function LeavesPage() {
                           ) : (
                             <div className="flex items-center gap-2">
                               <span className="text-xs text-gray-400">Aucun document</span>
-                              {(isManager || isHRAdmin || (user?.employeeId === leave.employeeId && leave.status === 'PENDING')) && (
+                              {(isManager || isHRAdmin || ((user as any)?.employeeId === leave.employeeId && leave.status === 'PENDING')) && (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1499,7 +1499,7 @@ export default function LeavesPage() {
                             </>
                           )}
                         </Button>
-                        {(isManager || isHRAdmin || (user?.employeeId === selectedLeave.employeeId && selectedLeave.status === 'PENDING')) && (
+                        {(isManager || isHRAdmin || ((user as any)?.employeeId === selectedLeave.employeeId && selectedLeave.status === 'PENDING')) && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -1534,7 +1534,7 @@ export default function LeavesPage() {
                 ) : (
                   <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <p className="text-sm text-gray-500 mb-3">Aucun document attaché</p>
-                    {(isManager || isHRAdmin || (user?.employeeId === selectedLeave.employeeId && selectedLeave.status === 'PENDING')) && (
+                    {(isManager || isHRAdmin || ((user as any)?.employeeId === selectedLeave.employeeId && selectedLeave.status === 'PENDING')) && (
                       <Button
                         variant="outline"
                         size="sm"

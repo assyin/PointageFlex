@@ -655,8 +655,8 @@ export declare class ReportsService {
                         createdAt: Date;
                         updatedAt: Date;
                         tenantId: string;
-                        name: string;
                         code: string | null;
+                        name: string;
                         description: string | null;
                         managerId: string | null;
                     };
@@ -665,8 +665,8 @@ export declare class ReportsService {
                         createdAt: Date;
                         updatedAt: Date;
                         tenantId: string;
-                        name: string;
                         code: string | null;
+                        name: string;
                         description: string | null;
                         category: string | null;
                     };
@@ -674,13 +674,13 @@ export declare class ReportsService {
                         id: string;
                         createdAt: Date;
                         updatedAt: Date;
-                        tenantId: string;
                         phone: string | null;
-                        name: string;
-                        code: string | null;
                         address: string | null;
                         timezone: string | null;
                         city: string | null;
+                        tenantId: string;
+                        code: string | null;
+                        name: string;
                         departmentId: string | null;
                         managerId: string | null;
                         latitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -692,8 +692,8 @@ export declare class ReportsService {
                         createdAt: Date;
                         updatedAt: Date;
                         tenantId: string;
-                        name: string;
                         code: string;
+                        name: string;
                         description: string | null;
                         managerId: string | null;
                         rotationEnabled: boolean;
@@ -703,14 +703,14 @@ export declare class ReportsService {
                     id: string;
                     createdAt: Date;
                     updatedAt: Date;
-                    tenantId: string;
                     email: string | null;
+                    phone: string | null;
+                    address: string | null;
+                    tenantId: string;
                     firstName: string;
                     lastName: string;
-                    phone: string | null;
                     isActive: boolean;
                     userId: string | null;
-                    address: string | null;
                     matricule: string;
                     dateOfBirth: Date | null;
                     photo: string | null;
@@ -784,4 +784,5 @@ export declare class ReportsService {
             lastName: string;
         };
     }[]>;
+    private calculateAbsencesForDay;
 }

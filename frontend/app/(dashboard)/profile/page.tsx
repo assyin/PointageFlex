@@ -217,7 +217,7 @@ export default function ProfilePage() {
 
   const handleSavePreferences = async () => {
     try {
-      await updatePreferencesMutation.mutateAsync(userPreferences);
+      await updatePreferencesMutation.mutateAsync(userPreferences as any);
     } catch (error: any) {
       if (error?.response?.data?.message) {
         toast.error(error.response.data.message);
@@ -287,7 +287,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <ProtectedRoute public>
+    <ProtectedRoute>
       <DashboardLayout title="Mon Profil" subtitle="Gérez vos informations personnelles, sécurité et préférences">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
@@ -458,7 +458,7 @@ export default function ProfilePage() {
                           {profile.roles.map((role: any) => (
                             <Badge
                               key={role.id}
-                              variant={role.isSystem ? 'default' : 'secondary'}
+                              variant={role.isSystem ? 'default' : 'info'}
                             >
                               {role.name}
                             </Badge>

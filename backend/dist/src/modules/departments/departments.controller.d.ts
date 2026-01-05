@@ -18,8 +18,8 @@ export declare class DepartmentsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     }>;
@@ -37,8 +37,8 @@ export declare class DepartmentsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     })[]>;
@@ -55,9 +55,6 @@ export declare class DepartmentsController {
         }[];
     }>;
     findOne(id: string, tenantId: string): Promise<{
-        _count: {
-            employees: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -66,6 +63,9 @@ export declare class DepartmentsController {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+        };
         manager: {
             id: string;
             firstName: string;
@@ -76,8 +76,8 @@ export declare class DepartmentsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     }>;
@@ -95,8 +95,8 @@ export declare class DepartmentsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     }>;
@@ -105,8 +105,8 @@ export declare class DepartmentsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         managerId: string | null;
     }>;

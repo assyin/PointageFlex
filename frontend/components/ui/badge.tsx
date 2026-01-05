@@ -2,7 +2,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: 'success' | 'warning' | 'danger' | 'info' | 'shift-matin' | 'shift-soir' | 'shift-nuit' | 'default';
+  variant?: 'success' | 'warning' | 'danger' | 'info' | 'shift-matin' | 'shift-soir' | 'shift-nuit' | 'default' | 'outline' | 'secondary';
 }
 
 const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
@@ -16,6 +16,8 @@ const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
       'shift-soir': 'bg-shift-soir text-white',
       'shift-nuit': 'bg-shift-nuit text-white',
       default: 'bg-gray-200 text-text-primary',
+      outline: 'bg-transparent border border-gray-300 text-gray-700',
+      secondary: 'bg-gray-100 text-gray-600',
     };
 
     return (

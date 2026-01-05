@@ -18,8 +18,8 @@ export declare class TeamsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
@@ -27,16 +27,16 @@ export declare class TeamsController {
     }>;
     findAll(user: any, page?: string, limit?: string, search?: string, rotationEnabled?: string): Promise<{
         data: ({
-            _count: {
-                employees: number;
-                schedules: number;
-            };
             employees: {
                 id: string;
                 firstName: string;
                 lastName: string;
                 matricule: string;
             }[];
+            _count: {
+                employees: number;
+                schedules: number;
+            };
             manager: {
                 id: string;
                 firstName: string;
@@ -48,8 +48,8 @@ export declare class TeamsController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             description: string | null;
             managerId: string | null;
             rotationEnabled: boolean;
@@ -63,10 +63,6 @@ export declare class TeamsController {
         };
     }>;
     findOne(user: any, id: string): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -75,13 +71,17 @@ export declare class TeamsController {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
@@ -99,8 +99,8 @@ export declare class TeamsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
@@ -111,18 +111,14 @@ export declare class TeamsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
         rotationCycleDays: number | null;
     }>;
     addMember(user: any, id: string, dto: AddMemberDto): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -131,23 +127,23 @@ export declare class TeamsController {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
         rotationCycleDays: number | null;
     }>;
     removeMember(user: any, id: string, employeeId: string): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -156,23 +152,23 @@ export declare class TeamsController {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
         rotationCycleDays: number | null;
     }>;
     addMembersBulk(user: any, id: string, dto: BulkMembersDto): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -181,23 +177,23 @@ export declare class TeamsController {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;
         rotationCycleDays: number | null;
     }>;
     removeMembersBulk(user: any, id: string, dto: BulkMembersDto): Promise<{
-        _count: {
-            employees: number;
-            schedules: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -206,13 +202,17 @@ export declare class TeamsController {
             matricule: string;
             position: string;
         }[];
+        _count: {
+            employees: number;
+            schedules: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
         managerId: string | null;
         rotationEnabled: boolean;

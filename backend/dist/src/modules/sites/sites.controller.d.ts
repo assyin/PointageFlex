@@ -19,13 +19,13 @@ export declare class SitesController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
         phone: string | null;
-        name: string;
-        code: string | null;
         address: string | null;
         timezone: string | null;
         city: string | null;
+        tenantId: string;
+        code: string | null;
+        name: string;
         departmentId: string | null;
         managerId: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -42,13 +42,13 @@ export declare class SitesController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             phone: string | null;
-            name: string;
-            code: string | null;
             address: string | null;
             timezone: string | null;
             city: string | null;
+            tenantId: string;
+            code: string | null;
+            name: string;
             departmentId: string | null;
             managerId: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -58,11 +58,6 @@ export declare class SitesController {
         total: number;
     }>;
     findOne(user: any, id: string): Promise<{
-        _count: {
-            attendance: number;
-            devices: number;
-            employees: number;
-        };
         devices: {
             id: string;
             name: string;
@@ -74,6 +69,11 @@ export declare class SitesController {
             lastName: string;
             matricule: string;
         }[];
+        _count: {
+            attendance: number;
+            devices: number;
+            employees: number;
+        };
         manager: {
             id: string;
             firstName: string;
@@ -84,13 +84,13 @@ export declare class SitesController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
         phone: string | null;
-        name: string;
-        code: string | null;
         address: string | null;
         timezone: string | null;
         city: string | null;
+        tenantId: string;
+        code: string | null;
+        name: string;
         departmentId: string | null;
         managerId: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -112,13 +112,13 @@ export declare class SitesController {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        tenantId: string;
         phone: string | null;
-        name: string;
-        code: string | null;
         address: string | null;
         timezone: string | null;
         city: string | null;
+        tenantId: string;
+        code: string | null;
+        name: string;
         departmentId: string | null;
         managerId: string | null;
         latitude: import("@prisma/client/runtime/library").Decimal | null;

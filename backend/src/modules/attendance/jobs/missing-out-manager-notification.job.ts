@@ -191,6 +191,12 @@ export class MissingOutManagerNotificationJob {
   ) {
     const { employee, timestamp: inTimestamp } = session;
 
+    // Vérifier que l'employé et son user existent
+    if (!employee || !employee.user) {
+      this.logger.warn(`Session ${session.id}: employé ou user manquant, skip`);
+      return;
+    }
+
     // ÉTAPE 1: Filtrer employés exclus (congé, mission, télétravail)
     const isExcluded = await this.isEmployeeExcluded(
       tenantId,
@@ -212,7 +218,7 @@ export class MissingOutManagerNotificationJob {
 
     if (!schedule) {
       this.logger.warn(
-        `Pas de schedule trouvé pour ${employee.firstName} ${employee.lastName}, skip`,
+        `Pas de schedule trouvé pour ${employee.user.firstName} ${employee.user.lastName}, skip`,
       );
       return;
     }
@@ -256,7 +262,7 @@ export class MissingOutManagerNotificationJob {
 
     if (!manager || !manager.email) {
       this.logger.warn(
-        `Pas de manager avec email pour ${employee.firstName} ${employee.lastName}`,
+        `Pas de manager avec email pour ${employee.user.firstName} ${employee.user.lastName}`,
       );
       return;
     }
@@ -274,6 +280,7 @@ export class MissingOutManagerNotificationJob {
 
   /**
    * Vérifie si l'employé doit être exclu de la détection
+   * Supporte: congés, missions, télétravail selon configuration
    */
   private async isEmployeeExcluded(
     tenantId: string,
@@ -281,7 +288,7 @@ export class MissingOutManagerNotificationJob {
     date: Date,
     settings: any,
   ): Promise<boolean> {
-    // Vérifier congé approuvé
+    // Vérifier congé approuvé (avec type pour distinguer télétravail/mission)
     const leave = await this.prisma.leave.findFirst({
       where: {
         tenantId,
@@ -290,15 +297,45 @@ export class MissingOutManagerNotificationJob {
         startDate: { lte: date },
         endDate: { gte: date },
       },
+      include: {
+        leaveType: {
+          select: {
+            code: true,
+            name: true,
+          },
+        },
+      },
     });
 
     if (leave) {
+      const leaveTypeCode = leave.leaveType?.code?.toUpperCase() || '';
+      const leaveTypeName = leave.leaveType?.name?.toUpperCase() || '';
+
+      // Vérifier si c'est du télétravail
+      const isTeletravail = leaveTypeCode.includes('TELETRAVAIL') ||
+                           leaveTypeCode.includes('REMOTE') ||
+                           leaveTypeName.includes('TÉLÉTRAVAIL') ||
+                           leaveTypeName.includes('TELETRAVAIL') ||
+                           leaveTypeName.includes('REMOTE');
+
+      if (isTeletravail) {
+        // Si allowMissingOutForRemoteWork = true, exclure (pas de notification)
+        return settings?.allowMissingOutForRemoteWork !== false;
+      }
+
+      // Vérifier si c'est une mission
+      const isMission = leaveTypeCode.includes('MISSION') ||
+                       leaveTypeName.includes('MISSION') ||
+                       leaveTypeName.includes('DÉPLACEMENT');
+
+      if (isMission) {
+        // Si allowMissingOutForMissions = true, exclure (pas de notification)
+        return settings?.allowMissingOutForMissions !== false;
+      }
+
+      // Autre type de congé (vacances, maladie, etc.) → toujours exclure
       return true;
     }
-
-    // TODO: Vérifier mission si allowMissingOutForMissions est false
-    // TODO: Vérifier télétravail si allowMissingOutForRemoteWork est false
-    // TODO: Vérifier présence externe (GPS/mobile)
 
     return false;
   }
@@ -353,6 +390,13 @@ export class MissingOutManagerNotificationJob {
     const inMinutes = inTimestamp.getUTCMinutes();
     const inTimeInMinutes = inHour * 60 + inMinutes;
 
+    // Récupérer le timezone du tenant
+    const tenant = await this.prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { timezone: true },
+    });
+    const timezoneOffset = this.getTimezoneOffset(tenant?.timezone || 'UTC', inTimestamp);
+
     let closestSchedule = schedules[0];
     let smallestDifference = Infinity;
 
@@ -363,8 +407,8 @@ export class MissingOutManagerNotificationJob {
 
       const shiftStartInMinutes = startTime.hours * 60 + startTime.minutes;
 
-      // Ajuster pour timezone (simplifié: Africa/Casablanca = UTC+1)
-      const shiftStartInMinutesUTC = shiftStartInMinutes - 60;
+      // Ajuster pour timezone dynamique (supporte tous les timezones IANA + DST)
+      const shiftStartInMinutesUTC = shiftStartInMinutes - (timezoneOffset * 60);
 
       const difference = Math.abs(inTimeInMinutes - shiftStartInMinutesUTC);
 
@@ -425,12 +469,58 @@ export class MissingOutManagerNotificationJob {
 
   /**
    * Détermine si un shift est un shift de nuit
+   * Critères améliorés:
+   * 1. Traverse minuit (startTime > endTime)
+   * 2. Commence après 20h
+   * 3. Finit avant 8h avec début tardif
+   * 4. Majorité des heures dans la période nocturne (22h-6h)
    */
   private isNightShift(
     startTime: { hours: number; minutes: number },
     endTime: { hours: number; minutes: number },
   ): boolean {
-    return startTime.hours >= 20 || endTime.hours <= 8;
+    const startMinutes = startTime.hours * 60 + startTime.minutes;
+    const endMinutes = endTime.hours * 60 + endTime.minutes;
+
+    // Traverse minuit
+    if (startMinutes > endMinutes) {
+      return true;
+    }
+
+    // Commence après 20h
+    if (startTime.hours >= 20) {
+      return true;
+    }
+
+    // Finit avant 8h avec début tardif
+    if (endTime.hours <= 8 && endTime.hours > 0 && startTime.hours >= 18) {
+      return true;
+    }
+
+    // Majorité dans période nocturne (22h-6h)
+    const nightPeriodStart = 22 * 60;
+    const nightPeriodEnd = 6 * 60;
+
+    let nightMinutes = 0;
+    let totalMinutes = 0;
+
+    if (startMinutes <= endMinutes) {
+      totalMinutes = endMinutes - startMinutes;
+      if (endMinutes > nightPeriodStart) {
+        nightMinutes += Math.min(endMinutes, 24 * 60) - Math.max(startMinutes, nightPeriodStart);
+      }
+      if (startMinutes < nightPeriodEnd) {
+        nightMinutes += Math.min(endMinutes, nightPeriodEnd) - startMinutes;
+      }
+    } else {
+      totalMinutes = (24 * 60 - startMinutes) + endMinutes;
+      if (startMinutes < 24 * 60) {
+        nightMinutes += 24 * 60 - Math.max(startMinutes, nightPeriodStart);
+      }
+      nightMinutes += Math.min(endMinutes, nightPeriodEnd);
+    }
+
+    return totalMinutes > 0 && (nightMinutes / totalMinutes) >= 0.5;
   }
 
   /**
@@ -439,6 +529,47 @@ export class MissingOutManagerNotificationJob {
   private parseTimeString(timeString: string): { hours: number; minutes: number } {
     const [hours, minutes] = timeString.split(':').map(Number);
     return { hours: hours || 0, minutes: minutes || 0 };
+  }
+
+  /**
+   * Extrait l'offset UTC d'un timezone (en heures) - Version dynamique
+   */
+  private getTimezoneOffset(timezone: string, referenceDate?: Date): number {
+    if (!timezone || timezone === 'UTC') {
+      return 0;
+    }
+
+    try {
+      const date = referenceDate || new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        hour: 'numeric',
+        hourCycle: 'h23',
+        timeZoneName: 'shortOffset',
+      });
+
+      const parts = formatter.formatToParts(date);
+      const offsetPart = parts.find(p => p.type === 'timeZoneName');
+
+      if (offsetPart?.value) {
+        const match = offsetPart.value.match(/GMT([+-]?)(\d+)(?::(\d+))?/);
+        if (match) {
+          const sign = match[1] === '-' ? -1 : 1;
+          const hours = parseInt(match[2], 10);
+          const minutes = parseInt(match[3] || '0', 10);
+          return sign * (hours + minutes / 60);
+        }
+      }
+
+      // Fallback
+      const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+      const diffMs = tzDate.getTime() - utcDate.getTime();
+      return Math.round((diffMs / (1000 * 60 * 60)) * 2) / 2;
+    } catch (error) {
+      this.logger.warn(`Timezone invalide: ${timezone}, utilisant UTC`);
+      return 0;
+    }
   }
 
   /**
@@ -515,7 +646,7 @@ export class MissingOutManagerNotificationJob {
     // Préparer les données pour le template
     const templateData = {
       managerName: `${manager.firstName} ${manager.lastName}`,
-      employeeName: `${employee.firstName} ${employee.lastName}`,
+      employeeName: `${employee.user.firstName} ${employee.user.lastName}`,
       sessionDate: sessionDate.toLocaleDateString('fr-FR'),
       inTime: inTimestamp.toLocaleTimeString('fr-FR', {
         hour: '2-digit',
@@ -546,7 +677,7 @@ export class MissingOutManagerNotificationJob {
     );
 
     this.logger.log(
-      `📧 Email MISSING_OUT envoyé à ${manager.email} pour ${employee.firstName} ${employee.lastName}`,
+      `📧 Email MISSING_OUT envoyé à ${manager.email} pour ${employee.user.firstName} ${employee.user.lastName}`,
     );
 
     // Logger dans la table d'audit
@@ -562,7 +693,7 @@ export class MissingOutManagerNotificationJob {
     });
 
     this.logger.log(
-      `✅ Notification MISSING_OUT enregistrée pour ${employee.firstName} ${employee.lastName}`,
+      `✅ Notification MISSING_OUT enregistrée pour ${employee.user.firstName} ${employee.user.lastName}`,
     );
   }
 }

@@ -658,28 +658,35 @@ export class EmailAdminService {
       },
       {
         code: 'ABSENCE_TECHNICAL',
-        name: 'Absence technique',
-        description: 'Notification envoyée quand des tentatives de pointage ont échoué',
-        subject: '[Pointage] Absence technique détectée – Urgence',
+        name: 'Anomalie technique',
+        description: 'Notification envoyée quand une anomalie technique de pointage est détectée',
+        subject: '[Pointage] Anomalie technique détectée – {{severity}}',
         category: 'notification',
-        variables: ['managerName', 'employeeName', 'sessionDate', 'shiftStart', 'failedAttemptsCount'],
+        variables: ['managerName', 'employeeName', 'sessionDate', 'occurredAt', 'reason', 'deviceName', 'severity'],
         htmlContent: `
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background:#7c3aed;color:white;padding:20px;text-align:center}.content{padding:20px;background:#f9fafb}.footer{padding:20px;text-align:center;font-size:12px;color:#6b7280}</style></head>
+<head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background:#7c3aed;color:white;padding:20px;text-align:center}.content{padding:20px;background:#f9fafb}.footer{padding:20px;text-align:center;font-size:12px;color:#6b7280}.severity-high{color:#dc2626;font-weight:bold}.severity-medium{color:#f59e0b;font-weight:bold}.severity-low{color:#3b82f6}</style></head>
 <body>
 <div class="container">
-  <div class="header"><h1>🔧 Absence Technique</h1></div>
+  <div class="header"><h1>🔧 Anomalie Technique</h1></div>
   <div class="content">
     <p>Bonjour <strong>{{managerName}}</strong>,</p>
-    <p>Une absence technique a été détectée pour l'employé <strong>{{employeeName}}</strong>.</p>
+    <p>Une anomalie technique a été détectée pour l'employé <strong>{{employeeName}}</strong>.</p>
     <ul>
       <li><strong>Date:</strong> {{sessionDate}}</li>
-      <li><strong>Shift prévu:</strong> {{shiftStart}}</li>
-      <li><strong>Tentatives échouées:</strong> {{failedAttemptsCount}}</li>
+      <li><strong>Heure de l'incident:</strong> {{occurredAt}}</li>
+      <li><strong>Terminal concerné:</strong> {{deviceName}}</li>
+      <li><strong>Sévérité:</strong> <span class="severity-{{severity}}">{{severity}}</span></li>
     </ul>
-    <p><strong>Cause probable:</strong> Problème matériel (lecteur de carte, biométrie) ou réseau.</p>
-    <p><strong>Action urgente:</strong> Vérifier le matériel de pointage et la présence de l'employé.</p>
+    <p><strong>Description:</strong> {{reason}}</p>
+    <p><strong>Cause probable:</strong> Problème matériel (lecteur, biométrie), coupure réseau ou électrique.</p>
+    <p><strong>Actions recommandées:</strong></p>
+    <ol>
+      <li>Vérifier l'état du terminal de pointage</li>
+      <li>Contacter l'employé pour confirmer sa présence</li>
+      <li>Créer une correction manuelle si nécessaire</li>
+    </ol>
   </div>
   <div class="footer"><p>PointaFlex - Système de Gestion de Pointage</p></div>
 </div>
@@ -709,6 +716,39 @@ export class EmailAdminService {
       <li><strong>Statut:</strong> Aucun pointage enregistré</li>
     </ul>
     <p><strong>Action urgente:</strong> Veuillez contacter l'employé et vérifier sa situation.</p>
+  </div>
+  <div class="footer"><p>PointaFlex - Système de Gestion de Pointage</p></div>
+</div>
+</body>
+</html>`,
+      },
+      {
+        code: 'OVERTIME_PENDING',
+        name: 'Heures Supplémentaires en Attente',
+        description: 'Récapitulatif des demandes d\'heures supplémentaires en attente d\'approbation',
+        subject: '[Pointage] {{pendingCount}} demande(s) d\'heures supplémentaires en attente',
+        category: 'notification',
+        variables: ['managerName', 'pendingCount', 'totalHours', 'overtimesList', 'approvalUrl'],
+        htmlContent: `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><style>body{font-family:Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background:#0052CC;color:white;padding:20px;text-align:center}.content{padding:20px;background:#f9fafb}.stats{display:flex;justify-content:space-around;margin:20px 0}.stat-box{background:white;padding:15px;border-radius:8px;text-align:center;flex:1;margin:0 10px;box-shadow:0 2px 4px rgba(0,0,0,0.1)}.stat-number{font-size:28px;font-weight:bold;color:#0052CC}.stat-label{color:#666;font-size:13px}.overtime-list{background:white;padding:15px;border-radius:8px;margin:20px 0}.overtime-list pre{white-space:pre-wrap;font-family:inherit;margin:0;color:#555}.cta-button{display:inline-block;background:#0052CC;color:white;padding:12px 25px;text-decoration:none;border-radius:8px;font-weight:bold;margin-top:15px}.footer{padding:20px;text-align:center;font-size:12px;color:#6b7280}</style></head>
+<body>
+<div class="container">
+  <div class="header"><h1>📋 Heures Supplémentaires en Attente</h1></div>
+  <div class="content">
+    <p>Bonjour <strong>{{managerName}}</strong>,</p>
+    <p>Vous avez des demandes d'heures supplémentaires en attente d'approbation :</p>
+    <div class="stats">
+      <div class="stat-box"><div class="stat-number">{{pendingCount}}</div><div class="stat-label">Demande(s)</div></div>
+      <div class="stat-box"><div class="stat-number">{{totalHours}}h</div><div class="stat-label">Total heures</div></div>
+    </div>
+    <div class="overtime-list">
+      <h3 style="margin-top:0;color:#0052CC;">Détail des demandes :</h3>
+      <pre>{{overtimesList}}</pre>
+    </div>
+    <p style="text-align:center;"><a href="{{approvalUrl}}" class="cta-button">Gérer les demandes</a></p>
+    <p style="margin-top:20px;color:#666;font-size:14px;">Veuillez approuver ou rejeter ces demandes dans les meilleurs délais.</p>
   </div>
   <div class="footer"><p>PointaFlex - Système de Gestion de Pointage</p></div>
 </div>

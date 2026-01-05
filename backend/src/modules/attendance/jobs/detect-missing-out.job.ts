@@ -18,6 +18,48 @@ export class DetectMissingOutJob {
   }
 
   /**
+   * Extrait l'offset UTC d'un timezone (en heures) - Version dynamique
+   * Utilise l'API JavaScript Intl pour calculer l'offset réel (supporte DST)
+   */
+  private getTimezoneOffset(timezone: string, referenceDate?: Date): number {
+    if (!timezone || timezone === 'UTC') {
+      return 0;
+    }
+
+    try {
+      const date = referenceDate || new Date();
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        hour: 'numeric',
+        hourCycle: 'h23',
+        timeZoneName: 'shortOffset',
+      });
+
+      const parts = formatter.formatToParts(date);
+      const offsetPart = parts.find(p => p.type === 'timeZoneName');
+
+      if (offsetPart?.value) {
+        const match = offsetPart.value.match(/GMT([+-]?)(\d+)(?::(\d+))?/);
+        if (match) {
+          const sign = match[1] === '-' ? -1 : 1;
+          const hours = parseInt(match[2], 10);
+          const minutes = parseInt(match[3] || '0', 10);
+          return sign * (hours + minutes / 60);
+        }
+      }
+
+      // Fallback
+      const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+      const diffMs = tzDate.getTime() - utcDate.getTime();
+      return Math.round((diffMs / (1000 * 60 * 60)) * 2) / 2;
+    } catch (error) {
+      this.logger.warn(`Timezone invalide: ${timezone}, utilisant UTC`);
+      return 0;
+    }
+  }
+
+  /**
    * Job batch quotidien pour détecter les MISSING_OUT (sessions ouvertes sans OUT)
    * Exécution par défaut à minuit chaque jour
    * L'heure peut être configurée via TenantSettings.missingOutDetectionTime
@@ -165,8 +207,8 @@ export class DetectMissingOutJob {
               select: { timezone: true },
             });
 
-            // Extraire l'offset (ex: "UTC" = 0, "Africa/Casablanca" = +1)
-            const timezoneOffset = tenant?.timezone === 'UTC' ? 0 : 1; // Simplifié
+            // Extraire l'offset dynamiquement (supporte tous les timezones IANA + DST)
+            const timezoneOffset = this.getTimezoneOffset(tenant?.timezone || 'UTC', inRecord.timestamp);
 
             for (const sched of schedules) {
               const startTime = this.parseTimeString(

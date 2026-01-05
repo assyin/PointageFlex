@@ -9,183 +9,186 @@ datasource db {
 }
 
 model Tenant {
-  id                         String                      @id @default(uuid())
-  createdAt                  DateTime                    @default(now())
-  updatedAt                  DateTime                    @updatedAt
-  companyName                String
-  slug                       String                      @unique
-  logo                       String?
-  email                      String
-  phone                      String?
-  address                    String?
-  country                    String                      @default("MA")
-  timezone                   String                      @default("Africa/Casablanca")
-  city                       String?
-  displayName                String?
-  hrEmail                    String?
-  language                   String                      @default("fr")
-  legalName                  String?
-  attendance                 Attendance[]
-  attendanceAttempts         AttendanceAttempt[]
-  devices                    AttendanceDevice[]
-  auditLogs                  AuditLog[]
-  departments                Department[]
-  positions                  Position[]
-  employees                  Employee[]
-  holidays                   Holiday[]
-  leaves                     Leave[]
-  leaveTypes                 LeaveType[]
-  notifications              Notification[]
-  overtime                   Overtime[]
-  recovery                   Recovery[]
-  schedules                  Schedule[]
-  shifts                     Shift[]
-  shiftReplacements          ShiftReplacement[]
-  sites                      Site[]
-  teams                      Team[]
-  siteManagers               SiteManager[]
-  settings                   TenantSettings?
-  users                      User[]
-  userTenantRoles            UserTenantRole[]
-  roles                      Role[] // Rôles personnalisés par tenant (optionnel)
-  reportHistory              ReportHistory[]
-  terminalMatriculeMappings         TerminalMatriculeMapping[]
-  RecoveryDay                       RecoveryDay[]
-  missingOutNotificationLogs        MissingOutNotificationLog[]
-  missingInNotificationLogs         MissingInNotificationLog[]
-  lateNotificationLogs              LateNotificationLog[]
-  absenceNotificationLogs           AbsenceNotificationLog[]
-  absencePartialNotificationLogs    AbsencePartialNotificationLog[]
-  absenceTechnicalNotificationLogs  AbsenceTechnicalNotificationLog[]
-  emailConfig                       EmailConfig?
-  emailTemplates                    EmailTemplate[]
-  emailLogs                         EmailLog[]
+  id                               String                            @id @default(uuid())
+  createdAt                        DateTime                          @default(now())
+  updatedAt                        DateTime                          @updatedAt
+  companyName                      String
+  slug                             String                            @unique
+  logo                             String?
+  email                            String
+  phone                            String?
+  address                          String?
+  country                          String                            @default("MA")
+  timezone                         String                            @default("Africa/Casablanca")
+  city                             String?
+  displayName                      String?
+  hrEmail                          String?
+  language                         String                            @default("fr")
+  legalName                        String?
+  attendance                       Attendance[]
+  attendanceAttempts               AttendanceAttempt[]
+  devices                          AttendanceDevice[]
+  auditLogs                        AuditLog[]
+  departments                      Department[]
+  employees                        Employee[]
+  holidays                         Holiday[]
+  leaves                           Leave[]
+  leaveTypes                       LeaveType[]
+  notifications                    Notification[]
+  overtime                         Overtime[]
+  positions                        Position[]
+  recovery                         Recovery[]
+  RecoveryDay                      RecoveryDay[]
+  reportHistory                    ReportHistory[]
+  roles                            Role[]
+  schedules                        Schedule[]
+  shifts                           Shift[]
+  shiftReplacements                ShiftReplacement[]
+  sites                            Site[]
+  siteManagers                     SiteManager[]
+  teams                            Team[]
+  settings                         TenantSettings?
+  terminalMatriculeMappings        TerminalMatriculeMapping[]
+  users                            User[]
+  userTenantRoles                  UserTenantRole[]
+  absenceNotificationLogs          AbsenceNotificationLog[]
+  absencePartialNotificationLogs   AbsencePartialNotificationLog[]
+  absenceTechnicalNotificationLogs AbsenceTechnicalNotificationLog[]
+  attendanceAnomalies             AttendanceAnomaly[]
+  emailConfig                      EmailConfig?
+  emailLogs                        EmailLog[]
+  emailTemplates                   EmailTemplate[]
+  lateNotificationLogs             LateNotificationLog[]
+  missingInNotificationLogs        MissingInNotificationLog[]
+  missingOutNotificationLogs       MissingOutNotificationLog[]
+  overtimePendingNotificationLogs  OvertimePendingNotificationLog[]
 
   @@index([slug])
 }
 
 model TenantSettings {
-  id                                     String   @id @default(uuid())
-  tenantId                               String   @unique
-  workDaysPerWeek                        Int      @default(6)
-  maxWeeklyHours                         Decimal  @default(44)
-  breakDuration                          Int      @default(60)
-  alertWeeklyHoursExceeded               Boolean  @default(true)
-  alertInsufficientRest                  Boolean  @default(true)
-  alertNightWorkRepetitive               Boolean  @default(true)
-  alertMinimumStaffing                   Boolean  @default(true)
-  annualLeaveDays                        Int      @default(18)
-  leaveApprovalLevels                    Int      @default(2)
-  overtimeRate                           Decimal  @default(1.25)
-  nightShiftRate                         Decimal  @default(1.50)
-  createdAt                              DateTime @default(now())
-  updatedAt                              DateTime @updatedAt
-  anticipatedLeave                       Boolean  @default(false)
-  earlyToleranceExit                     Int      @default(5)
-  firstDayOfWeek                         String   @default("monday")
-  lateToleranceEntry                     Int      @default(10)
-  monthlyPayrollEmail                    Boolean  @default(false)
-  nightShiftEnd                          String   @default("06:00")
-  nightShiftStart                        String   @default("21:00")
-  overtimeRounding                       Int      @default(15)
-  overtimeMinimumThreshold               Int      @default(30) // Seuil minimum en minutes pour créer automatiquement un Overtime (défaut: 30 min)
-  sfptExport                             Boolean  @default(false)
-  twoLevelWorkflow                       Boolean  @default(true)
-  workingDays                            Json?
-  recoveryConversionRate                 Decimal  @default(1.0) // Taux de conversion heures supp -> récupération (1.0 = 1h supp = 1h récup)
-  recoveryExpiryDays                     Int      @default(90) // Nombre de jours avant expiration de la récupération
-  dailyWorkingHours                      Decimal  @default(7.33) // Nombre d'heures équivalent à une journée normale (par défaut: 44h/6j = 7.33h)
-  requireBreakPunch                      Boolean  @default(false) // Activer/désactiver le pointage des repos (pauses)
-  requireScheduleForAttendance           Boolean  @default(true) // Exiger un planning ou shift par défaut pour créer un pointage (défaut: true)
-  absencePartialThreshold                Int      @default(2) // Heures de retard pour considérer absence partielle
-  absenceDetectionTime                   String?  @default("01:00") // Heure d'exécution du job de détection d'absences (format HH:mm)
-  temporaryMatriculeExpiryDays           Int      @default(8) // Nombre de jours avant expiration du matricule temporaire (délai pour obtenir le matricule officiel)
-  enableInsufficientRestDetection        Boolean  @default(true) // Activer/désactiver la détection de repos insuffisant
-  minimumRestHours                       Decimal  @default(11) // Nombre d'heures légales de repos minimum requis entre deux shifts (défaut: 11h)
-  minimumRestHoursNightShift             Decimal? @default(12) // Nombre d'heures légales de repos minimum pour shift de nuit (optionnel, défaut: 12h)
-  // Paramètres pour amélioration DOUBLE_IN
-  doubleInDetectionWindow                Int      @default(24) // Fenêtre de détection DOUBLE_IN en heures (défaut: 24h)
-  orphanInThreshold                      Int      @default(12) // Seuil en heures pour considérer un IN comme orphelin (défaut: 12h)
-  doublePunchToleranceMinutes            Int      @default(2) // Fenêtre de tolérance en minutes pour erreur de badgeage (défaut: 2 min)
-  enableDoubleInPatternDetection         Boolean  @default(true) // Activer la détection de patterns suspects DOUBLE_IN
-  doubleInPatternAlertThreshold          Int      @default(3) // Seuil d'alerte pour patterns suspects (nombre de DOUBLE_IN sur 30 jours, défaut: 3)
-  // Paramètres pour amélioration MISSING_IN
-  allowMissingInForRemoteWork            Boolean  @default(true) // Autoriser MISSING_IN pour télétravail
-  allowMissingInForMissions              Boolean  @default(true) // Autoriser MISSING_IN pour missions
-  missingInReminderEnabled               Boolean  @default(true) // Activer les rappels MISSING_IN
-  missingInReminderDelay                 Int      @default(15) // Délai en minutes avant le rappel (défaut: 15 min)
-  missingInReminderMaxPerDay             Int      @default(2) // Nombre maximum de rappels par jour (défaut: 2)
-  // Paramètres pour majoration des jours fériés
-  holidayOvertimeEnabled                 Boolean  @default(true) // Activer la majoration des heures travaillées les jours fériés
-  holidayOvertimeRate                    Decimal  @default(2.0) // Taux de majoration pour les heures travaillées les jours fériés (défaut: 2.0 = double)
-  holidayOvertimeAsNormalHours           Boolean  @default(false) // Calculer les heures travaillées les jours fériés comme heures normales sans majoration (défaut: false)
-  enableMissingInPatternDetection        Boolean  @default(true) // Activer la détection de patterns d'oubli MISSING_IN
-  missingInPatternAlertThreshold         Int      @default(3) // Seuil d'alerte pour patterns d'oubli (nombre de MISSING_IN sur 30 jours, défaut: 3)
-  // Paramètres pour amélioration MISSING_OUT
-  missingOutDetectionTime                String?  @default("00:00") // Heure d'exécution du job batch (format HH:mm)
-  missingOutDetectionWindow              Int      @default(12) // Fenêtre de détection en heures pour shifts de nuit (défaut: 12h)
-  missingOutDetectionWindowMinutes       Int      @default(120) // Fenêtre raisonnable en minutes après fin shift (défaut: 120 min = 2h)
-  missingOutNotificationFrequencyMinutes Int      @default(15) // Fréquence du job de notification en minutes (défaut: 15 min)
-  allowMissingOutForRemoteWork           Boolean  @default(true) // Autoriser MISSING_OUT pour télétravail
-  allowMissingOutForMissions             Boolean  @default(true) // Autoriser MISSING_OUT pour missions
-  missingOutReminderEnabled              Boolean  @default(true) // Activer les rappels MISSING_OUT
-  missingOutReminderDelay                Int      @default(15) // Délai en minutes avant le rappel (défaut: 15 min)
-  missingOutReminderBeforeClosing        Int      @default(30) // Rappel X minutes avant fermeture (défaut: 30 min)
-  enableMissingOutPatternDetection       Boolean  @default(true) // Activer la détection de patterns d'oubli MISSING_OUT
-  missingOutPatternAlertThreshold        Int      @default(3) // Seuil d'alerte pour patterns d'oubli (nombre de MISSING_OUT sur 30 jours, défaut: 3)
-  // Paramètres pour amélioration MISSING_IN
-  missingInDetectionWindowMinutes        Int      @default(30) // Fenêtre raisonnable en minutes après début shift (défaut: 30 min)
-  missingInNotificationFrequencyMinutes  Int      @default(15) // Fréquence du job de notification en minutes (défaut: 15 min)
-  // Paramètres de fréquence pour les notifications LATE
-  lateNotificationFrequencyMinutes       Int      @default(15) // Fréquence du job de notification LATE en minutes (défaut: 15 min)
-  lateNotificationThresholdMinutes       Int      @default(15) // Seuil minimum de retard pour notifier (défaut: 15 min)
-  // Paramètres de fréquence pour les notifications ABSENCE
-  absenceNotificationFrequencyMinutes    Int      @default(60) // Fréquence du job de notification ABSENCE en minutes (défaut: 60 min)
-  absenceDetectionBufferMinutes          Int      @default(60) // Délai après fin du shift avant détection (défaut: 60 min)
-  // Paramètres de fréquence pour les notifications ABSENCE_PARTIAL
-  absencePartialNotificationFrequencyMinutes Int  @default(30) // Fréquence du job de notification ABSENCE_PARTIAL en minutes (défaut: 30 min)
-  tenant                                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                                         String   @id @default(uuid())
+  tenantId                                   String   @unique
+  workDaysPerWeek                            Int      @default(6)
+  maxWeeklyHours                             Decimal  @default(44)
+  breakDuration                              Int      @default(60)
+  alertWeeklyHoursExceeded                   Boolean  @default(true)
+  alertInsufficientRest                      Boolean  @default(true)
+  alertNightWorkRepetitive                   Boolean  @default(true)
+  alertMinimumStaffing                       Boolean  @default(true)
+  annualLeaveDays                            Int      @default(18)
+  leaveApprovalLevels                        Int      @default(2)
+  overtimeRate                               Decimal  @default(1.25)
+  nightShiftRate                             Decimal  @default(1.50)
+  createdAt                                  DateTime @default(now())
+  updatedAt                                  DateTime @updatedAt
+  anticipatedLeave                           Boolean  @default(false)
+  earlyToleranceExit                         Int      @default(5)
+  firstDayOfWeek                             String   @default("monday")
+  lateToleranceEntry                         Int      @default(10)
+  monthlyPayrollEmail                        Boolean  @default(false)
+  nightShiftEnd                              String   @default("06:00")
+  nightShiftStart                            String   @default("21:00")
+  overtimeRounding                           Int      @default(15)
+  overtimeMinimumThreshold                   Int      @default(30)
+  sfptExport                                 Boolean  @default(false)
+  twoLevelWorkflow                           Boolean  @default(true)
+  workingDays                                Json?
+  recoveryConversionRate                     Decimal  @default(1.0)
+  recoveryExpiryDays                         Int      @default(90)
+  dailyWorkingHours                          Decimal  @default(7.33)
+  requireBreakPunch                          Boolean  @default(false)
+  requireScheduleForAttendance               Boolean  @default(true)
+  absencePartialThreshold                    Int      @default(2)
+  absenceDetectionTime                       String?  @default("01:00")
+  temporaryMatriculeExpiryDays               Int      @default(8)
+  enableInsufficientRestDetection            Boolean  @default(true)
+  minimumRestHours                           Decimal  @default(11)
+  minimumRestHoursNightShift                 Decimal? @default(12)
+  doubleInDetectionWindow                    Int      @default(24)
+  orphanInThreshold                          Int      @default(12)
+  doublePunchToleranceMinutes                Int      @default(2)
+  enableDoubleInPatternDetection             Boolean  @default(true)
+  doubleInPatternAlertThreshold              Int      @default(3)
+  allowMissingInForRemoteWork                Boolean  @default(true)
+  allowMissingInForMissions                  Boolean  @default(true)
+  missingInReminderEnabled                   Boolean  @default(true)
+  missingInReminderDelay                     Int      @default(15)
+  missingInReminderMaxPerDay                 Int      @default(2)
+  holidayOvertimeEnabled                     Boolean  @default(true)
+  holidayOvertimeRate                        Decimal  @default(2.0)
+  holidayOvertimeAsNormalHours               Boolean  @default(false)
+  enableMissingInPatternDetection            Boolean  @default(true)
+  missingInPatternAlertThreshold             Int      @default(3)
+  missingOutDetectionTime                    String?  @default("00:00")
+  missingOutDetectionWindow                  Int      @default(12)
+  allowMissingOutForRemoteWork               Boolean  @default(true)
+  allowMissingOutForMissions                 Boolean  @default(true)
+  missingOutReminderEnabled                  Boolean  @default(true)
+  missingOutReminderDelay                    Int      @default(15)
+  missingOutReminderBeforeClosing            Int      @default(30)
+  enableMissingOutPatternDetection           Boolean  @default(true)
+  missingOutPatternAlertThreshold            Int      @default(3)
+  missingInDetectionWindowMinutes            Int      @default(30)
+  missingInNotificationFrequencyMinutes      Int      @default(15)
+  missingOutDetectionWindowMinutes           Int      @default(120)
+  missingOutNotificationFrequencyMinutes     Int      @default(15)
+  absenceNotificationFrequencyMinutes        Int      @default(60)
+  absencePartialNotificationFrequencyMinutes Int      @default(30)
+  lateNotificationFrequencyMinutes           Int      @default(15)
+  lateNotificationThresholdMinutes           Int      @default(15)
+  absenceDetectionBufferMinutes              Int      @default(60)
+  overtimeAutoDetectType                     Boolean  @default(true)
+  overtimeMajorationEnabled                  Boolean  @default(true)
+  overtimeRateEmergency                      Decimal  @default(1.30)
+  overtimeRateHoliday                        Decimal  @default(2.00)
+  overtimeRateNight                          Decimal  @default(1.50)
+  overtimeRateStandard                       Decimal  @default(1.25)
+  overtimePendingNotificationTime            String   @default("09:00")
+  tenant                                     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
 }
 
 model User {
-  id                                String                      @id @default(uuid())
-  createdAt                         DateTime                    @default(now())
-  updatedAt                         DateTime                    @updatedAt
-  tenantId                          String? // Optionnel pour compatibilité, mais on utilisera UserTenantRole
-  email                             String                      @unique // Email unique globalement
-  password                          String
-  firstName                         String
-  lastName                          String
-  phone                             String?
-  avatar                            String?
-  isActive                          Boolean                     @default(true)
-  lastLoginAt                       DateTime?
-  forcePasswordChange               Boolean                     @default(false) // Forcer changement mot de passe à la première connexion
-  role                              LegacyRole?                 @default(EMPLOYEE) // Optionnel pour compatibilité
-  auditLogs                         AuditLog[]
-  employee                          Employee?
-  tenant                            Tenant?                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userTenantRoles                   UserTenantRole[]
-  preferences                       UserPreferences?
-  sessions                          UserSession[]
-  credentials                       UserCredentials?
-  reportHistory                     ReportHistory[]
-  missingOutNotificationsAsEmployee        MissingOutNotificationLog[]        @relation("EmployeeMissingOutNotifications")
-  missingOutNotificationsAsManager         MissingOutNotificationLog[]        @relation("ManagerMissingOutNotifications")
-  missingInNotificationsAsEmployee         MissingInNotificationLog[]         @relation("EmployeeMissingInNotifications")
-  missingInNotificationsAsManager          MissingInNotificationLog[]         @relation("ManagerMissingInNotifications")
-  lateNotificationsAsEmployee              LateNotificationLog[]              @relation("EmployeeLateNotifications")
-  lateNotificationsAsManager               LateNotificationLog[]              @relation("ManagerLateNotifications")
-  absenceNotificationsAsEmployee           AbsenceNotificationLog[]           @relation("EmployeeAbsenceNotifications")
-  absenceNotificationsAsManager            AbsenceNotificationLog[]           @relation("ManagerAbsenceNotifications")
-  absencePartialNotificationsAsEmployee    AbsencePartialNotificationLog[]    @relation("EmployeeAbsencePartialNotifications")
-  absencePartialNotificationsAsManager     AbsencePartialNotificationLog[]    @relation("ManagerAbsencePartialNotifications")
-  absenceTechnicalNotificationsAsEmployee  AbsenceTechnicalNotificationLog[]  @relation("EmployeeAbsenceTechnicalNotifications")
-  absenceTechnicalNotificationsAsManager   AbsenceTechnicalNotificationLog[]  @relation("ManagerAbsenceTechnicalNotifications")
-  sentEmailsAsEmployee                     EmailLog[]                         @relation("EmployeeEmailLogs")
-  sentEmailsAsManager                      EmailLog[]                         @relation("ManagerEmailLogs")
+  id                                      String                            @id @default(uuid())
+  createdAt                               DateTime                          @default(now())
+  updatedAt                               DateTime                          @updatedAt
+  tenantId                                String?
+  email                                   String                            @unique
+  password                                String
+  firstName                               String
+  lastName                                String
+  phone                                   String?
+  avatar                                  String?
+  isActive                                Boolean                           @default(true)
+  lastLoginAt                             DateTime?
+  forcePasswordChange                     Boolean                           @default(false)
+  role                                    LegacyRole?                       @default(EMPLOYEE)
+  auditLogs                               AuditLog[]
+  employee                                Employee?
+  reportHistory                           ReportHistory[]
+  tenant                                  Tenant?                           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  credentials                             UserCredentials?
+  preferences                             UserPreferences?
+  sessions                                UserSession[]
+  userTenantRoles                         UserTenantRole[]
+  absenceNotificationsAsEmployee          AbsenceNotificationLog[]          @relation("EmployeeAbsenceNotifications")
+  absenceNotificationsAsManager           AbsenceNotificationLog[]          @relation("ManagerAbsenceNotifications")
+  absencePartialNotificationsAsEmployee   AbsencePartialNotificationLog[]   @relation("EmployeeAbsencePartialNotifications")
+  absencePartialNotificationsAsManager    AbsencePartialNotificationLog[]   @relation("ManagerAbsencePartialNotifications")
+  absenceTechnicalNotificationsAsEmployee AbsenceTechnicalNotificationLog[] @relation("EmployeeAbsenceTechnicalNotifications")
+  absenceTechnicalNotificationsAsManager  AbsenceTechnicalNotificationLog[] @relation("ManagerAbsenceTechnicalNotifications")
+  attendanceAnomalies                    AttendanceAnomaly[]
+  sentEmailsAsEmployee                    EmailLog[]                        @relation("EmployeeEmailLogs")
+  sentEmailsAsManager                     EmailLog[]                        @relation("ManagerEmailLogs")
+  lateNotificationsAsEmployee             LateNotificationLog[]             @relation("EmployeeLateNotifications")
+  lateNotificationsAsManager              LateNotificationLog[]             @relation("ManagerLateNotifications")
+  missingInNotificationsAsEmployee        MissingInNotificationLog[]        @relation("EmployeeMissingInNotifications")
+  missingInNotificationsAsManager         MissingInNotificationLog[]        @relation("ManagerMissingInNotifications")
+  missingOutNotificationsAsEmployee       MissingOutNotificationLog[]       @relation("EmployeeMissingOutNotifications")
+  missingOutNotificationsAsManager        MissingOutNotificationLog[]       @relation("ManagerMissingOutNotifications")
+  overtimePendingNotifications            OvertimePendingNotificationLog[]  @relation("ManagerOvertimePendingNotifications")
 
   @@index([tenantId])
   @@index([email])
@@ -213,8 +216,8 @@ model Employee {
   rib                       String?
   region                    String?
   categorie                 String?
-  position                  String // Texte libre (legacy) - Gardé pour compatibilité
-  positionId                String? // Relation vers Position (nouveau)
+  position                  String
+  positionId                String?
   hireDate                  DateTime
   contractType              String?
   siteId                    String?
@@ -227,13 +230,14 @@ model Employee {
   qrCode                    String?
   pinCode                   String?
   isActive                  Boolean                    @default(true)
-  isEligibleForOvertime     Boolean                    @default(true) // Éligibilité aux heures supplémentaires
-  maxOvertimeHoursPerMonth  Decimal? // Plafond mensuel d'heures supplémentaires (optionnel)
-  maxOvertimeHoursPerWeek   Decimal? // Plafond hebdomadaire d'heures supplémentaires (optionnel)
-  overtimeEligibilityNotes  String? // Notes/justification sur l'éligibilité
+  isEligibleForOvertime     Boolean                    @default(true)
+  maxOvertimeHoursPerMonth  Decimal?
+  maxOvertimeHoursPerWeek   Decimal?
+  overtimeEligibilityNotes  String?
   userId                    String?                    @unique
   attendance                Attendance[]
   attendanceAttempts        AttendanceAttempt[]
+  managedDepartments        Department[]               @relation("DepartmentManager")
   currentShift              Shift?                     @relation(fields: [currentShiftId], references: [id])
   department                Department?                @relation(fields: [departmentId], references: [id])
   positionRef               Position?                  @relation(fields: [positionId], references: [id])
@@ -249,12 +253,12 @@ model Employee {
   schedules                 Schedule[]
   replacementsAsOriginal    ShiftReplacement[]         @relation("OriginalEmployee")
   replacementsAsReplacement ShiftReplacement[]         @relation("ReplacementEmployee")
+  managedSites              Site[]                     @relation("SiteManagerLegacy")
+  siteManagements           SiteManager[]
   managedTeams              Team[]                     @relation("TeamManager")
-  managedSites              Site[]                     @relation("SiteManagerLegacy") // DEPRECATED
-  managedDepartments        Department[]               @relation("DepartmentManager")
-  siteManagements           SiteManager[] // Nouvelle relation: gestion de sites par département
-  credentials               UserCredentials? // Credentials temporaires du compte d'accès
-  terminalMatriculeMappings TerminalMatriculeMapping[] // Mappings matricule terminal -> matricule officiel
+  terminalMatriculeMappings TerminalMatriculeMapping[]
+  credentials               UserCredentials?
+  attendanceAnomalies      AttendanceAnomaly[]
 
   @@unique([tenantId, matricule])
   @@index([tenantId])
@@ -272,16 +276,15 @@ model TerminalMatriculeMapping {
   updatedAt         DateTime @updatedAt
   tenantId          String
   employeeId        String
-  terminalMatricule String // Matricule utilisé sur le terminal (temporaire ou officiel)
-  officialMatricule String // Matricule officiel dans le système
-  deviceId          String? // ID du terminal (optionnel, si mapping par terminal)
+  terminalMatricule String
+  officialMatricule String
+  deviceId          String?
   isActive          Boolean  @default(true)
-  assignedAt        DateTime @default(now()) // Date d'assignation du matricule temporaire
+  assignedAt        DateTime @default(now())
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, terminalMatricule]) // Un matricule terminal unique par tenant
+  @@unique([tenantId, terminalMatricule])
   @@index([tenantId])
   @@index([employeeId])
   @@index([terminalMatricule])
@@ -302,15 +305,15 @@ model Site {
   phone        String?
   timezone     String?
   workingDays  Json?
-  managerId    String? // DEPRECATED: Utiliser SiteManager à la place. Gardé pour rétrocompatibilité
-  departmentId String? // ID du département principal du site
-  manager      Employee?          @relation("SiteManagerLegacy", fields: [managerId], references: [id])
-  department   Department?        @relation("SiteDepartment", fields: [departmentId], references: [id])
+  managerId    String?
+  departmentId String?
   attendance   Attendance[]
   devices      AttendanceDevice[]
   employees    Employee[]
-  siteManagers SiteManager[] // Nouvelle relation: plusieurs managers par site (un par département)
+  department   Department?        @relation("SiteDepartment", fields: [departmentId], references: [id])
+  manager      Employee?          @relation("SiteManagerLegacy", fields: [managerId], references: [id])
   tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  siteManagers SiteManager[]
 
   @@index([tenantId])
   @@index([tenantId, code])
@@ -326,33 +329,31 @@ model Department {
   name         String
   code         String?
   description  String?
-  managerId    String? // ID du manager du département
+  managerId    String?
   manager      Employee?     @relation("DepartmentManager", fields: [managerId], references: [id])
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employees    Employee[]
   sites        Site[]        @relation("SiteDepartment")
-  siteManagers SiteManager[] // Managers régionaux de ce département dans différents sites
+  siteManagers SiteManager[]
 
   @@index([tenantId])
   @@index([managerId])
 }
 
-// Table de liaison pour permettre plusieurs managers régionaux par site (un par département)
 model SiteManager {
-  id           String   @id @default(uuid())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id           String     @id @default(uuid())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
   tenantId     String
   siteId       String
-  managerId    String // ID du manager régional
-  departmentId String // ID du département que ce manager gère dans ce site
+  managerId    String
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  manager      Employee   @relation(fields: [managerId], references: [id], onDelete: Cascade)
+  site         Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  site       Site       @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  manager    Employee   @relation(fields: [managerId], references: [id], onDelete: Cascade)
-  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([siteId, departmentId]) // Un seul manager par département par site
+  @@unique([siteId, departmentId])
   @@index([tenantId])
   @@index([siteId])
   @@index([managerId])
@@ -364,12 +365,12 @@ model Position {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   tenantId    String
-  name        String // Ex: "Développeur Full-Stack"
-  code        String? // Ex: "DEV-FS"
-  category    String? // Ex: "IT", "RH", "FINANCE", "PRODUCTION"
+  name        String
+  code        String?
+  category    String?
   description String?
-  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employees   Employee[]
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([category])
@@ -404,38 +405,39 @@ model Team {
   code              String
   description       String?
   managerId         String?
-  manager           Employee?  @relation("TeamManager", fields: [managerId], references: [id])
   rotationEnabled   Boolean    @default(false)
   rotationCycleDays Int?
   employees         Employee[]
   schedules         Schedule[]
+  manager           Employee?  @relation("TeamManager", fields: [managerId], references: [id])
   tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
 }
 
 model Schedule {
-  id                 String         @id @default(uuid())
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  tenantId           String
-  employeeId         String
-  teamId             String?
-  shiftId            String
-  date               DateTime       @db.Date
-  customStartTime    String?
-  customEndTime      String?
-  notes              String?
-  status             ScheduleStatus @default(PUBLISHED)
-  publishedAt        DateTime?
-  cancelledAt        DateTime?
-  suspendedByLeaveId String?
-  suspendedAt        DateTime?
-  employee           Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  shift              Shift          @relation(fields: [shiftId], references: [id])
-  team               Team?          @relation(fields: [teamId], references: [id])
-  tenant             Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  suspendedByLeave   Leave?         @relation("ScheduleSuspendedByLeave", fields: [suspendedByLeaveId], references: [id], onDelete: SetNull)
+  id                   String                 @id @default(uuid())
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  tenantId             String
+  employeeId           String
+  teamId               String?
+  shiftId              String
+  date                 DateTime               @db.Date
+  customStartTime      String?
+  customEndTime        String?
+  notes                String?
+  status               ScheduleStatus         @default(PUBLISHED)
+  publishedAt          DateTime?
+  cancelledAt          DateTime?
+  suspendedByLeaveId   String?
+  suspendedAt          DateTime?
+  employee             Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift                Shift                  @relation(fields: [shiftId], references: [id])
+  suspendedByLeave     Leave?                 @relation("ScheduleSuspendedByLeave", fields: [suspendedByLeaveId], references: [id])
+  team                 Team?                  @relation(fields: [teamId], references: [id])
+  tenant               Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  attendanceAnomalies AttendanceAnomaly[]
 
   @@unique([employeeId, date, shiftId])
   @@index([tenantId])
@@ -468,61 +470,63 @@ model ShiftReplacement {
 }
 
 model AttendanceDevice {
-  id                 String              @id @default(uuid())
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  tenantId           String
-  siteId             String?
-  name               String
-  deviceId           String              @unique
-  deviceType         DeviceType
-  ipAddress          String?
-  apiKey             String?
-  isActive           Boolean             @default(true)
-  lastSync           DateTime?
-  attendance         Attendance[]
-  attendanceAttempts AttendanceAttempt[]
-  site               Site?               @relation(fields: [siteId], references: [id])
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                   String                 @id @default(uuid())
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  tenantId             String
+  siteId               String?
+  name                 String
+  deviceId             String                 @unique
+  deviceType           DeviceType
+  ipAddress            String?
+  apiKey               String?
+  isActive             Boolean                @default(true)
+  lastSync             DateTime?
+  attendance           Attendance[]
+  attendanceAttempts   AttendanceAttempt[]
+  site                 Site?                  @relation(fields: [siteId], references: [id])
+  tenant               Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  attendanceAnomalies AttendanceAnomaly[]
 
   @@index([tenantId])
 }
 
 model Attendance {
-  id                String            @id @default(uuid())
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  tenantId          String
-  employeeId        String
-  siteId            String?
-  deviceId          String?
-  timestamp         DateTime
-  type              AttendanceType
-  method            DeviceType
-  latitude          Decimal?
-  longitude         Decimal?
-  hasAnomaly        Boolean           @default(false)
-  anomalyType       String?
-  anomalyNote       String?
-  isCorrected       Boolean           @default(false)
-  correctedBy       String?
-  correctedAt       DateTime?
-  correctionNote    String? // Note de correction
-  hoursWorked       Decimal? // Heures travaillées calculées
-  lateMinutes       Int? // Minutes de retard
-  earlyLeaveMinutes Int? // Minutes de départ anticipé
-  overtimeMinutes   Int? // Minutes d'heures supplémentaires
-  needsApproval     Boolean           @default(false) // Nécessite approbation pour correction
-  approvalStatus    String? // PENDING_APPROVAL, APPROVED, REJECTED
-  approvedBy        String? // ID de l'utilisateur qui a approuvé
-  approvedAt        DateTime? // Date d'approbation
-  rawData           Json?
-  generatedBy       String?
-  isGenerated       Boolean           @default(false)
-  device            AttendanceDevice? @relation(fields: [deviceId], references: [id])
-  employee          Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  site              Site?             @relation(fields: [siteId], references: [id])
-  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                   String                 @id @default(uuid())
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  tenantId             String
+  employeeId           String
+  siteId               String?
+  deviceId             String?
+  timestamp            DateTime
+  type                 AttendanceType
+  method               DeviceType
+  latitude             Decimal?
+  longitude            Decimal?
+  hasAnomaly           Boolean                @default(false)
+  anomalyType          String?
+  anomalyNote          String?
+  isCorrected          Boolean                @default(false)
+  correctedBy          String?
+  correctedAt          DateTime?
+  correctionNote       String?
+  hoursWorked          Decimal?
+  lateMinutes          Int?
+  earlyLeaveMinutes    Int?
+  overtimeMinutes      Int?
+  needsApproval        Boolean                @default(false)
+  approvalStatus       String?
+  approvedBy           String?
+  approvedAt           DateTime?
+  rawData              Json?
+  generatedBy          String?
+  isGenerated          Boolean                @default(false)
+  device               AttendanceDevice?      @relation(fields: [deviceId], references: [id])
+  employee             Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  site                 Site?                  @relation(fields: [siteId], references: [id])
+  tenant               Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  attendanceAnomalies AttendanceAnomaly[]
 
   @@index([tenantId])
   @@index([employeeId])
@@ -541,13 +545,13 @@ model AttendanceAttempt {
   timestamp    DateTime
   type         AttendanceType
   method       DeviceType
-  status       String // SUCCESS, FAILED, REJECTED
-  errorCode    String? // BADGE_NOT_RECOGNIZED, DEVICE_OFF, NETWORK_ERROR, etc.
+  status       String
+  errorCode    String?
   errorMessage String?
   rawData      Json?
-  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   device       AttendanceDevice? @relation(fields: [deviceId], references: [id])
+  employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, employeeId, timestamp])
   @@index([status])
@@ -581,14 +585,14 @@ model Leave {
   endDate            DateTime    @db.Date
   days               Decimal
   reason             String?
-  document           String? // Chemin ou URL du fichier
-  documentName       String? // Nom original du fichier
-  documentSize       Int? // Taille en bytes
-  documentMimeType   String? // Type MIME (application/pdf, etc.)
-  documentUploadedBy String? // ID de l'utilisateur qui a uploadé
-  documentUploadedAt DateTime? // Date d'upload
-  documentUpdatedBy  String? // ID du dernier utilisateur qui a modifié
-  documentUpdatedAt  DateTime? // Date de dernière modification
+  document           String?
+  documentName       String?
+  documentSize       Int?
+  documentMimeType   String?
+  documentUploadedBy String?
+  documentUploadedAt DateTime?
+  documentUpdatedBy  String?
+  documentUpdatedAt  DateTime?
   status             LeaveStatus @default(PENDING)
   managerApprovedBy  String?
   managerApprovedAt  DateTime?
@@ -615,25 +619,23 @@ model Overtime {
   employeeId                   String
   date                         DateTime              @db.Date
   hours                        Decimal
-  approvedHours                Decimal? // Nombre d'heures validées par le manager (peut différer de hours)
+  approvedHours                Decimal?
   type                         OvertimeType          @default(STANDARD)
-  isNightShift                 Boolean               @default(false) // DEPRECATED: Utiliser type à la place
+  isNightShift                 Boolean               @default(false)
   rate                         Decimal               @default(1.25)
-  // Conversion en récupération (heures)
   convertedToRecovery          Boolean               @default(false)
   recoveryId                   String?
-  convertedHoursToRecovery     Decimal               @default(0) // Heures converties en Recovery
-  // Conversion en récupération (journées) - NOUVEAU
+  convertedHoursToRecovery     Decimal               @default(0)
   convertedToRecoveryDays      Boolean               @default(false)
-  convertedHoursToRecoveryDays Decimal               @default(0) // Heures converties en RecoveryDay
+  convertedHoursToRecoveryDays Decimal               @default(0)
   status                       OvertimeStatus        @default(PENDING)
   approvedBy                   String?
   approvedAt                   DateTime?
-  rejectionReason              String? // Raison du rejet si la demande est rejetée
-  notes                        String? // Notes/justification de la demande
+  rejectionReason              String?
+  notes                        String?
   employee                     Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   tenant                       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  recoveryDays                 OvertimeRecoveryDay[] // Relations avec RecoveryDay
+  recoveryDays                 OvertimeRecoveryDay[]
 
   @@index([tenantId])
   @@index([employeeId])
@@ -660,7 +662,6 @@ model Recovery {
   @@index([employeeId])
 }
 
-// NOUVEAU : Journées de récupération
 model RecoveryDay {
   id              String                @id @default(uuid())
   createdAt       DateTime              @default(now())
@@ -670,15 +671,15 @@ model RecoveryDay {
   startDate       DateTime              @db.Date
   endDate         DateTime              @db.Date
   days            Decimal
-  sourceHours     Decimal // Heures supp utilisées pour cette récupération
-  conversionRate  Decimal? // Taux utilisé (si différent du défaut)
+  sourceHours     Decimal
+  conversionRate  Decimal?
   status          RecoveryDayStatus     @default(PENDING)
   approvedBy      String?
   approvedAt      DateTime?
   notes           String?
+  overtimeSources OvertimeRecoveryDay[]
   employee        Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  overtimeSources OvertimeRecoveryDay[]
 
   @@index([tenantId])
   @@index([employeeId])
@@ -686,25 +687,17 @@ model RecoveryDay {
   @@index([status])
 }
 
-// NOUVEAU : Table de liaison Overtime ↔ RecoveryDay
 model OvertimeRecoveryDay {
   id            String      @id @default(uuid())
   overtimeId    String
   recoveryDayId String
-  hoursUsed     Decimal // Nombre d'heures de cet overtime utilisées
+  hoursUsed     Decimal
   overtime      Overtime    @relation(fields: [overtimeId], references: [id], onDelete: Cascade)
   recoveryDay   RecoveryDay @relation(fields: [recoveryDayId], references: [id], onDelete: Cascade)
 
   @@unique([overtimeId, recoveryDayId])
   @@index([overtimeId])
   @@index([recoveryDayId])
-}
-
-enum RecoveryDayStatus {
-  PENDING
-  APPROVED
-  USED
-  CANCELLED
 }
 
 model Holiday {
@@ -762,39 +755,33 @@ model Notification {
   @@index([isRead])
 }
 
-// ============================================
-// RBAC Multi-Tenant Models
-// ============================================
-
-// Rôle : peut être système (SUPER_ADMIN) ou spécifique à un tenant
 model Role {
   id          String           @id @default(uuid())
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
-  tenantId    String? // null = rôle système (SUPER_ADMIN uniquement)
-  name        String // Ex: "ADMIN_RH", "MANAGER", "EMPLOYEE", "CUSTOM_ROLE"
-  code        String // Code unique : "ADMIN_RH", "MANAGER", etc.
+  tenantId    String?
+  name        String
+  code        String
   description String?
-  isSystem    Boolean          @default(false) // Rôle système (non modifiable)
+  isSystem    Boolean          @default(false)
   isActive    Boolean          @default(true)
   tenant      Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   permissions RolePermission[]
   userRoles   UserTenantRole[]
 
-  @@unique([tenantId, code]) // Code unique par tenant (ou global si tenantId null)
+  @@unique([tenantId, code])
   @@index([tenantId])
   @@index([code])
 }
 
-// Permission : action atomique (ex: "employee.view_all", "attendance.edit")
 model Permission {
   id              String           @id @default(uuid())
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
-  code            String           @unique // Ex: "employee.view_all", "attendance.edit"
-  name            String // Nom lisible : "Voir tous les employés"
+  code            String           @unique
+  name            String
   description     String?
-  category        String // Ex: "employees", "attendance", "leaves", "reports"
+  category        String
   isActive        Boolean          @default(true)
   rolePermissions RolePermission[]
 
@@ -802,21 +789,19 @@ model Permission {
   @@index([code])
 }
 
-// Liaison n-à-n entre Role et Permission
 model RolePermission {
   id           String     @id @default(uuid())
   createdAt    DateTime   @default(now())
   roleId       String
   permissionId String
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
   @@index([roleId])
   @@index([permissionId])
 }
 
-// Préférences utilisateur
 model UserPreferences {
   id            String   @id @default(uuid())
   createdAt     DateTime @default(now())
@@ -826,20 +811,19 @@ model UserPreferences {
   timezone      String   @default("Africa/Casablanca")
   dateFormat    String   @default("DD/MM/YYYY")
   timeFormat    String   @default("24h")
-  notifications Json? // { email: { leaves: boolean, planning: boolean, alerts: boolean }, push: { mobile: boolean, desktop: boolean }, sms: boolean }
+  notifications Json?
   theme         String   @default("light")
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
-// Sessions utilisateur (pour tracking des connexions)
 model UserSession {
   id         String   @id @default(uuid())
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   userId     String
-  tokenId    String   @unique // JWT jti (JWT ID) pour identifier le token
+  tokenId    String   @unique
   device     String?
   browser    String?
   os         String?
@@ -860,21 +844,20 @@ model UserCredentials {
   id         String    @id @default(uuid())
   createdAt  DateTime  @default(now())
   userId     String    @unique
-  employeeId String?   @unique // Optionnel: lien vers l'employé (unique si présent)
+  employeeId String?   @unique
   email      String
-  password   String // Mot de passe en clair (temporaire, expirera)
-  expiresAt  DateTime // Expiration après 7 jours
-  viewedAt   DateTime? // Date de dernière consultation
-  viewCount  Int       @default(0) // Nombre de fois consulté
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  password   String
+  expiresAt  DateTime
+  viewedAt   DateTime?
+  viewCount  Int       @default(0)
   employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([employeeId])
   @@index([expiresAt])
 }
 
-// Liaison User-Tenant-Role : indique quel utilisateur a quel rôle dans quel tenant
 model UserTenantRole {
   id         String   @id @default(uuid())
   createdAt  DateTime @default(now())
@@ -882,14 +865,14 @@ model UserTenantRole {
   userId     String
   tenantId   String
   roleId     String
-  assignedBy String? // ID de l'utilisateur qui a assigné ce rôle
+  assignedBy String?
   assignedAt DateTime @default(now())
   isActive   Boolean  @default(true)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, tenantId, roleId]) // Un utilisateur ne peut pas avoir le même rôle deux fois dans le même tenant
+  @@unique([userId, tenantId, roleId])
   @@index([userId])
   @@index([tenantId])
   @@index([roleId])
@@ -900,24 +883,20 @@ model ReportHistory {
   createdAt  DateTime @default(now())
   tenantId   String
   userId     String
-  reportType String // attendance, overtime, absences, payroll
-  format     String // PDF, EXCEL, CSV
+  reportType String
+  format     String
   fileName   String
-  filePath   String? // Chemin du fichier stocké (optionnel)
-  fileSize   Int? // Taille en bytes
-  filters    Json? // Filtres utilisés pour générer le rapport
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filePath   String?
+  fileSize   Int?
+  filters    Json?
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([userId])
   @@index([reportType])
   @@index([createdAt])
 }
-
-// ============================================
-// MISSING OUT/IN Notification Logs
-// ============================================
 
 model MissingOutNotificationLog {
   id          String   @id @default(uuid())
@@ -927,12 +906,11 @@ model MissingOutNotificationLog {
   managerId   String
   sessionDate DateTime @db.Date
   sentAt      DateTime @default(now())
-  inTimestamp DateTime // Heure du IN qui n'a pas été clôturé
-  shiftEnd    String // Heure de fin de shift prévue (format HH:mm)
-
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee User   @relation("EmployeeMissingOutNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
-  manager  User   @relation("ManagerMissingOutNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  inTimestamp DateTime
+  shiftEnd    String
+  employee    User     @relation("EmployeeMissingOutNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  manager     User     @relation("ManagerMissingOutNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, employeeId, sessionDate, shiftEnd])
   @@index([tenantId, sentAt])
@@ -949,11 +927,10 @@ model MissingInNotificationLog {
   managerId   String
   sessionDate DateTime @db.Date
   sentAt      DateTime @default(now())
-  shiftStart  String // Heure de début de shift prévue (format HH:mm)
-
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee User   @relation("EmployeeMissingInNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
-  manager  User   @relation("ManagerMissingInNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  shiftStart  String
+  employee    User     @relation("EmployeeMissingInNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  manager     User     @relation("ManagerMissingInNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, employeeId, sessionDate, shiftStart])
   @@index([tenantId, sentAt])
@@ -970,13 +947,12 @@ model LateNotificationLog {
   managerId   String
   sessionDate DateTime @db.Date
   sentAt      DateTime @default(now())
-  shiftStart  String // Heure de début de shift prévue (format HH:mm)
-  actualIn    DateTime // Heure réelle du IN
-  lateMinutes Int // Nombre de minutes de retard
-
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee User   @relation("EmployeeLateNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
-  manager  User   @relation("ManagerLateNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  shiftStart  String
+  actualIn    DateTime
+  lateMinutes Int
+  employee    User     @relation("EmployeeLateNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  manager     User     @relation("ManagerLateNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, employeeId, sessionDate, shiftStart])
   @@index([tenantId, sentAt])
@@ -993,11 +969,10 @@ model AbsenceNotificationLog {
   managerId   String
   sessionDate DateTime @db.Date
   sentAt      DateTime @default(now())
-  shiftStart  String // Heure de début de shift prévue (format HH:mm)
-
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee User   @relation("EmployeeAbsenceNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
-  manager  User   @relation("ManagerAbsenceNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  shiftStart  String
+  employee    User     @relation("EmployeeAbsenceNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  manager     User     @relation("ManagerAbsenceNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, employeeId, sessionDate, shiftStart])
   @@index([tenantId, sentAt])
@@ -1007,19 +982,18 @@ model AbsenceNotificationLog {
 }
 
 model AbsencePartialNotificationLog {
-  id           String   @id @default(uuid())
-  createdAt    DateTime @default(now())
+  id           String    @id @default(uuid())
+  createdAt    DateTime  @default(now())
   tenantId     String
   employeeId   String
   managerId    String
-  sessionDate  DateTime @db.Date
-  sentAt       DateTime @default(now())
-  missingType  String // "IN" ou "OUT"
-  outTimestamp DateTime? // Si OUT sans IN, timestamp du OUT
-
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee User   @relation("EmployeeAbsencePartialNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
-  manager  User   @relation("ManagerAbsencePartialNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  sessionDate  DateTime  @db.Date
+  sentAt       DateTime  @default(now())
+  missingType  String
+  outTimestamp DateTime?
+  employee     User      @relation("EmployeeAbsencePartialNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  manager      User      @relation("ManagerAbsencePartialNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, employeeId, sessionDate, missingType])
   @@index([tenantId, sentAt])
@@ -1034,14 +1008,13 @@ model AbsenceTechnicalNotificationLog {
   tenantId    String
   employeeId  String
   managerId   String
-  anomalyId   String // ID de l'anomalie AttendanceAnomaly
+  anomalyId   String
   sessionDate DateTime @db.Date
   sentAt      DateTime @default(now())
-  reason      String // Description du problème technique
-
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  employee User   @relation("EmployeeAbsenceTechnicalNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
-  manager  User   @relation("ManagerAbsenceTechnicalNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  reason      String
+  employee    User     @relation("EmployeeAbsenceTechnicalNotifications", fields: [employeeId], references: [id], onDelete: Cascade)
+  manager     User     @relation("ManagerAbsenceTechnicalNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, anomalyId])
   @@index([tenantId, sentAt])
@@ -1050,122 +1023,139 @@ model AbsenceTechnicalNotificationLog {
   @@map("absence_technical_notification_logs")
 }
 
-// ============================================
-// EMAIL ADMIN MODULE
-// ============================================
-
 model EmailConfig {
-  id       String @id @default(uuid())
-  tenantId String @unique
-
-  // Activation globale
-  enabled Boolean @default(false)
-
-  // Activation par type de notification
-  notifyMissingIn         Boolean @default(true)
-  notifyMissingOut        Boolean @default(true)
-  notifyLate              Boolean @default(true)
-  notifyAbsencePartial    Boolean @default(true)
-  notifyAbsenceTechnical  Boolean @default(true)
-  notifyAbsence           Boolean @default(true)
-
-  // Configuration SMTP
-  provider String  @default("gmail") // gmail, smtp, sendgrid, etc.
-  host     String  @default("smtp.gmail.com")
-  port     Int     @default(587)
-  secure   Boolean @default(false)
-
-  // Authentification (encrypted)
-  username String?
-  password String? // WARNING: À chiffrer en production
-
-  // Expéditeur
-  fromName  String  @default("PointaFlex")
-  fromEmail String?
-
-  // Métadonnées
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                     String   @id @default(uuid())
+  tenantId               String   @unique
+  enabled                Boolean  @default(false)
+  provider               String   @default("gmail")
+  host                   String   @default("smtp.gmail.com")
+  port                   Int      @default(587)
+  secure                 Boolean  @default(false)
+  username               String?
+  password               String?
+  fromName               String   @default("PointaFlex")
+  fromEmail              String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  notifyAbsence          Boolean  @default(true)
+  notifyAbsencePartial   Boolean  @default(true)
+  notifyAbsenceTechnical Boolean  @default(true)
+  notifyLate             Boolean  @default(true)
+  notifyMissingIn        Boolean  @default(true)
+  notifyMissingOut       Boolean  @default(true)
+  notifyOvertimePending  Boolean  @default(true)
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("email_configs")
 }
 
+model OvertimePendingNotificationLog {
+  id           String   @id @default(uuid())
+  createdAt    DateTime @default(now())
+  tenantId     String
+  managerId    String
+  sentAt       DateTime @default(now())
+  pendingCount Int
+  totalHours   Decimal
+  manager      User     @relation("ManagerOvertimePendingNotifications", fields: [managerId], references: [id], onDelete: Cascade)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sentAt])
+  @@index([managerId])
+  @@map("overtime_pending_notification_logs")
+}
+
 model EmailTemplate {
-  id       String @id @default(uuid())
-  tenantId String
-
-  // Identification
-  code        String // "MISSING_OUT", "MISSING_IN", "CUSTOM_1", etc.
-  name        String // Nom affiché dans l'UI
+  id          String     @id @default(uuid())
+  tenantId    String
+  code        String
+  name        String
   description String?
-
-  // Contenu
   subject     String
-  htmlContent String @db.Text
-
-  // Variables disponibles (JSON array)
-  variables Json // ["managerName", "employeeName", "sessionDate", ...]
-
-  // Type
-  category String @default("notification") // notification, alert, report
-
-  // État
-  active    Boolean @default(true)
-  isDefault Boolean @default(false) // Template système vs personnalisé
-
-  // Métadonnées
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  emailLogs EmailLog[]
+  htmlContent String
+  variables   Json
+  category    String     @default("notification")
+  active      Boolean    @default(true)
+  isDefault   Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  emailLogs   EmailLog[]
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, code])
   @@map("email_templates")
 }
 
 model EmailLog {
-  id       String @id @default(uuid())
-  tenantId String
-
-  // Destinataire
-  to  String
-  cc  String?
-  bcc String?
-
-  // Contenu
-  subject String
-
-  // Type et contexte
-  type       String // "MISSING_OUT", "MISSING_IN", "CUSTOM", "TEST"
+  id         String         @id @default(uuid())
+  tenantId   String
+  to         String
+  cc         String?
+  bcc        String?
+  subject    String
+  type       String
   templateId String?
-
-  // Métadonnées d'envoi
-  sentAt DateTime @default(now())
-  status String   @default("sent") // sent, failed, queued
-  error  String?  @db.Text
-
-  // Contexte métier
+  sentAt     DateTime       @default(now())
+  status     String         @default("sent")
+  error      String?
   employeeId String?
   managerId  String?
-
-  // Relations
-  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  template EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  employee User?          @relation("EmployeeEmailLogs", fields: [employeeId], references: [id], onDelete: SetNull)
-  manager  User?          @relation("ManagerEmailLogs", fields: [managerId], references: [id], onDelete: SetNull)
+  employee   User?          @relation("EmployeeEmailLogs", fields: [employeeId], references: [id])
+  manager    User?          @relation("ManagerEmailLogs", fields: [managerId], references: [id])
+  template   EmailTemplate? @relation(fields: [templateId], references: [id])
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, sentAt])
   @@index([tenantId, type])
   @@map("email_logs")
 }
 
-// Enum LegacyRole : gardé pour compatibilité avec l'ancien système
-// Le nouveau système utilise le modèle Role avec UserTenantRole
+model AttendanceAnomaly {
+  id               String            @id @default(uuid())
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  tenantId         String
+  attendanceId     String?
+  employeeId       String
+  scheduleId       String?
+  deviceId         String?
+  type             String
+  subType          String?
+  severity         String            @default("MEDIUM")
+  description      String
+  detectedAt       DateTime          @default(now())
+  occurredAt       DateTime
+  metadata         Json?
+  status           String            @default("OPEN")
+  resolvedAt       DateTime?
+  resolvedBy       String?
+  resolution       String?
+  notifiedAt       DateTime?
+  attendance       Attendance?       @relation(fields: [attendanceId], references: [id])
+  device           AttendanceDevice? @relation(fields: [deviceId], references: [id])
+  employee         Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  resolvedByUser   User?             @relation(fields: [resolvedBy], references: [id])
+  schedule         Schedule?         @relation(fields: [scheduleId], references: [id])
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([detectedAt])
+  @@index([employeeId])
+  @@index([severity])
+  @@index([status])
+  @@index([tenantId, employeeId, detectedAt])
+  @@index([tenantId])
+  @@index([tenantId, status, severity])
+  @@index([type])
+  @@map("attendance_anomalies")
+}
+
+enum RecoveryDayStatus {
+  PENDING
+  APPROVED
+  USED
+  CANCELLED
+}
+
 enum LegacyRole {
   SUPER_ADMIN
   ADMIN_RH

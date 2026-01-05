@@ -201,13 +201,30 @@ let TenantsService = class TenantsService {
                 'firstDayOfWeek', 'workingDays', 'workDaysPerWeek', 'maxWeeklyHours',
                 'lateToleranceEntry', 'earlyToleranceExit', 'breakDuration',
                 'overtimeRounding', 'overtimeMinimumThreshold', 'overtimeRate', 'nightShiftRate',
+                'overtimeMajorationEnabled', 'overtimeRateStandard', 'overtimeRateNight', 'overtimeRateHoliday', 'overtimeRateEmergency', 'overtimeAutoDetectType',
+                'overtimePendingNotificationTime',
+                'nightShiftStart', 'nightShiftEnd',
                 'alertWeeklyHoursExceeded', 'alertInsufficientRest', 'alertNightWorkRepetitive', 'alertMinimumStaffing',
                 'annualLeaveDays', 'leaveApprovalLevels', 'twoLevelWorkflow', 'anticipatedLeave',
                 'monthlyPayrollEmail', 'sfptExport', 'requireBreakPunch', 'requireScheduleForAttendance',
                 'temporaryMatriculeExpiryDays', 'recoveryConversionRate', 'recoveryExpiryDays', 'dailyWorkingHours',
                 'absencePartialThreshold', 'absenceDetectionTime',
                 'enableInsufficientRestDetection', 'minimumRestHours', 'minimumRestHoursNightShift',
-                'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours'
+                'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours',
+                'missingInDetectionWindowMinutes', 'missingInNotificationFrequencyMinutes',
+                'missingOutDetectionWindowMinutes', 'missingOutNotificationFrequencyMinutes',
+                'lateNotificationFrequencyMinutes', 'lateNotificationThresholdMinutes',
+                'absenceNotificationFrequencyMinutes', 'absenceDetectionBufferMinutes',
+                'absencePartialNotificationFrequencyMinutes',
+                'doubleInDetectionWindow', 'orphanInThreshold', 'doublePunchToleranceMinutes',
+                'enableDoubleInPatternDetection', 'doubleInPatternAlertThreshold',
+                'allowMissingInForRemoteWork', 'allowMissingInForMissions',
+                'missingInReminderEnabled', 'missingInReminderDelay', 'missingInReminderMaxPerDay',
+                'enableMissingInPatternDetection', 'missingInPatternAlertThreshold',
+                'missingOutDetectionTime', 'missingOutDetectionWindow',
+                'allowMissingOutForRemoteWork', 'allowMissingOutForMissions',
+                'missingOutReminderEnabled', 'missingOutReminderDelay', 'missingOutReminderBeforeClosing',
+                'enableMissingOutPatternDetection', 'missingOutPatternAlertThreshold'
             ];
             for (const [key, value] of Object.entries(settingsData)) {
                 if (value !== undefined && validSettingsFields.includes(key)) {
@@ -273,13 +290,30 @@ let TenantsService = class TenantsService {
                 const filteredSettingsData = {};
                 const validSettingsFields = [
                     'firstDayOfWeek', 'workingDays', 'workDaysPerWeek', 'maxWeeklyHours',
-                    'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours',
                     'lateToleranceEntry', 'earlyToleranceExit', 'breakDuration',
-                    'overtimeRounding', 'overtimeRate', 'nightShiftRate',
+                    'overtimeRounding', 'overtimeMinimumThreshold', 'overtimeRate', 'nightShiftRate',
+                    'nightShiftStart', 'nightShiftEnd',
                     'alertWeeklyHoursExceeded', 'alertInsufficientRest', 'alertNightWorkRepetitive', 'alertMinimumStaffing',
                     'annualLeaveDays', 'leaveApprovalLevels', 'twoLevelWorkflow', 'anticipatedLeave',
-                    'monthlyPayrollEmail', 'sfptExport',
-                    'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours'
+                    'monthlyPayrollEmail', 'sfptExport', 'requireBreakPunch', 'requireScheduleForAttendance',
+                    'temporaryMatriculeExpiryDays', 'recoveryConversionRate', 'recoveryExpiryDays', 'dailyWorkingHours',
+                    'absencePartialThreshold', 'absenceDetectionTime',
+                    'enableInsufficientRestDetection', 'minimumRestHours', 'minimumRestHoursNightShift',
+                    'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours',
+                    'missingInDetectionWindowMinutes', 'missingInNotificationFrequencyMinutes',
+                    'missingOutDetectionWindowMinutes', 'missingOutNotificationFrequencyMinutes',
+                    'lateNotificationFrequencyMinutes', 'lateNotificationThresholdMinutes',
+                    'absenceNotificationFrequencyMinutes', 'absenceDetectionBufferMinutes',
+                    'absencePartialNotificationFrequencyMinutes',
+                    'doubleInDetectionWindow', 'orphanInThreshold', 'doublePunchToleranceMinutes',
+                    'enableDoubleInPatternDetection', 'doubleInPatternAlertThreshold',
+                    'allowMissingInForRemoteWork', 'allowMissingInForMissions',
+                    'missingInReminderEnabled', 'missingInReminderDelay', 'missingInReminderMaxPerDay',
+                    'enableMissingInPatternDetection', 'missingInPatternAlertThreshold',
+                    'missingOutDetectionTime', 'missingOutDetectionWindow',
+                    'allowMissingOutForRemoteWork', 'allowMissingOutForMissions',
+                    'missingOutReminderEnabled', 'missingOutReminderDelay', 'missingOutReminderBeforeClosing',
+                    'enableMissingOutPatternDetection', 'missingOutPatternAlertThreshold'
                 ];
                 for (const [key, value] of Object.entries(settingsData)) {
                     if (value !== undefined && validSettingsFields.includes(key)) {
@@ -318,11 +352,29 @@ let TenantsService = class TenantsService {
                         const validSettingsFields = [
                             'firstDayOfWeek', 'workingDays', 'workDaysPerWeek', 'maxWeeklyHours',
                             'lateToleranceEntry', 'earlyToleranceExit', 'breakDuration',
-                            'overtimeRounding', 'overtimeRate', 'nightShiftStart', 'nightShiftEnd', 'nightShiftRate',
+                            'overtimeRounding', 'overtimeMinimumThreshold', 'overtimeRate', 'nightShiftRate',
+                            'nightShiftStart', 'nightShiftEnd',
                             'alertWeeklyHoursExceeded', 'alertInsufficientRest', 'alertNightWorkRepetitive', 'alertMinimumStaffing',
                             'annualLeaveDays', 'leaveApprovalLevels', 'twoLevelWorkflow', 'anticipatedLeave',
-                            'monthlyPayrollEmail', 'sfptExport',
-                            'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours'
+                            'monthlyPayrollEmail', 'sfptExport', 'requireBreakPunch', 'requireScheduleForAttendance',
+                            'temporaryMatriculeExpiryDays', 'recoveryConversionRate', 'recoveryExpiryDays', 'dailyWorkingHours',
+                            'absencePartialThreshold', 'absenceDetectionTime',
+                            'enableInsufficientRestDetection', 'minimumRestHours', 'minimumRestHoursNightShift',
+                            'holidayOvertimeEnabled', 'holidayOvertimeRate', 'holidayOvertimeAsNormalHours',
+                            'missingInDetectionWindowMinutes', 'missingInNotificationFrequencyMinutes',
+                            'missingOutDetectionWindowMinutes', 'missingOutNotificationFrequencyMinutes',
+                            'lateNotificationFrequencyMinutes', 'lateNotificationThresholdMinutes',
+                            'absenceNotificationFrequencyMinutes', 'absenceDetectionBufferMinutes',
+                            'absencePartialNotificationFrequencyMinutes',
+                            'doubleInDetectionWindow', 'orphanInThreshold', 'doublePunchToleranceMinutes',
+                            'enableDoubleInPatternDetection', 'doubleInPatternAlertThreshold',
+                            'allowMissingInForRemoteWork', 'allowMissingInForMissions',
+                            'missingInReminderEnabled', 'missingInReminderDelay', 'missingInReminderMaxPerDay',
+                            'enableMissingInPatternDetection', 'missingInPatternAlertThreshold',
+                            'missingOutDetectionTime', 'missingOutDetectionWindow',
+                            'allowMissingOutForRemoteWork', 'allowMissingOutForMissions',
+                            'missingOutReminderEnabled', 'missingOutReminderDelay', 'missingOutReminderBeforeClosing',
+                            'enableMissingOutPatternDetection', 'missingOutPatternAlertThreshold'
                         ];
                         for (const [key, value] of Object.entries(settingsData)) {
                             if (value !== undefined && validSettingsFields.includes(key)) {

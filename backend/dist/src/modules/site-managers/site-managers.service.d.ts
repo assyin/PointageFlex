@@ -7,13 +7,13 @@ export declare class SiteManagersService {
     create(tenantId: string, dto: CreateSiteManagerDto): Promise<{
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         manager: {
             id: string;
@@ -37,21 +37,21 @@ export declare class SiteManagersService {
     }): Promise<({
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
-            code: string;
             city: string;
+            code: string;
+            name: string;
         };
         manager: {
             id: string;
             email: string;
+            phone: string;
             firstName: string;
             lastName: string;
-            phone: string;
             matricule: string;
         };
     } & {
@@ -66,21 +66,21 @@ export declare class SiteManagersService {
     findOne(tenantId: string, id: string): Promise<{
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
-            code: string;
             city: string;
+            code: string;
+            name: string;
         };
         manager: {
             id: string;
             email: string;
+            phone: string;
             firstName: string;
             lastName: string;
-            phone: string;
             matricule: string;
         };
     } & {
@@ -95,13 +95,13 @@ export declare class SiteManagersService {
     update(tenantId: string, id: string, dto: UpdateSiteManagerDto): Promise<{
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         manager: {
             id: string;
@@ -125,8 +125,8 @@ export declare class SiteManagersService {
     findBySite(tenantId: string, siteId: string): Promise<({
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         manager: {
             id: string;
@@ -147,14 +147,14 @@ export declare class SiteManagersService {
     findByManager(tenantId: string, managerId: string): Promise<({
         department: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         site: {
             id: string;
-            name: string;
-            code: string;
             city: string;
+            code: string;
+            name: string;
         };
     } & {
         id: string;

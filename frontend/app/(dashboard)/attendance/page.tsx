@@ -649,7 +649,7 @@ export default function AttendancePage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Tous les départements</SelectItem>
-                          {(Array.isArray(departmentsData) ? departmentsData : departmentsData?.data || []).map((dept: any) => (
+                          {(departmentsData || []).map((dept: any) => (
                             <SelectItem key={dept.id} value={dept.id}>
                               {dept.name}
                             </SelectItem>
@@ -960,7 +960,23 @@ export default function AttendancePage() {
                         </td>
                         <td className="p-4">
                           <div className="space-y-1">
-                            {record.hasAnomaly ? (
+                            {/* Si corrigé et approuvé, afficher "Valide" au lieu de l'anomalie */}
+                            {record.isCorrected && record.approvalStatus === 'APPROVED' ? (
+                              <>
+                                <Badge variant="success" className="flex items-center gap-1 w-fit">
+                                  <CheckCircle className="h-3 w-3" />
+                                  Valide
+                                </Badge>
+                                <Badge variant="info" className="flex items-center gap-1 w-fit mt-1">
+                                  <CheckCircle className="h-3 w-3" />
+                                  Corrigé
+                                </Badge>
+                                <Badge variant="success" className="flex items-center gap-1 w-fit mt-1">
+                                  <CheckCircle className="h-3 w-3" />
+                                  Approuvé
+                                </Badge>
+                              </>
+                            ) : record.hasAnomaly ? (
                               <>
                                 {record.anomalyType === 'JOUR_FERIE_TRAVAILLE' ? (
                                   <Badge variant="info" className="flex items-center gap-1 w-fit">
@@ -983,35 +999,30 @@ export default function AttendancePage() {
                                     {record.anomalyNote}
                                   </div>
                                 )}
+                                {/* Afficher badges de correction si en cours mais pas encore approuvé */}
+                                {record.isCorrected && (
+                                  <Badge variant="info" className="flex items-center gap-1 w-fit mt-1">
+                                    <CheckCircle className="h-3 w-3" />
+                                    Corrigé
+                                  </Badge>
+                                )}
+                                {record.needsApproval && record.approvalStatus === 'PENDING_APPROVAL' && (
+                                  <Badge variant="warning" className="flex items-center gap-1 w-fit mt-1">
+                                    <AlertCircle className="h-3 w-3" />
+                                    En attente d'approbation
+                                  </Badge>
+                                )}
+                                {record.approvalStatus === 'REJECTED' && (
+                                  <Badge variant="danger" className="flex items-center gap-1 w-fit mt-1">
+                                    <XCircle className="h-3 w-3" />
+                                    Rejeté
+                                  </Badge>
+                                )}
                               </>
                             ) : (
                               <Badge variant="success" className="flex items-center gap-1 w-fit">
                                 <CheckCircle className="h-3 w-3" />
                                 Valide
-                              </Badge>
-                            )}
-                            {record.isCorrected && (
-                              <Badge variant="info" className="flex items-center gap-1 w-fit mt-1">
-                                <CheckCircle className="h-3 w-3" />
-                                Corrigé
-                              </Badge>
-                            )}
-                            {record.needsApproval && record.approvalStatus === 'PENDING_APPROVAL' && (
-                              <Badge variant="warning" className="flex items-center gap-1 w-fit mt-1">
-                                <AlertCircle className="h-3 w-3" />
-                                En attente d'approbation
-                              </Badge>
-                            )}
-                            {record.approvalStatus === 'APPROVED' && (
-                              <Badge variant="success" className="flex items-center gap-1 w-fit mt-1">
-                                <CheckCircle className="h-3 w-3" />
-                                Approuvé
-                              </Badge>
-                            )}
-                            {record.approvalStatus === 'REJECTED' && (
-                              <Badge variant="danger" className="flex items-center gap-1 w-fit mt-1">
-                                <XCircle className="h-3 w-3" />
-                                Rejeté
                               </Badge>
                             )}
                           </div>
@@ -1133,8 +1144,8 @@ export default function AttendancePage() {
                   <Label htmlFor="create-type">Type de pointage *</Label>
                   <Select
                     value={createFormData.type}
-                    onValueChange={(value: 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END') =>
-                      setCreateFormData({ ...createFormData, type: value })
+                    onValueChange={(value) =>
+                      setCreateFormData({ ...createFormData, type: value as 'IN' | 'OUT' | 'BREAK_START' | 'BREAK_END' })
                     }
                   >
                     <SelectTrigger id="create-type">

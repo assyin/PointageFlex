@@ -173,6 +173,12 @@ export class MissingInManagerNotificationJob {
   ) {
     const { employee, shift } = schedule;
 
+    // Vérifier que l'employé et son user existent
+    if (!employee || !employee.user) {
+      this.logger.warn(`Schedule ${schedule.id}: employé ou user manquant, skip`);
+      return;
+    }
+
     // ÉTAPE 1: Filtrer employés exclus (congé, mission, télétravail)
     const today = new Date();
     const isExcluded = await this.isEmployeeExcluded(
@@ -293,6 +299,7 @@ export class MissingInManagerNotificationJob {
 
   /**
    * Vérifie si l'employé doit être exclu de la détection
+   * Supporte: congés, missions, télétravail selon configuration
    */
   private async isEmployeeExcluded(
     tenantId: string,
@@ -300,7 +307,7 @@ export class MissingInManagerNotificationJob {
     date: Date,
     settings: any,
   ): Promise<boolean> {
-    // Vérifier congé approuvé
+    // Vérifier congé approuvé (avec type pour distinguer télétravail/mission)
     const leave = await this.prisma.leave.findFirst({
       where: {
         tenantId,
@@ -309,14 +316,45 @@ export class MissingInManagerNotificationJob {
         startDate: { lte: date },
         endDate: { gte: date },
       },
+      include: {
+        leaveType: {
+          select: {
+            code: true,
+            name: true,
+          },
+        },
+      },
     });
 
     if (leave) {
+      const leaveTypeCode = leave.leaveType?.code?.toUpperCase() || '';
+      const leaveTypeName = leave.leaveType?.name?.toUpperCase() || '';
+
+      // Vérifier si c'est du télétravail
+      const isTeletravail = leaveTypeCode.includes('TELETRAVAIL') ||
+                           leaveTypeCode.includes('REMOTE') ||
+                           leaveTypeName.includes('TÉLÉTRAVAIL') ||
+                           leaveTypeName.includes('TELETRAVAIL') ||
+                           leaveTypeName.includes('REMOTE');
+
+      if (isTeletravail) {
+        // Si allowMissingInForRemoteWork = true, exclure (pas de notification)
+        return settings?.allowMissingInForRemoteWork !== false;
+      }
+
+      // Vérifier si c'est une mission
+      const isMission = leaveTypeCode.includes('MISSION') ||
+                       leaveTypeName.includes('MISSION') ||
+                       leaveTypeName.includes('DÉPLACEMENT');
+
+      if (isMission) {
+        // Si allowMissingInForMissions = true, exclure (pas de notification)
+        return settings?.allowMissingInForMissions !== false;
+      }
+
+      // Autre type de congé (vacances, maladie, etc.) → toujours exclure
       return true;
     }
-
-    // TODO: Vérifier mission si allowMissingInForMissions est false
-    // TODO: Vérifier télétravail si allowMissingInForRemoteWork est false
 
     return false;
   }
@@ -403,7 +441,7 @@ export class MissingInManagerNotificationJob {
     // Préparer les données pour le template
     const templateData = {
       managerName: `${manager.firstName} ${manager.lastName}`,
-      employeeName: `${employee.firstName} ${employee.lastName}`,
+      employeeName: `${employee.user.firstName} ${employee.user.lastName}`,
       sessionDate: sessionDate.toLocaleDateString('fr-FR'),
       shiftStart,
     };
@@ -430,7 +468,7 @@ export class MissingInManagerNotificationJob {
     );
 
     this.logger.log(
-      `📧 Email MISSING_IN envoyé à ${manager.email} pour ${employee.firstName} ${employee.lastName}`,
+      `📧 Email MISSING_IN envoyé à ${manager.email} pour ${employee.user.firstName} ${employee.user.lastName}`,
     );
 
     // Logger dans la table d'audit
@@ -445,7 +483,7 @@ export class MissingInManagerNotificationJob {
     });
 
     this.logger.log(
-      `✅ Notification MISSING_IN enregistrée pour ${employee.firstName} ${employee.lastName}`,
+      `✅ Notification MISSING_IN enregistrée pour ${employee.user.firstName} ${employee.user.lastName}`,
     );
   }
 }

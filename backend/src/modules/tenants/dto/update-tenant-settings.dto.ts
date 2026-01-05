@@ -56,17 +56,56 @@ export class UpdateTenantSettingsDto {
   workingDays?: number[];
 
   // Time Policy
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Nombre de jours travaillés par semaine',
+    example: 6,
+    default: 6,
+  })
+  @IsOptional()
+  @IsInt()
+  workDaysPerWeek?: number;
+
+  @ApiPropertyOptional({
+    description: 'Nombre d\'heures maximales hebdomadaires',
+    example: 44,
+    default: 44,
+  })
+  @IsOptional()
+  @IsNumber()
+  maxWeeklyHours?: number;
+
+  @ApiPropertyOptional({
+    description: 'Durée de pause en minutes',
+    example: 60,
+    default: 60,
+  })
+  @IsOptional()
+  @IsInt()
+  breakDuration?: number;
+
+  @ApiPropertyOptional({
+    description: 'Tolérance de retard à l\'entrée en minutes',
+    example: 10,
+    default: 10,
+  })
   @IsOptional()
   @IsInt()
   lateToleranceEntry?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Tolérance de sortie anticipée en minutes',
+    example: 5,
+    default: 5,
+  })
   @IsOptional()
   @IsInt()
   earlyToleranceExit?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Arrondi des heures supplémentaires en minutes',
+    example: 15,
+    default: 15,
+  })
   @IsOptional()
   @IsInt()
   overtimeRounding?: number;
@@ -74,18 +113,176 @@ export class UpdateTenantSettingsDto {
   @ApiPropertyOptional({
     description: 'Seuil minimum en minutes pour créer automatiquement un Overtime',
     example: 30,
+    default: 30,
   })
   @IsOptional()
   @IsInt()
   overtimeMinimumThreshold?: number;
 
+  @ApiPropertyOptional({
+    description: 'Taux de majoration pour les heures supplémentaires (DEPRECATED - utiliser overtimeRateStandard)',
+    example: 1.25,
+    default: 1.25,
+    deprecated: true,
+  })
+  @IsOptional()
+  @IsNumber()
+  overtimeRate?: number;
+
+  @ApiPropertyOptional({
+    description: 'Taux de majoration pour le shift de nuit (DEPRECATED - utiliser overtimeRateNight)',
+    example: 1.50,
+    default: 1.50,
+    deprecated: true,
+  })
+  @IsOptional()
+  @IsNumber()
+  nightShiftRate?: number;
+
+  // Configuration des taux de majoration heures supplémentaires
+  @ApiPropertyOptional({
+    description: 'Activer/désactiver les majorations (si false, tous les taux = 1.0)',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  overtimeMajorationEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Taux heures supp standard (1.0 = pas de majoration, 1.25 = +25%)',
+    example: 1.25,
+    default: 1.25,
+  })
+  @IsOptional()
+  @IsNumber()
+  overtimeRateStandard?: number;
+
+  @ApiPropertyOptional({
+    description: 'Taux heures de nuit (1.5 = +50%)',
+    example: 1.50,
+    default: 1.50,
+  })
+  @IsOptional()
+  @IsNumber()
+  overtimeRateNight?: number;
+
+  @ApiPropertyOptional({
+    description: 'Taux jours fériés (2.0 = +100%)',
+    example: 2.00,
+    default: 2.00,
+  })
+  @IsOptional()
+  @IsNumber()
+  overtimeRateHoliday?: number;
+
+  @ApiPropertyOptional({
+    description: 'Taux urgence/astreinte (1.3 = +30%)',
+    example: 1.30,
+    default: 1.30,
+  })
+  @IsOptional()
+  @IsNumber()
+  overtimeRateEmergency?: number;
+
+  @ApiPropertyOptional({
+    description: 'Détecter automatiquement le type (NIGHT si shift nuit, HOLIDAY si férié)',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  overtimeAutoDetectType?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Heure d\'envoi quotidienne des notifications heures sup en attente (format HH:mm)',
+    example: '09:00',
+    default: '09:00',
+  })
+  @IsOptional()
+  @IsString()
+  overtimePendingNotificationTime?: string;
+
+  @ApiPropertyOptional({
+    description: 'Heure de début du shift de nuit (format HH:mm)',
+    example: '21:00',
+    default: '21:00',
+  })
+  @IsOptional()
+  @IsString()
+  nightShiftStart?: string;
+
+  @ApiPropertyOptional({
+    description: 'Heure de fin du shift de nuit (format HH:mm)',
+    example: '06:00',
+    default: '06:00',
+  })
+  @IsOptional()
+  @IsString()
+  nightShiftEnd?: string;
+
+  // Legal Alerts
+  @ApiPropertyOptional({
+    description: 'Activer l\'alerte de dépassement des heures hebdomadaires',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  alertWeeklyHoursExceeded?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Activer l\'alerte de repos insuffisant',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  alertInsufficientRest?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Activer l\'alerte de travail de nuit répétitif',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  alertNightWorkRepetitive?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Activer l\'alerte d\'effectif minimum',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  alertMinimumStaffing?: boolean;
+
   // Leave Rules
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Nombre de jours de congé annuel',
+    example: 18,
+    default: 18,
+  })
+  @IsOptional()
+  @IsInt()
+  annualLeaveDays?: number;
+
+  @ApiPropertyOptional({
+    description: 'Nombre de niveaux d\'approbation pour les congés',
+    example: 2,
+    default: 2,
+  })
+  @IsOptional()
+  @IsInt()
+  leaveApprovalLevels?: number;
+
+  @ApiPropertyOptional({
+    description: 'Activer le workflow à deux niveaux pour les congés',
+    default: true,
+  })
   @IsOptional()
   @IsBoolean()
   twoLevelWorkflow?: boolean;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Autoriser les demandes de congé anticipées',
+    default: false,
+  })
   @IsOptional()
   @IsBoolean()
   anticipatedLeave?: boolean;
@@ -251,4 +448,235 @@ export class UpdateTenantSettingsDto {
   @IsOptional()
   @IsInt()
   missingOutNotificationFrequencyMinutes?: number;
+
+  // LATE Notification Settings
+  @ApiPropertyOptional({
+    description: 'Fréquence du job de notification LATE en minutes (défaut: 15 min)',
+    example: 15,
+    default: 15,
+  })
+  @IsOptional()
+  @IsInt()
+  lateNotificationFrequencyMinutes?: number;
+
+  @ApiPropertyOptional({
+    description: 'Seuil de retard en minutes pour déclencher une notification (défaut: 15 min)',
+    example: 15,
+    default: 15,
+  })
+  @IsOptional()
+  @IsInt()
+  lateNotificationThresholdMinutes?: number;
+
+  // ABSENCE Notification Settings
+  @ApiPropertyOptional({
+    description: 'Fréquence du job de notification ABSENCE en minutes (défaut: 60 min)',
+    example: 60,
+    default: 60,
+  })
+  @IsOptional()
+  @IsInt()
+  absenceNotificationFrequencyMinutes?: number;
+
+  @ApiPropertyOptional({
+    description: 'Délai tampon avant de considérer une absence en minutes (défaut: 60 min)',
+    example: 60,
+    default: 60,
+  })
+  @IsOptional()
+  @IsInt()
+  absenceDetectionBufferMinutes?: number;
+
+  // ABSENCE_PARTIAL Notification Settings
+  @ApiPropertyOptional({
+    description: 'Fréquence du job de notification ABSENCE_PARTIAL en minutes (défaut: 30 min)',
+    example: 30,
+    default: 30,
+  })
+  @IsOptional()
+  @IsInt()
+  absencePartialNotificationFrequencyMinutes?: number;
+
+  // DOUBLE_IN Detection Settings
+  @ApiPropertyOptional({
+    description: 'Fenêtre de détection DOUBLE_IN en heures (défaut: 24h)',
+    example: 24,
+    default: 24,
+  })
+  @IsOptional()
+  @IsInt()
+  doubleInDetectionWindow?: number;
+
+  @ApiPropertyOptional({
+    description: 'Seuil en heures pour considérer un IN comme orphelin (défaut: 12h)',
+    example: 12,
+    default: 12,
+  })
+  @IsOptional()
+  @IsInt()
+  orphanInThreshold?: number;
+
+  @ApiPropertyOptional({
+    description: 'Fenêtre de tolérance en minutes pour erreur de badgeage (défaut: 2 min)',
+    example: 2,
+    default: 2,
+  })
+  @IsOptional()
+  @IsInt()
+  doublePunchToleranceMinutes?: number;
+
+  @ApiPropertyOptional({
+    description: 'Activer la détection de patterns suspects DOUBLE_IN',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enableDoubleInPatternDetection?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Seuil d\'alerte pour patterns suspects (nombre de DOUBLE_IN sur 30 jours, défaut: 3)',
+    example: 3,
+    default: 3,
+  })
+  @IsOptional()
+  @IsInt()
+  doubleInPatternAlertThreshold?: number;
+
+  // MISSING_IN Advanced Settings
+  @ApiPropertyOptional({
+    description: 'Autoriser MISSING_IN pour télétravail',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowMissingInForRemoteWork?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Autoriser MISSING_IN pour missions',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowMissingInForMissions?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Activer les rappels MISSING_IN',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  missingInReminderEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Délai en minutes avant le rappel MISSING_IN (défaut: 15 min)',
+    example: 15,
+    default: 15,
+  })
+  @IsOptional()
+  @IsInt()
+  missingInReminderDelay?: number;
+
+  @ApiPropertyOptional({
+    description: 'Nombre maximum de rappels MISSING_IN par jour (défaut: 2)',
+    example: 2,
+    default: 2,
+  })
+  @IsOptional()
+  @IsInt()
+  missingInReminderMaxPerDay?: number;
+
+  @ApiPropertyOptional({
+    description: 'Activer la détection de patterns d\'oubli MISSING_IN',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enableMissingInPatternDetection?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Seuil d\'alerte pour patterns d\'oubli MISSING_IN (nombre sur 30 jours, défaut: 3)',
+    example: 3,
+    default: 3,
+  })
+  @IsOptional()
+  @IsInt()
+  missingInPatternAlertThreshold?: number;
+
+  // MISSING_OUT Advanced Settings
+  @ApiPropertyOptional({
+    description: 'Heure d\'exécution du job batch MISSING_OUT (format HH:mm, défaut: 00:00)',
+    example: '00:00',
+    default: '00:00',
+  })
+  @IsOptional()
+  @IsString()
+  missingOutDetectionTime?: string;
+
+  @ApiPropertyOptional({
+    description: 'Fenêtre de détection en heures pour shifts de nuit (défaut: 12h)',
+    example: 12,
+    default: 12,
+  })
+  @IsOptional()
+  @IsInt()
+  missingOutDetectionWindow?: number;
+
+  @ApiPropertyOptional({
+    description: 'Autoriser MISSING_OUT pour télétravail',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowMissingOutForRemoteWork?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Autoriser MISSING_OUT pour missions',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowMissingOutForMissions?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Activer les rappels MISSING_OUT',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  missingOutReminderEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Délai en minutes avant le rappel MISSING_OUT (défaut: 15 min)',
+    example: 15,
+    default: 15,
+  })
+  @IsOptional()
+  @IsInt()
+  missingOutReminderDelay?: number;
+
+  @ApiPropertyOptional({
+    description: 'Rappel X minutes avant fermeture du shift (défaut: 30 min)',
+    example: 30,
+    default: 30,
+  })
+  @IsOptional()
+  @IsInt()
+  missingOutReminderBeforeClosing?: number;
+
+  @ApiPropertyOptional({
+    description: 'Activer la détection de patterns d\'oubli MISSING_OUT',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  enableMissingOutPatternDetection?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Seuil d\'alerte pour patterns d\'oubli MISSING_OUT (nombre sur 30 jours, défaut: 3)',
+    example: 3,
+    default: 3,
+  })
+  @IsOptional()
+  @IsInt()
+  missingOutPatternAlertThreshold?: number;
 }

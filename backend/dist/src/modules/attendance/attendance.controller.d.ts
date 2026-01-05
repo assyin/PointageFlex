@@ -31,13 +31,13 @@ export declare class AttendanceController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             phone: string | null;
-            name: string;
-            code: string | null;
             address: string | null;
             timezone: string | null;
             city: string | null;
+            tenantId: string;
+            code: string | null;
+            name: string;
             departmentId: string | null;
             managerId: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -49,8 +49,8 @@ export declare class AttendanceController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            isActive: boolean;
             name: string;
+            isActive: boolean;
             siteId: string | null;
             deviceId: string;
             ipAddress: string | null;
@@ -206,8 +206,8 @@ export declare class AttendanceController {
             photo: string;
             currentShift: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
                 startTime: string;
                 endTime: string;
             };
@@ -215,8 +215,8 @@ export declare class AttendanceController {
         siteId: string;
         site: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         latitude: import("@prisma/client/runtime/library").Decimal;
         longitude: import("@prisma/client/runtime/library").Decimal;
@@ -263,8 +263,8 @@ export declare class AttendanceController {
                 photo: string;
                 currentShift: {
                     id: string;
-                    name: string;
                     code: string;
+                    name: string;
                     startTime: string;
                     endTime: string;
                 };
@@ -272,8 +272,8 @@ export declare class AttendanceController {
             siteId: string;
             site: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
             };
             latitude: import("@prisma/client/runtime/library").Decimal;
             longitude: import("@prisma/client/runtime/library").Decimal;
@@ -334,13 +334,13 @@ export declare class AttendanceController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             phone: string | null;
-            name: string;
-            code: string | null;
             address: string | null;
             timezone: string | null;
             city: string | null;
+            tenantId: string;
+            code: string | null;
+            name: string;
             departmentId: string | null;
             managerId: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -398,8 +398,8 @@ export declare class AttendanceController {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string | null;
+                name: string;
                 description: string | null;
                 managerId: string | null;
             };
@@ -408,8 +408,8 @@ export declare class AttendanceController {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 managerId: string | null;
                 rotationEnabled: boolean;
@@ -420,13 +420,13 @@ export declare class AttendanceController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            tenantId: string;
             phone: string | null;
-            name: string;
-            code: string | null;
             address: string | null;
             timezone: string | null;
             city: string | null;
+            tenantId: string;
+            code: string | null;
+            name: string;
             departmentId: string | null;
             managerId: string | null;
             latitude: import("@prisma/client/runtime/library").Decimal | null;
@@ -438,8 +438,8 @@ export declare class AttendanceController {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            isActive: boolean;
             name: string;
+            isActive: boolean;
             siteId: string | null;
             deviceId: string;
             ipAddress: string | null;

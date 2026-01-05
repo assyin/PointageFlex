@@ -3,7 +3,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { Button } from '@/components/ui/button';
 import { Shield, ArrowLeft, Home } from 'lucide-react';
 
 export default function ForbiddenPage() {
@@ -27,18 +26,14 @@ export default function ForbiddenPage() {
           </p>
           
           <div className="flex gap-4 justify-center">
-            <Button variant="outline" asChild>
-              <Link href="/dashboard">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Retour au tableau de bord
-              </Link>
-            </Button>
-            <Button variant="primary" asChild>
-              <Link href="/dashboard">
-                <Home className="h-4 w-4 mr-2" />
-                Accueil
-              </Link>
-            </Button>
+            <Link href="/dashboard" className="inline-flex items-center justify-center px-6 py-3 bg-transparent border-2 border-primary text-primary rounded-lg font-semibold transition-all hover:bg-primary hover:text-white">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Retour au tableau de bord
+            </Link>
+            <Link href="/dashboard" className="inline-flex items-center justify-center px-6 py-3 bg-primary text-white rounded-lg font-semibold transition-all hover:bg-primary-hover">
+              <Home className="h-4 w-4 mr-2" />
+              Accueil
+            </Link>
           </div>
         </div>
       </div>

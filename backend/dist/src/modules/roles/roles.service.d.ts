@@ -20,11 +20,11 @@ export declare class RolesService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -37,10 +37,10 @@ export declare class RolesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     findAll(tenantId: string | null): Promise<({
@@ -52,11 +52,11 @@ export declare class RolesService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -69,10 +69,10 @@ export declare class RolesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     })[]>;
     findOne(id: string): Promise<{
@@ -89,11 +89,11 @@ export declare class RolesService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -106,10 +106,10 @@ export declare class RolesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     findByCode(tenantId: string | null, code: string): Promise<{
@@ -118,11 +118,11 @@ export declare class RolesService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -135,10 +135,10 @@ export declare class RolesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     update(tenantId: string | null, id: string, dto: UpdateRoleDto): Promise<{
@@ -155,11 +155,11 @@ export declare class RolesService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -172,10 +172,10 @@ export declare class RolesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     remove(id: string): Promise<{
@@ -183,10 +183,10 @@ export declare class RolesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     assignPermissions(roleId: string, permissionCodes: string[]): Promise<{
@@ -203,11 +203,11 @@ export declare class RolesService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -220,10 +220,10 @@ export declare class RolesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     setPermissions(roleId: string, permissionCodes: string[]): Promise<{
@@ -240,11 +240,11 @@ export declare class RolesService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -257,10 +257,10 @@ export declare class RolesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     initializeSystemRoles(): Promise<void>;
@@ -278,11 +278,11 @@ export declare class RolesService {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -295,10 +295,10 @@ export declare class RolesService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     initializeTenantRoles(tenantId: string): Promise<void>;

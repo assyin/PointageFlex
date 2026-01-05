@@ -39,7 +39,7 @@ let AttendanceController = class AttendanceController {
         if (!deviceId || !tenantId) {
             throw new common_1.UnauthorizedException('Missing device credentials');
         }
-        return this.attendanceService.handleWebhook(tenantId, deviceId, webhookData);
+        return this.attendanceService.handleWebhook(tenantId, deviceId, webhookData, apiKey);
     }
     async handlePushFromTerminal(body, headers) {
         console.log('📥 [Push URL] Données reçues du terminal:', JSON.stringify(body, null, 2));
@@ -69,7 +69,8 @@ let AttendanceController = class AttendanceController {
                 rawData: body,
             };
             console.log('🔄 [Push URL] Données converties:', JSON.stringify(webhookData, null, 2));
-            const result = await this.attendanceService.handleWebhook(tenantId, deviceId, webhookData);
+            const apiKey = headers['x-api-key'] || headers['api-key'] || headers['apikey'];
+            const result = await this.attendanceService.handleWebhook(tenantId, deviceId, webhookData, apiKey);
             console.log('✅ [Push URL] Pointage enregistré avec succès');
             return result;
         }

@@ -18,11 +18,11 @@ export declare class RolesController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -35,10 +35,10 @@ export declare class RolesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     findAll(tenantId: string | null): Promise<({
@@ -50,11 +50,11 @@ export declare class RolesController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -67,10 +67,10 @@ export declare class RolesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     })[]>;
     findOne(id: string): Promise<{
@@ -87,11 +87,11 @@ export declare class RolesController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -104,10 +104,10 @@ export declare class RolesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     update(tenantId: string | null, id: string, updateRoleDto: UpdateRoleDto): Promise<{
@@ -124,11 +124,11 @@ export declare class RolesController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -141,10 +141,10 @@ export declare class RolesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     remove(id: string): Promise<{
@@ -152,10 +152,10 @@ export declare class RolesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     assignPermissions(id: string, body: {
@@ -174,11 +174,11 @@ export declare class RolesController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -191,10 +191,10 @@ export declare class RolesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     resetDefaultPermissions(id: string): Promise<{
@@ -211,11 +211,11 @@ export declare class RolesController {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
-                isActive: boolean;
-                name: string;
                 code: string;
+                name: string;
                 description: string | null;
                 category: string;
+                isActive: boolean;
             };
         } & {
             id: string;
@@ -228,10 +228,10 @@ export declare class RolesController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string | null;
-        isActive: boolean;
-        name: string;
         code: string;
+        name: string;
         description: string | null;
+        isActive: boolean;
         isSystem: boolean;
     }>;
     updateAllManagerRoles(): Promise<{

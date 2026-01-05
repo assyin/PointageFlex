@@ -67,10 +67,22 @@ export class DetectOvertimeJob {
       where: { tenantId },
       select: {
         overtimeMinimumThreshold: true,
+        overtimeAutoDetectType: true,
+        nightShiftStart: true,
+        nightShiftEnd: true,
+        overtimeMajorationEnabled: true,
+        overtimeRateStandard: true,
+        overtimeRateNight: true,
+        overtimeRateHoliday: true,
+        overtimeRateEmergency: true,
+        // Fallback sur anciens champs
+        overtimeRate: true,
+        nightShiftRate: true,
       },
     });
 
     const minimumThreshold = settings?.overtimeMinimumThreshold || 30; // Défaut: 30 minutes
+    const autoDetectType = settings?.overtimeAutoDetectType !== false; // Activé par défaut
 
     // Récupérer tous les Attendance avec overtimeMinutes > seuil minimum
     const attendancesWithOvertime = await this.prisma.attendance.findMany({
@@ -104,6 +116,23 @@ export class DetectOvertimeJob {
     this.logger.log(
       `Analyse de ${attendancesWithOvertime.length} pointage(s) avec heures sup pour le tenant ${tenantId}...`,
     );
+
+    // Charger les jours fériés pour la période (si détection auto activée)
+    let holidays: Set<string> = new Set();
+    if (autoDetectType) {
+      const holidayRecords = await this.prisma.holiday.findMany({
+        where: {
+          tenantId,
+          date: {
+            gte: startDate,
+            lte: endDate,
+          },
+        },
+        select: { date: true },
+      });
+      holidays = new Set(holidayRecords.map(h => h.date.toISOString().split('T')[0]));
+      this.logger.debug(`${holidays.size} jour(s) férié(s) trouvé(s) pour la période`);
+    }
 
     let createdCount = 0;
     let skippedCount = 0;
@@ -169,16 +198,38 @@ export class DetectOvertimeJob {
           }
         }
 
+        // Détecter le type d'overtime si l'option est activée
+        let overtimeType: 'STANDARD' | 'NIGHT' | 'HOLIDAY' | 'EMERGENCY' = 'STANDARD';
+        const dateStr = attendance.timestamp.toISOString().split('T')[0];
+
+        if (autoDetectType) {
+          // Vérifier si c'est un jour férié
+          if (holidays.has(dateStr)) {
+            overtimeType = 'HOLIDAY';
+            this.logger.debug(`Type HOLIDAY détecté pour ${dateStr} (jour férié)`);
+          }
+          // Vérifier si c'est un shift de nuit
+          else if (this.isNightShiftTime(attendance.timestamp, settings)) {
+            overtimeType = 'NIGHT';
+            this.logger.debug(`Type NIGHT détecté pour ${attendance.timestamp.toISOString()}`);
+          }
+        }
+
+        // Calculer le taux de majoration avec la méthode du service
+        const rate = this.overtimeService.getOvertimeRate(settings, overtimeType);
+
         // Créer l'Overtime
         await this.prisma.overtime.create({
           data: {
             tenantId,
             employeeId: attendance.employeeId,
-            date: new Date(attendance.timestamp.toISOString().split('T')[0]),
+            date: new Date(dateStr),
             hours: hoursToCreate,
-            type: 'STANDARD', // Par défaut, peut être amélioré pour détecter NIGHT, HOLIDAY, etc.
+            type: overtimeType,
+            rate,
+            isNightShift: overtimeType === 'NIGHT', // Backward compatibility
             status: OvertimeStatus.PENDING,
-            notes: `Créé automatiquement depuis le pointage du ${attendance.timestamp.toLocaleDateString('fr-FR')}`,
+            notes: `Créé automatiquement depuis le pointage du ${attendance.timestamp.toLocaleDateString('fr-FR')}${overtimeType !== 'STANDARD' ? ` (${overtimeType})` : ''}`,
           },
         });
 
@@ -198,6 +249,37 @@ export class DetectOvertimeJob {
     this.logger.log(
       `Détection des heures sup pour le tenant ${tenantId} terminée. ${createdCount} créé(s), ${skippedCount} ignoré(s).`,
     );
+  }
+
+  /**
+   * Vérifie si un timestamp tombe dans la plage horaire de nuit configurée
+   * @param timestamp Le timestamp à vérifier
+   * @param settings Configuration du tenant avec nightShiftStart et nightShiftEnd
+   * @returns true si le timestamp est dans la plage de nuit
+   */
+  private isNightShiftTime(timestamp: Date, settings: any): boolean {
+    // Valeurs par défaut: 21:00 - 06:00
+    const nightStart = settings?.nightShiftStart || '21:00';
+    const nightEnd = settings?.nightShiftEnd || '06:00';
+
+    const [startHour, startMin] = nightStart.split(':').map(Number);
+    const [endHour, endMin] = nightEnd.split(':').map(Number);
+
+    const hour = timestamp.getHours();
+    const minute = timestamp.getMinutes();
+    const currentMinutes = hour * 60 + minute;
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    // Cas où le shift de nuit traverse minuit (ex: 21:00 - 06:00)
+    if (startMinutes > endMinutes) {
+      // Le timestamp est dans la plage de nuit s'il est >= startMinutes OU <= endMinutes
+      return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+    } else {
+      // Cas normal (ex: 22:00 - 02:00 qui serait 22:00 - 26:00 en heures continues)
+      // ou cas atypique où nightEnd > nightStart (ex: 06:00 - 14:00)
+      return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+    }
   }
 }
 

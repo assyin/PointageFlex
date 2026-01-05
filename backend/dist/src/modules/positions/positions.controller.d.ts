@@ -13,8 +13,8 @@ export declare class PositionsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         category: string | null;
     }>;
@@ -27,8 +27,8 @@ export declare class PositionsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         category: string | null;
     })[]>;
@@ -48,9 +48,6 @@ export declare class PositionsController {
     }>;
     getCategories(tenantId: string): Promise<string[]>;
     findOne(id: string, tenantId: string): Promise<{
-        _count: {
-            employees: number;
-        };
         employees: {
             id: string;
             email: string;
@@ -62,13 +59,16 @@ export declare class PositionsController {
                 name: string;
             };
         }[];
+        _count: {
+            employees: number;
+        };
     } & {
         id: string;
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         category: string | null;
     }>;
@@ -81,8 +81,8 @@ export declare class PositionsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         category: string | null;
     }>;
@@ -91,8 +91,8 @@ export declare class PositionsController {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string | null;
+        name: string;
         description: string | null;
         category: string | null;
     }>;

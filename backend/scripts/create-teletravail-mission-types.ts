@@ -1,0 +1,85 @@
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+const TENANT_ID = '340a6c2a-160e-4f4b-917e-6eea8fd5ff2d'; // BCC
+
+async function main() {
+  console.log('🔧 Création des types Télétravail et Mission...\n');
+
+  // 1. Créer le type TELETRAVAIL s'il n'existe pas
+  const existingTeletravail = await prisma.leaveType.findFirst({
+    where: {
+      tenantId: TENANT_ID,
+      OR: [
+        { code: { contains: 'TELETRAVAIL', mode: 'insensitive' } },
+        { code: { contains: 'REMOTE', mode: 'insensitive' } },
+        { name: { contains: 'télétravail', mode: 'insensitive' } },
+      ]
+    }
+  });
+
+  if (!existingTeletravail) {
+    const teletravail = await prisma.leaveType.create({
+      data: {
+        tenantId: TENANT_ID,
+        name: 'Télétravail',
+        code: 'TELETRAVAIL',
+        isPaid: true,
+        requiresDocument: false,
+        maxDaysPerYear: null, // Pas de limite
+      }
+    });
+    console.log(`✅ Type "Télétravail" créé (ID: ${teletravail.id})`);
+  } else {
+    console.log(`ℹ️  Type "Télétravail" existe déjà (ID: ${existingTeletravail.id})`);
+  }
+
+  // 2. Créer le type MISSION s'il n'existe pas
+  const existingMission = await prisma.leaveType.findFirst({
+    where: {
+      tenantId: TENANT_ID,
+      OR: [
+        { code: { contains: 'MISSION', mode: 'insensitive' } },
+        { name: { contains: 'mission', mode: 'insensitive' } },
+      ]
+    }
+  });
+
+  if (!existingMission) {
+    const mission = await prisma.leaveType.create({
+      data: {
+        tenantId: TENANT_ID,
+        name: 'Mission / Déplacement',
+        code: 'MISSION',
+        isPaid: true,
+        requiresDocument: false,
+        maxDaysPerYear: null, // Pas de limite
+      }
+    });
+    console.log(`✅ Type "Mission" créé (ID: ${mission.id})`);
+  } else {
+    console.log(`ℹ️  Type "Mission" existe déjà (ID: ${existingMission.id})`);
+  }
+
+  // 3. Afficher tous les types de congés
+  console.log('\n📋 Types de congés disponibles:\n');
+  const allTypes = await prisma.leaveType.findMany({
+    where: { tenantId: TENANT_ID },
+    orderBy: { name: 'asc' }
+  });
+
+  allTypes.forEach(t => {
+    console.log(`  - ${t.name} (code: ${t.code})`);
+  });
+
+  console.log('\n✅ Configuration terminée!');
+  console.log('\n💡 Pour créer un télétravail/mission pour un employé:');
+  console.log('   1. Allez dans "Congés" sur le frontend');
+  console.log('   2. Créez une demande avec le type "Télétravail" ou "Mission"');
+  console.log('   3. Approuvez la demande');
+  console.log('   4. L\'employé sera exclu des notifications d\'anomalies pendant cette période');
+}
+
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());

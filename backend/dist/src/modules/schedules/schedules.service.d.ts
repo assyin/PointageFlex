@@ -69,16 +69,16 @@ export declare class SchedulesService {
             };
             team: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
             };
             shift: {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 startTime: string;
                 endTime: string;
                 breakDuration: number;
@@ -120,16 +120,16 @@ export declare class SchedulesService {
         };
         team: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         shift: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             startTime: string;
             endTime: string;
             breakDuration: number;
@@ -163,16 +163,16 @@ export declare class SchedulesService {
         };
         team: {
             id: string;
-            name: string;
             code: string;
+            name: string;
         };
         shift: {
             id: string;
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             startTime: string;
             endTime: string;
             breakDuration: number;
@@ -242,22 +242,22 @@ export declare class SchedulesService {
                 };
                 team: {
                     id: string;
-                    name: string;
                     code: string;
+                    name: string;
                 };
             };
             team: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
             };
             shift: {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 startTime: string;
                 endTime: string;
                 breakDuration: number;
@@ -293,8 +293,8 @@ export declare class SchedulesService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 isPaid: boolean;
                 requiresDocument: boolean;
                 maxDaysPerYear: number | null;
@@ -332,8 +332,8 @@ export declare class SchedulesService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 startTime: string;
                 endTime: string;
                 breakDuration: number;
@@ -388,22 +388,22 @@ export declare class SchedulesService {
                 };
                 team: {
                     id: string;
-                    name: string;
                     code: string;
+                    name: string;
                 };
             };
             team: {
                 id: string;
-                name: string;
                 code: string;
+                name: string;
             };
             shift: {
                 id: string;
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 startTime: string;
                 endTime: string;
                 breakDuration: number;
@@ -439,8 +439,8 @@ export declare class SchedulesService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 isPaid: boolean;
                 requiresDocument: boolean;
                 maxDaysPerYear: number | null;
@@ -478,8 +478,8 @@ export declare class SchedulesService {
                 createdAt: Date;
                 updatedAt: Date;
                 tenantId: string;
-                name: string;
                 code: string;
+                name: string;
                 startTime: string;
                 endTime: string;
                 breakDuration: number;
@@ -523,8 +523,8 @@ export declare class SchedulesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             startTime: string;
             endTime: string;
             breakDuration: number;
@@ -567,8 +567,8 @@ export declare class SchedulesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             startTime: string;
             endTime: string;
             breakDuration: number;
@@ -607,8 +607,8 @@ export declare class SchedulesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             startTime: string;
             endTime: string;
             breakDuration: number;
@@ -645,8 +645,8 @@ export declare class SchedulesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             startTime: string;
             endTime: string;
             breakDuration: number;

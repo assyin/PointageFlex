@@ -54,6 +54,12 @@ const menuItems: MenuItem[] = [
     permissions: ['attendance.view_all', 'attendance.view_own', 'attendance.view_team', 'attendance.view_department', 'attendance.view_site'],
   },
   {
+    label: 'Anomalies',
+    href: '/attendance/anomalies',
+    icon: AlertTriangle,
+    permissions: ['attendance.view_all', 'attendance.view_anomalies', 'attendance.view_team'],
+  },
+  {
     label: 'Shifts & Planning',
     href: '/shifts-planning',
     icon: Calendar,

@@ -9,8 +9,8 @@ export declare class ShiftsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         startTime: string;
         endTime: string;
         breakDuration: number;
@@ -26,8 +26,8 @@ export declare class ShiftsService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string;
-            name: string;
             code: string;
+            name: string;
             startTime: string;
             endTime: string;
             breakDuration: number;
@@ -46,8 +46,8 @@ export declare class ShiftsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         startTime: string;
         endTime: string;
         breakDuration: number;
@@ -59,8 +59,8 @@ export declare class ShiftsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         startTime: string;
         endTime: string;
         breakDuration: number;
@@ -72,8 +72,8 @@ export declare class ShiftsService {
         createdAt: Date;
         updatedAt: Date;
         tenantId: string;
-        name: string;
         code: string;
+        name: string;
         startTime: string;
         endTime: string;
         breakDuration: number;

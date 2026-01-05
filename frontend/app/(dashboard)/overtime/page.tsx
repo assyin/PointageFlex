@@ -539,7 +539,7 @@ export default function OvertimePage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Tous les départements</SelectItem>
-                        {(Array.isArray(departmentsData) ? departmentsData : departmentsData?.data || []).map((dept: any) => (
+                        {(departmentsData || []).map((dept: any) => (
                           <SelectItem key={dept.id} value={dept.id}>
                             {dept.name}
                           </SelectItem>
@@ -995,7 +995,7 @@ export default function OvertimePage() {
             <Button
               variant="success"
               onClick={handleApprove}
-              disabled={approveMutation.isPending || (approvedHours && (parseFloat(approvedHours) < 0.5 || isNaN(parseFloat(approvedHours))))}
+              disabled={approveMutation.isPending || !!(approvedHours && (parseFloat(approvedHours) < 0.5 || isNaN(parseFloat(approvedHours))))}
             >
               {approveMutation.isPending ? (
                 <>

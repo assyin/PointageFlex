@@ -88,6 +88,11 @@ export class AttendanceService {
         createAttendanceDto.type,
       );
 
+      // Log informatif pour double badgeage rapide (pas une anomalie bloquante)
+      if ((anomaly as any).isInformativeDoublePunch) {
+        console.log(`ℹ️ [INFORMATIF] ${(anomaly as any).informativeNote} - Employé: ${createAttendanceDto.employeeId}`);
+      }
+
       // Calculer les métriques
       const metrics = await this.calculateMetrics(
         tenantId,
@@ -171,6 +176,7 @@ export class AttendanceService {
     tenantId: string,
     deviceId: string,
     webhookData: WebhookAttendanceDto,
+    apiKey?: string,
   ) {
     // Vérifier que le terminal existe
     const device = await this.prisma.attendanceDevice.findFirst({
@@ -179,6 +185,16 @@ export class AttendanceService {
 
     if (!device) {
       throw new NotFoundException('Device not found');
+    }
+
+    // Validation de l'API Key si le device en a une configurée
+    if (device.apiKey) {
+      if (!apiKey) {
+        throw new ForbiddenException('API Key required for this device');
+      }
+      if (device.apiKey !== apiKey) {
+        throw new ForbiddenException('Invalid API Key');
+      }
     }
 
     // Trouver l'employé par matricule ou ID
@@ -249,6 +265,11 @@ export class AttendanceService {
       new Date(webhookData.timestamp),
       webhookData.type,
     );
+
+    // Log informatif pour double badgeage rapide (pas une anomalie bloquante)
+    if ((anomaly as any).isInformativeDoublePunch) {
+      console.log(`ℹ️ [INFORMATIF] ${(anomaly as any).informativeNote} - Employé: ${employee.matricule} (${employee.firstName} ${employee.lastName})`);
+    }
 
     // Calculer les métriques
     const metrics = await this.calculateMetrics(
@@ -730,6 +751,11 @@ export class AttendanceService {
       attendance.type,
     );
 
+    // Log informatif pour double badgeage rapide (pas une anomalie bloquante)
+    if ((anomaly as any).isInformativeDoublePunch) {
+      console.log(`ℹ️ [INFORMATIF] ${(anomaly as any).informativeNote} - Employé: ${attendance.employeeId}`);
+    }
+
     // Recalculer les métriques
     const metrics = await this.calculateMetrics(
       tenantId,
@@ -738,18 +764,34 @@ export class AttendanceService {
       attendance.type,
     );
 
-    // Déterminer si l'approbation est nécessaire (si correction importante)
-    const needsApproval = correctionDto.forceApproval
-      ? false
-      : this.requiresApproval(attendance, newTimestamp, correctionDto.correctionNote);
+    // NOUVEAU COMPORTEMENT: Les managers corrigent directement sans approbation
+    // Déterminer si l'utilisateur est un manager corrigeant le pointage d'un autre
+    const isManagerCorrection = await this.isManagerCorrectingOthersAttendance(
+      userId,
+      attendance.employeeId,
+      tenantId,
+      userPermissions || [],
+    );
+
+    // Plus d'approbation nécessaire - les managers corrigent directement
+    // Les employés ne peuvent corriger que leurs propres pointages (vérifié plus haut)
+    const needsApproval = false; // SUPPRIMÉ: le workflow d'approbation n'est plus utilisé
+
+    // Utiliser correctedBy du DTO ou le userId passé par le controller
+    const correctorId = correctionDto.correctedBy || userId;
+
+    // Construire la note de correction avec le code motif si fourni
+    const fullCorrectionNote = correctionDto.reasonCode
+      ? `[${correctionDto.reasonCode}] ${correctionDto.correctionNote}`
+      : correctionDto.correctionNote;
 
     const updatedAttendance = await this.prisma.attendance.update({
       where: { id },
       data: {
-        isCorrected: !needsApproval, // Seulement marqué comme corrigé si pas besoin d'approbation
-        correctedBy: correctionDto.correctedBy,
-        correctedAt: needsApproval ? null : new Date(),
-        correctionNote: correctionDto.correctionNote,
+        isCorrected: true, // Correction immédiate
+        correctedBy: correctorId,
+        correctedAt: new Date(),
+        correctionNote: fullCorrectionNote,
         timestamp: newTimestamp,
         hasAnomaly: anomaly.hasAnomaly,
         anomalyType: anomaly.type,
@@ -757,8 +799,10 @@ export class AttendanceService {
         lateMinutes: metrics.lateMinutes,
         earlyLeaveMinutes: metrics.earlyLeaveMinutes,
         overtimeMinutes: metrics.overtimeMinutes,
-        needsApproval,
-        approvalStatus: needsApproval ? 'PENDING_APPROVAL' : null,
+        needsApproval: false,
+        approvalStatus: 'APPROVED', // Auto-approuvé pour les managers
+        approvedBy: isManagerCorrection ? correctorId : null,
+        approvedAt: isManagerCorrection ? new Date() : null,
       },
       include: {
         employee: {
@@ -773,15 +817,45 @@ export class AttendanceService {
       },
     });
 
-    // Notifier l'employé de la correction
-    if (!needsApproval && updatedAttendance.employee.userId) {
-      await this.notifyEmployeeOfCorrection(tenantId, updatedAttendance);
-    } else if (needsApproval) {
-      // Notifier les managers qu'une approbation est nécessaire
-      await this.notifyManagersOfApprovalRequired(tenantId, updatedAttendance);
+    // TOUJOURS notifier l'employé quand un manager corrige son pointage
+    if (isManagerCorrection && updatedAttendance.employee.userId) {
+      await this.notifyEmployeeOfManagerCorrection(
+        tenantId,
+        updatedAttendance,
+        correctorId,
+        correctionDto.reasonCode,
+        correctionDto.correctionNote,
+      );
     }
 
     return updatedAttendance;
+  }
+
+  /**
+   * Vérifie si c'est un manager qui corrige le pointage d'un autre employé
+   */
+  private async isManagerCorrectingOthersAttendance(
+    userId: string | undefined,
+    employeeId: string,
+    tenantId: string,
+    permissions: string[],
+  ): Promise<boolean> {
+    if (!userId) return false;
+
+    // Vérifier si l'utilisateur a la permission de correction
+    const hasCorrectPermission = permissions.includes('attendance.correct') ||
+      permissions.includes('attendance.view_all');
+
+    if (!hasCorrectPermission) return false;
+
+    // Vérifier si l'utilisateur corrige son propre pointage
+    const userEmployee = await this.prisma.employee.findFirst({
+      where: { userId, tenantId },
+      select: { id: true },
+    });
+
+    // C'est une correction manager si l'utilisateur corrige le pointage d'un autre
+    return userEmployee?.id !== employeeId;
   }
 
   /**
@@ -864,7 +938,7 @@ export class AttendanceService {
   }
 
   /**
-   * Notifie l'employé d'une correction
+   * Notifie l'employé d'une correction (méthode legacy)
    */
   private async notifyEmployeeOfCorrection(tenantId: string, attendance: any): Promise<void> {
     try {
@@ -885,6 +959,87 @@ export class AttendanceService {
       });
     } catch (error) {
       console.error('Erreur lors de la notification de l\'employé:', error);
+    }
+  }
+
+  /**
+   * Notifie l'employé qu'un manager a corrigé son pointage (notification détaillée)
+   */
+  private async notifyEmployeeOfManagerCorrection(
+    tenantId: string,
+    attendance: any,
+    correctedByUserId: string,
+    reasonCode?: string,
+    correctionNote?: string,
+  ): Promise<void> {
+    try {
+      if (!attendance.employee?.userId) return;
+
+      // Récupérer les infos du manager qui a corrigé
+      const corrector = await this.prisma.user.findUnique({
+        where: { id: correctedByUserId },
+        select: { firstName: true, lastName: true },
+      });
+
+      const correctorName = corrector
+        ? `${corrector.firstName} ${corrector.lastName}`
+        : 'Un manager';
+
+      // Construire le message détaillé
+      const dateStr = new Date(attendance.timestamp).toLocaleDateString('fr-FR');
+      const timeStr = new Date(attendance.timestamp).toLocaleTimeString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      // Labels pour les codes de motif
+      const reasonLabels: Record<string, string> = {
+        FORGOT_BADGE: 'Oubli de badge',
+        DEVICE_FAILURE: 'Panne terminal',
+        EXTERNAL_MEETING: 'Réunion externe',
+        MANAGER_AUTH: 'Autorisation manager',
+        SYSTEM_ERROR: 'Erreur système',
+        TELEWORK: 'Télétravail',
+        MISSION: 'Mission extérieure',
+        MEDICAL: 'Raison médicale',
+        OTHER: 'Autre',
+      };
+
+      const reasonLabel = reasonCode ? reasonLabels[reasonCode] || reasonCode : null;
+
+      let message = `${correctorName} a corrigé votre pointage du ${dateStr} à ${timeStr}.`;
+      if (reasonLabel) {
+        message += ` Motif: ${reasonLabel}.`;
+      }
+      if (correctionNote) {
+        message += ` Note: ${correctionNote}`;
+      }
+
+      // Créer la notification in-app
+      await this.prisma.notification.create({
+        data: {
+          tenantId,
+          employeeId: attendance.employeeId,
+          type: NotificationType.ATTENDANCE_CORRECTED,
+          title: 'Correction de pointage par votre manager',
+          message,
+          metadata: {
+            attendanceId: attendance.id,
+            correctedAt: attendance.correctedAt,
+            correctedBy: correctedByUserId,
+            correctorName,
+            reasonCode,
+            correctionNote,
+          },
+        },
+      });
+
+      console.log(
+        `📧 Notification envoyée à ${attendance.employee.firstName} ${attendance.employee.lastName} pour correction par ${correctorName}`,
+      );
+    } catch (error) {
+      console.error('Erreur lors de la notification de correction manager:', error);
+      // Ne pas bloquer en cas d'erreur de notification
     }
   }
 
@@ -2121,7 +2276,7 @@ export class AttendanceService {
     employeeId: string,
     timestamp: Date,
     todayRecords: any[],
-  ): Promise<{ hasAnomaly: boolean; type?: string; note?: string; suggestedCorrection?: any }> {
+  ): Promise<{ hasAnomaly: boolean; type?: string | null; note?: string | null; suggestedCorrection?: any; isInformativeDoublePunch?: boolean; informativeNote?: string }> {
     // Récupérer les paramètres configurables
     const settings = await this.prisma.tenantSettings.findUnique({
       where: { tenantId },
@@ -2143,23 +2298,22 @@ export class AttendanceService {
     // Récupérer les IN du jour
     const todayInRecords = todayRecords.filter(r => r.type === AttendanceType.IN);
 
-    // 1.5 Gestion des Erreurs de Badgeage - Vérifier si c'est un double badgeage rapide
+    // 1.5 Gestion des Erreurs de Badgeage Rapide - Ne pas créer d'anomalie bloquante
+    // Le double badgeage rapide est INFORMATIF seulement (pas de correction manager requise)
     if (todayInRecords.length > 0) {
       const lastIn = todayInRecords[todayInRecords.length - 1];
       const timeDiff = (timestamp.getTime() - lastIn.timestamp.getTime()) / (1000 * 60); // en minutes
 
       if (timeDiff <= toleranceMinutes) {
-        // Erreur de badgeage - journaliser mais ne pas créer d'anomalie
-        // Le pointage sera créé mais marqué comme erreur de badgeage (soft delete suggéré)
+        // Erreur de badgeage rapide - INFORMATIF, pas une anomalie bloquante
+        // Le pointage est créé normalement sans flag d'anomalie
+        // hasAnomaly: false = pas d'anomalie, ne nécessite pas correction du manager
         return {
-          hasAnomaly: true,
-          type: 'DOUBLE_IN',
-          note: `Erreur de badgeage détectée (${Math.round(timeDiff)} min d'intervalle). Pointage à ignorer.`,
-          suggestedCorrection: {
-            type: 'IGNORE_DUPLICATE',
-            reason: 'DOUBLE_PUNCH_ERROR',
-            confidence: 95,
-          },
+          hasAnomaly: false, // MODIFIÉ: informatif seulement
+          type: null,
+          note: null,
+          isInformativeDoublePunch: true, // Flag pour logging informatif
+          informativeNote: `Double badgeage rapide détecté (${Math.round(timeDiff)} min d'intervalle). Pointage accepté automatiquement.`,
         };
       }
     }
@@ -3021,34 +3175,123 @@ export class AttendanceService {
   }
 
   /**
-   * Extrait l'offset UTC d'un timezone (en heures)
-   * Ex: "Africa/Casablanca" → 1 (UTC+1)
+   * Extrait l'offset UTC d'un timezone (en heures) - Version dynamique
+   * Utilise l'API JavaScript Intl pour calculer l'offset réel (supporte DST)
+   * Ex: "Africa/Casablanca" → 1 (UTC+1), "Europe/Paris" → 1 ou 2 selon DST
+   * @param timezone - IANA timezone string (ex: "Africa/Casablanca", "Europe/Paris")
+   * @param referenceDate - Date de référence pour le calcul (optionnel, défaut: now)
    */
-  private getTimezoneOffset(timezone: string): number {
-    // Mapping des timezones principaux
-    const timezoneOffsets: Record<string, number> = {
-      'Africa/Casablanca': 1,
-      'Africa/Lagos': 1,
-      'Europe/Paris': 1,
-      'Europe/London': 0,
-      'UTC': 0,
-      'America/New_York': -5,
-      // Ajoutez d'autres timezones selon les besoins
-    };
+  private getTimezoneOffset(timezone: string, referenceDate?: Date): number {
+    if (!timezone || timezone === 'UTC') {
+      return 0;
+    }
 
-    return timezoneOffsets[timezone] || 0;
+    try {
+      const date = referenceDate || new Date();
+
+      // Méthode 1: Utiliser Intl.DateTimeFormat pour obtenir les parties de date
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        hour: 'numeric',
+        hourCycle: 'h23',
+        timeZoneName: 'shortOffset',
+      });
+
+      const parts = formatter.formatToParts(date);
+      const offsetPart = parts.find(p => p.type === 'timeZoneName');
+
+      if (offsetPart?.value) {
+        // Parse "GMT+1", "GMT-5", "GMT+5:30", etc.
+        const match = offsetPart.value.match(/GMT([+-]?)(\d+)(?::(\d+))?/);
+        if (match) {
+          const sign = match[1] === '-' ? -1 : 1;
+          const hours = parseInt(match[2], 10);
+          const minutes = parseInt(match[3] || '0', 10);
+          return sign * (hours + minutes / 60);
+        }
+      }
+
+      // Méthode 2 (fallback): Calculer la différence entre UTC et timezone local
+      const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }));
+      const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+      const diffMs = tzDate.getTime() - utcDate.getTime();
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      return Math.round(diffHours * 2) / 2; // Arrondir à 0.5h près (pour les timezones comme India +5:30)
+    } catch (error) {
+      console.warn(`⚠️ Timezone invalide ou non supporté: ${timezone}, utilisant UTC`);
+      return 0;
+    }
   }
 
   /**
    * Vérifie si un shift est un shift de nuit
+   * Critères améliorés:
+   * 1. Shift qui traverse minuit (startTime > endTime numériquement)
+   * 2. Shift qui commence après 20h (20:00+)
+   * 3. Shift qui finit après minuit et avant 8h
+   * 4. La majorité des heures sont dans la période nocturne (22h-6h)
    */
   private isNightShift(shift: any, endTime: { hours: number; minutes: number }): boolean {
     const startTime = this.parseTimeString(shift.startTime);
     const startMinutes = startTime.hours * 60 + startTime.minutes;
     const endMinutes = endTime.hours * 60 + endTime.minutes;
 
-    // Shift de nuit si commence après 20h ou finit avant 8h
-    return startMinutes >= 20 * 60 || endMinutes <= 8 * 60;
+    // Critère 1: Traverse minuit (ex: 22:00 → 06:00)
+    // Si startTime > endTime numériquement, le shift traverse minuit
+    if (startMinutes > endMinutes) {
+      return true;
+    }
+
+    // Critère 2: Commence après 20h (même si finit le même jour)
+    if (startTime.hours >= 20) {
+      return true;
+    }
+
+    // Critère 3: Finit dans la période nocturne matinale (avant 8h)
+    // Mais seulement si commence tard la veille (pas un shift du matin qui finit tôt)
+    if (endTime.hours <= 8 && endTime.hours > 0 && startTime.hours >= 18) {
+      return true;
+    }
+
+    // Critère 4: Calcul du temps passé dans la période nocturne (22h-6h)
+    // Si plus de 50% du shift est dans cette période, c'est un shift de nuit
+    const nightPeriodStart = 22 * 60; // 22:00
+    const nightPeriodEnd = 6 * 60;    // 06:00
+
+    let nightMinutes = 0;
+    let totalMinutes = 0;
+
+    if (startMinutes <= endMinutes) {
+      // Shift normal (même jour)
+      totalMinutes = endMinutes - startMinutes;
+
+      // Heures après 22h
+      if (endMinutes > nightPeriodStart) {
+        nightMinutes += Math.min(endMinutes, 24 * 60) - Math.max(startMinutes, nightPeriodStart);
+      }
+      // Heures avant 6h
+      if (startMinutes < nightPeriodEnd) {
+        nightMinutes += Math.min(endMinutes, nightPeriodEnd) - startMinutes;
+      }
+    } else {
+      // Shift qui traverse minuit
+      totalMinutes = (24 * 60 - startMinutes) + endMinutes;
+
+      // Toutes les heures après 22h jusqu'à minuit
+      if (startMinutes < 24 * 60) {
+        nightMinutes += 24 * 60 - Math.max(startMinutes, nightPeriodStart);
+      }
+      // Toutes les heures de minuit jusqu'à 6h ou endTime
+      nightMinutes += Math.min(endMinutes, nightPeriodEnd);
+    }
+
+    // Si plus de 50% du shift est dans la période nocturne
+    if (totalMinutes > 0 && (nightMinutes / totalMinutes) >= 0.5) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -5242,5 +5485,251 @@ export class AttendanceService {
     } else {
       return 'Surveillance recommandée - Vérifier les patterns récurrents';
     }
+  }
+
+  // ============================================
+  // GESTION DES ANOMALIES TECHNIQUES
+  // ============================================
+
+  /**
+   * Crée une anomalie technique dans la base de données
+   * Utilisé pour tracker les problèmes de terminal, réseau, etc.
+   */
+  async createTechnicalAnomaly(
+    tenantId: string,
+    employeeId: string,
+    data: {
+      subType: string; // DEVICE_OFFLINE, POWER_OUTAGE, NETWORK_ERROR, BADGE_FAILURE, etc.
+      description: string;
+      severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+      deviceId?: string;
+      attendanceId?: string;
+      scheduleId?: string;
+      occurredAt?: Date;
+      metadata?: any;
+    },
+  ) {
+    return this.prisma.attendanceAnomaly.create({
+      data: {
+        tenantId,
+        employeeId,
+        type: 'TECHNICAL',
+        subType: data.subType,
+        description: data.description,
+        severity: data.severity || 'MEDIUM',
+        occurredAt: data.occurredAt || new Date(),
+        deviceId: data.deviceId,
+        attendanceId: data.attendanceId,
+        scheduleId: data.scheduleId,
+        metadata: data.metadata,
+        status: 'OPEN',
+      },
+    });
+  }
+
+  /**
+   * Détecte et crée des anomalies techniques basées sur les tentatives échouées
+   * Appelé périodiquement ou après échec de pointage
+   */
+  async detectDeviceFailures(tenantId: string, deviceId: string) {
+    const oneHourAgo = new Date();
+    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+    // Compter les tentatives échouées sur ce terminal
+    const failedAttempts = await this.prisma.attendanceAttempt.findMany({
+      where: {
+        tenantId,
+        deviceId,
+        status: 'FAILED',
+        timestamp: { gte: oneHourAgo },
+      },
+      include: {
+        employee: true,
+      },
+    });
+
+    // Si plus de 5 échecs en 1h, c'est probablement un problème technique
+    if (failedAttempts.length >= 5) {
+      const device = await this.prisma.attendanceDevice.findUnique({
+        where: { id: deviceId },
+      });
+
+      // Regrouper par employé pour créer des anomalies
+      const byEmployee = failedAttempts.reduce((acc, attempt) => {
+        if (!acc[attempt.employeeId]) {
+          acc[attempt.employeeId] = [];
+        }
+        acc[attempt.employeeId].push(attempt);
+        return acc;
+      }, {} as Record<string, typeof failedAttempts>);
+
+      for (const [employeeId, attempts] of Object.entries(byEmployee)) {
+        // Vérifier si une anomalie existe déjà pour cet employé/terminal aujourd'hui
+        const existingAnomaly = await this.prisma.attendanceAnomaly.findFirst({
+          where: {
+            tenantId,
+            employeeId,
+            deviceId,
+            type: 'TECHNICAL',
+            subType: 'DEVICE_FAILURE',
+            detectedAt: { gte: oneHourAgo },
+          },
+        });
+
+        if (!existingAnomaly) {
+          await this.createTechnicalAnomaly(tenantId, employeeId, {
+            subType: 'DEVICE_FAILURE',
+            description: `${attempts.length} tentatives de pointage échouées sur le terminal "${device?.name || deviceId}". Codes d'erreur: ${[...new Set(attempts.map((a) => a.errorCode))].join(', ')}`,
+            severity: attempts.length >= 10 ? 'HIGH' : 'MEDIUM',
+            deviceId,
+            occurredAt: attempts[0].timestamp,
+            metadata: {
+              failedAttemptsCount: attempts.length,
+              errorCodes: [...new Set(attempts.map((a) => a.errorCode))],
+              firstFailure: attempts[attempts.length - 1].timestamp,
+              lastFailure: attempts[0].timestamp,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  /**
+   * Détecte les terminaux hors ligne et crée des anomalies
+   * Appelé par un job périodique
+   */
+  async detectOfflineDevices(tenantId: string) {
+    const oneHourAgo = new Date();
+    oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+
+    // Trouver les terminaux sans heartbeat depuis 1h
+    const offlineDevices = await this.prisma.attendanceDevice.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        OR: [
+          { lastSync: { lt: oneHourAgo } },
+          { lastSync: null },
+        ],
+      },
+    });
+
+    for (const device of offlineDevices) {
+      // Trouver les employés qui auraient dû pointer sur ce terminal
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const scheduledEmployees = await this.prisma.schedule.findMany({
+        where: {
+          tenantId,
+          date: today,
+          status: 'PUBLISHED',
+          employee: {
+            siteId: device.siteId,
+          },
+        },
+        include: {
+          employee: true,
+        },
+      });
+
+      for (const schedule of scheduledEmployees) {
+        // Vérifier si l'employé a déjà un pointage aujourd'hui
+        const hasAttendance = await this.prisma.attendance.findFirst({
+          where: {
+            tenantId,
+            employeeId: schedule.employeeId,
+            timestamp: { gte: today },
+          },
+        });
+
+        if (!hasAttendance) {
+          // Vérifier si une anomalie existe déjà
+          const existingAnomaly = await this.prisma.attendanceAnomaly.findFirst({
+            where: {
+              tenantId,
+              employeeId: schedule.employeeId,
+              deviceId: device.id,
+              type: 'TECHNICAL',
+              subType: 'DEVICE_OFFLINE',
+              detectedAt: { gte: today },
+            },
+          });
+
+          if (!existingAnomaly) {
+            await this.createTechnicalAnomaly(tenantId, schedule.employeeId, {
+              subType: 'DEVICE_OFFLINE',
+              description: `Le terminal "${device.name}" est hors ligne depuis ${device.lastSync ? device.lastSync.toLocaleString('fr-FR') : 'inconnu'}. L'employé n'a pas pu pointer.`,
+              severity: 'HIGH',
+              deviceId: device.id,
+              scheduleId: schedule.id,
+              metadata: {
+                deviceName: device.name,
+                lastSync: device.lastSync,
+                siteId: device.siteId,
+              },
+            });
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Résout une anomalie technique
+   */
+  async resolveAnomaly(
+    anomalyId: string,
+    resolvedBy: string,
+    resolution: string,
+  ) {
+    return this.prisma.attendanceAnomaly.update({
+      where: { id: anomalyId },
+      data: {
+        status: 'RESOLVED',
+        resolvedAt: new Date(),
+        resolvedBy,
+        resolution,
+      },
+    });
+  }
+
+  /**
+   * Récupère les anomalies techniques non résolues
+   */
+  async getOpenTechnicalAnomalies(tenantId: string, filters?: {
+    employeeId?: string;
+    deviceId?: string;
+    severity?: string;
+    limit?: number;
+  }) {
+    return this.prisma.attendanceAnomaly.findMany({
+      where: {
+        tenantId,
+        type: 'TECHNICAL',
+        status: { in: ['OPEN', 'INVESTIGATING'] },
+        ...(filters?.employeeId && { employeeId: filters.employeeId }),
+        ...(filters?.deviceId && { deviceId: filters.deviceId }),
+        ...(filters?.severity && { severity: filters.severity }),
+      },
+      include: {
+        employee: {
+          include: {
+            user: {
+              select: { firstName: true, lastName: true, email: true },
+            },
+            department: true,
+          },
+        },
+        device: true,
+        schedule: { include: { shift: true } },
+      },
+      orderBy: [
+        { severity: 'desc' },
+        { detectedAt: 'desc' },
+      ],
+      take: filters?.limit || 100,
+    });
   }
 }

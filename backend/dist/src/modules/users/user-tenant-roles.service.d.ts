@@ -14,11 +14,11 @@ export declare class UserTenantRolesService {
                     id: string;
                     createdAt: Date;
                     updatedAt: Date;
-                    isActive: boolean;
-                    name: string;
                     code: string;
+                    name: string;
                     description: string | null;
                     category: string;
+                    isActive: boolean;
                 };
             } & {
                 id: string;
@@ -31,10 +31,10 @@ export declare class UserTenantRolesService {
             createdAt: Date;
             updatedAt: Date;
             tenantId: string | null;
-            isActive: boolean;
-            name: string;
             code: string;
+            name: string;
             description: string | null;
+            isActive: boolean;
             isSystem: boolean;
         };
     } & {

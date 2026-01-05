@@ -432,7 +432,8 @@ let ReportsService = class ReportsService {
             const dateKey = date.toISOString().split('T')[0];
             const dayAttendance = attendanceByDay.get(dateKey) || [];
             const late = dayAttendance.filter(a => a.hasAnomaly && a.anomalyType?.includes('LATE')).length;
-            const absent = totalTeamEmployees - new Set(dayAttendance.map(a => a.employeeId)).size;
+            const attendanceEmployeeIds = new Set(dayAttendance.map(a => a.employeeId));
+            const absent = await this.calculateAbsencesForDay(empTenantId, teamEmployeeIds, date, attendanceEmployeeIds);
             last7Days.push({
                 day: dayNames[date.getDay()],
                 date: dateKey,
@@ -618,7 +619,8 @@ let ReportsService = class ReportsService {
                 select: { employeeId: true, hasAnomaly: true, anomalyType: true },
             });
             const late = dayAttendance.filter(a => a.hasAnomaly && a.anomalyType?.includes('LATE')).length;
-            const absent = totalDepartmentEmployees - new Set(dayAttendance.map(a => a.employeeId)).size;
+            const attendanceEmployeeIds = new Set(dayAttendance.map(a => a.employeeId));
+            const absent = await this.calculateAbsencesForDay(tenantId, departmentEmployeeIds, date, attendanceEmployeeIds);
             last7Days.push({
                 day: dayNames[date.getDay()],
                 date: date.toISOString().split('T')[0],
@@ -1045,6 +1047,11 @@ let ReportsService = class ReportsService {
         const totalEmployees = await this.prisma.employee.count({
             where: { tenantId, isActive: true },
         });
+        const allActiveEmployees = await this.prisma.employee.findMany({
+            where: { tenantId, isActive: true },
+            select: { id: true },
+        });
+        const allActiveEmployeeIds = allActiveEmployees.map(e => e.id);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
@@ -1162,7 +1169,8 @@ let ReportsService = class ReportsService {
             const dateKey = date.toISOString().split('T')[0];
             const dayAttendance = attendanceByDay.get(dateKey) || [];
             const late = dayAttendance.filter(a => a.hasAnomaly && a.anomalyType?.includes('LATE')).length;
-            const absent = totalEmployees - new Set(dayAttendance.map(a => a.employeeId)).size;
+            const attendanceEmployeeIds = new Set(dayAttendance.map(a => a.employeeId));
+            const absent = await this.calculateAbsencesForDay(tenantId, allActiveEmployeeIds, date, attendanceEmployeeIds);
             last7Days.push({
                 day: dayNames[date.getDay()],
                 date: dateKey,
@@ -2238,6 +2246,82 @@ let ReportsService = class ReportsService {
             filters: item.filters,
             user: item.user,
         }));
+    }
+    async calculateAbsencesForDay(tenantId, employeeIds, date, attendanceEmployeeIds) {
+        const now = new Date();
+        const bufferMinutes = 60;
+        const startOfDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+        const endOfDay = new Date(startOfDay);
+        endOfDay.setUTCDate(endOfDay.getUTCDate() + 1);
+        endOfDay.setUTCMilliseconds(-1);
+        const schedules = await this.prisma.schedule.findMany({
+            where: {
+                tenantId,
+                employeeId: { in: employeeIds },
+                date: {
+                    gte: startOfDay,
+                    lte: endOfDay,
+                },
+                status: 'PUBLISHED',
+                suspendedByLeaveId: null,
+            },
+            include: {
+                shift: true,
+                employee: {
+                    select: { id: true, userId: true },
+                },
+            },
+        });
+        if (schedules.length === 0) {
+            return 0;
+        }
+        const approvedLeaves = await this.prisma.leave.findMany({
+            where: {
+                tenantId,
+                employeeId: { in: employeeIds },
+                status: client_1.LeaveStatus.APPROVED,
+                startDate: { lte: date },
+                endDate: { gte: date },
+            },
+            select: { employeeId: true },
+        });
+        const employeesOnLeave = new Set(approvedLeaves.map(l => l.employeeId));
+        const approvedRecoveries = await this.prisma.recoveryDay.findMany({
+            where: {
+                tenantId,
+                employeeId: { in: employeeIds },
+                status: client_1.RecoveryDayStatus.APPROVED,
+                startDate: { lte: date },
+                endDate: { gte: date },
+            },
+            select: { employeeId: true },
+        });
+        const employeesOnRecovery = new Set(approvedRecoveries.map(r => r.employeeId));
+        let absenceCount = 0;
+        for (const schedule of schedules) {
+            const employeeId = schedule.employeeId;
+            if (employeesOnLeave.has(employeeId) || employeesOnRecovery.has(employeeId)) {
+                continue;
+            }
+            const shiftEndTime = schedule.customEndTime || schedule.shift?.endTime || '18:00';
+            const [endHour, endMinute] = shiftEndTime.split(':').map(Number);
+            const shiftEndDate = new Date(date);
+            shiftEndDate.setHours(endHour, endMinute, 0, 0);
+            const detectionTime = new Date(shiftEndDate.getTime() + bufferMinutes * 60 * 1000);
+            const shiftStartTime = schedule.customStartTime || schedule.shift?.startTime || '08:00';
+            const [startHour] = shiftStartTime.split(':').map(Number);
+            const isNightShift = endHour < startHour;
+            const dateLocal = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const nowLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const isDateInPast = dateLocal.getTime() < nowLocal.getTime();
+            if (!isDateInPast && now < detectionTime && !isNightShift) {
+                continue;
+            }
+            if (!attendanceEmployeeIds.has(employeeId)) {
+                absenceCount++;
+            }
+        }
+        return absenceCount;
     }
 };
 exports.ReportsService = ReportsService;

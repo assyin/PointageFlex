@@ -12,8 +12,8 @@ export declare class AuthService {
             roles: string[];
             permissions: string[];
             id: string;
-            tenantId: string;
             email: string;
+            tenantId: string;
             firstName: string;
             lastName: string;
             role: import(".prisma/client").$Enums.LegacyRole;
@@ -27,8 +27,8 @@ export declare class AuthService {
             permissions: string[];
             forcePasswordChange: boolean;
             id: string;
-            tenantId: string;
             email: string;
+            tenantId: string;
             firstName: string;
             lastName: string;
             avatar: string;

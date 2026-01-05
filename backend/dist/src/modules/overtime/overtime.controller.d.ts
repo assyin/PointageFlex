@@ -62,8 +62,8 @@ export declare class OvertimeController {
                 matricule: string;
                 site: {
                     id: string;
-                    name: string;
                     code: string;
+                    name: string;
                 };
             };
             isNightShift: boolean;

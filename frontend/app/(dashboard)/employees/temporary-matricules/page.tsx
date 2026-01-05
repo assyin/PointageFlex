@@ -87,7 +87,7 @@ export default function TemporaryMatriculesPage() {
 
     if (isExpired) {
       return (
-        <Badge variant="destructive" className="flex items-center gap-1">
+        <Badge variant="danger" className="flex items-center gap-1">
           <XCircle className="h-3 w-3" />
           Expiré ({daysSince - expiryDays} jour(s))
         </Badge>
@@ -161,7 +161,7 @@ export default function TemporaryMatriculesPage() {
 
   return (
     <ProtectedRoute>
-      <DashboardLayout>
+      <DashboardLayout title="Matricules Temporaires" subtitle="Gestion et historique">
         <div className="space-y-6">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -681,7 +681,7 @@ export default function TemporaryMatriculesPage() {
                                     size="sm"
                                     variant={
                                       historyData.page === pageNum
-                                        ? 'default'
+                                        ? 'primary'
                                         : 'outline'
                                     }
                                     onClick={() => handlePageChange(pageNum)}

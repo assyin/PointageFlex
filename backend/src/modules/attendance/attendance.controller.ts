@@ -63,8 +63,8 @@ export class AttendanceController {
       throw new UnauthorizedException('Missing device credentials');
     }
 
-    // TODO: Vérifier l'API Key du terminal
-    return this.attendanceService.handleWebhook(tenantId, deviceId, webhookData);
+    // Passer l'API Key au service pour validation
+    return this.attendanceService.handleWebhook(tenantId, deviceId, webhookData, apiKey);
   }
 
   @Post('push')
@@ -128,8 +128,11 @@ export class AttendanceController {
 
       console.log('🔄 [Push URL] Données converties:', JSON.stringify(webhookData, null, 2));
 
-      // Utiliser le même service que le webhook
-      const result = await this.attendanceService.handleWebhook(tenantId, deviceId, webhookData);
+      // Extraire l'API key depuis les headers (optionnel)
+      const apiKey = headers['x-api-key'] || headers['api-key'] || headers['apikey'];
+
+      // Utiliser le même service que le webhook (avec validation API key)
+      const result = await this.attendanceService.handleWebhook(tenantId, deviceId, webhookData, apiKey);
 
       console.log('✅ [Push URL] Pointage enregistré avec succès');
       return result;

@@ -309,7 +309,7 @@ export class LateManagerNotificationJob {
     employeeId: string,
     date: Date,
   ): Promise<boolean> {
-    // Vérifier congé approuvé
+    // Vérifier congé approuvé (avec type pour distinguer télétravail/mission)
     const leave = await this.prisma.leave.findFirst({
       where: {
         tenantId,
@@ -318,14 +318,41 @@ export class LateManagerNotificationJob {
         startDate: { lte: date },
         endDate: { gte: date },
       },
+      include: {
+        leaveType: {
+          select: {
+            code: true,
+            name: true,
+          },
+        },
+      },
     });
 
     if (leave) {
+      const leaveTypeCode = leave.leaveType?.code?.toUpperCase() || '';
+      const leaveTypeName = leave.leaveType?.name?.toUpperCase() || '';
+
+      // Vérifier si c'est du télétravail
+      const isTeletravail = leaveTypeCode.includes('TELETRAVAIL') ||
+                           leaveTypeCode.includes('REMOTE') ||
+                           leaveTypeName.includes('TÉLÉTRAVAIL') ||
+                           leaveTypeName.includes('TELETRAVAIL') ||
+                           leaveTypeName.includes('REMOTE');
+
+      // Vérifier si c'est une mission
+      const isMission = leaveTypeCode.includes('MISSION') ||
+                       leaveTypeName.includes('MISSION') ||
+                       leaveTypeName.includes('DÉPLACEMENT');
+
+      // Pour LATE, télétravail et mission excluent toujours
+      // (pas de notion de retard en télétravail/mission)
+      if (isTeletravail || isMission) {
+        return true;
+      }
+
+      // Autre type de congé (vacances, maladie, etc.) → toujours exclure
       return true;
     }
-
-    // TODO: Vérifier mission si allowLateForMissions est false
-    // TODO: Vérifier télétravail si allowLateForRemoteWork est false
 
     return false;
   }

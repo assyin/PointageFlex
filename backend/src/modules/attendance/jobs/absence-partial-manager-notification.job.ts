@@ -376,11 +376,26 @@ export class AbsencePartialManagerNotificationJob {
       return;
     }
 
+    // Calculer les données de l'absence partielle
+    const shiftStart = schedule.customStartTime || schedule.shift.startTime;
+    const outTime = outTimestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+    // Calculer les heures d'absence (depuis le début du shift jusqu'au OUT)
+    const [shiftHours, shiftMinutes] = shiftStart.split(':').map(Number);
+    const shiftStartDate = new Date(sessionDate);
+    shiftStartDate.setHours(shiftHours, shiftMinutes, 0, 0);
+    const absenceMs = outTimestamp.getTime() - shiftStartDate.getTime();
+    const absenceHours = Math.max(0, Math.round(absenceMs / (1000 * 60 * 60) * 10) / 10);
+
     // Préparer les données pour le template
     const templateData = {
       managerName: `${manager.firstName} ${manager.lastName}`,
       employeeName: `${employee.user.firstName} ${employee.user.lastName}`,
       sessionDate: sessionDate.toLocaleDateString('fr-FR'),
+      shiftStart: shiftStart,
+      actualIn: 'Non pointé',
+      actualOut: outTime,
+      absenceHours: absenceHours.toString(),
       missingType: 'IN', // OUT sans IN = IN manquant
     };
 

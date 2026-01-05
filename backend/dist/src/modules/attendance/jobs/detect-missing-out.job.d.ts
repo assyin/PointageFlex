@@ -4,6 +4,7 @@ export declare class DetectMissingOutJob {
     private readonly logger;
     constructor(prisma: PrismaService);
     private parseTimeString;
+    private getTimezoneOffset;
     detectMissingOuts(): Promise<void>;
     private detectMissingOutsForTenant;
 }
